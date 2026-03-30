@@ -1,8 +1,11 @@
 use crate::models::project::{Category, Project, ProjectRegistry};
+use crate::models::project_status::ProjectStatus;
 use console::style;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
-use inquire::Text;
+use inquire::{MultiSelect, Text};
 use std::fs;
+use std::path::Path;
+use std::process::Command;
 
 fn print_field(label: &str, value: &str) {
     println!("  {:<16} {}", style(format!("{label}:")).dim(), value);
@@ -104,7 +107,6 @@ pub fn create() -> Result<(), Box<dyn std::error::Error>> {
     let directory = resolve_directory(&theme, &id)?;
 
     // --- User Name (optional) ---
-    println!();
     let user_name_input: String = Input::with_theme(&theme)
         .with_prompt("  User Name (optional, press Enter to skip)")
         .allow_empty(true)
@@ -114,6 +116,16 @@ pub fn create() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         Some(user_name_input)
     };
+
+    // --- Optional intake items ---
+    println!();
+    println!("  {}", style("Optional intake items").bold().underlined());
+    let intake_options = vec!["intake_existing_code_refs", "intake_user_knowledge"];
+    let selected = MultiSelect::new("  Select items ›", intake_options.clone())
+        .with_default(&[0, 1])
+        .prompt()?;
+    let include_existing_code_refs = selected.contains(&"intake_existing_code_refs");
+    let include_user_knowledge = selected.contains(&"intake_user_knowledge");
 
     // --- Summary ---
     println!();
@@ -144,18 +156,40 @@ pub fn create() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    // Ensure the source directory exists, scaffold with cargo if not
+    if !Path::new(&project.directory).is_dir() {
+        let cargo_flag = match &project.category {
+            Category::Library | Category::Refactor => "--lib",
+            Category::Binary => "--bin",
+        };
+        let output = Command::new("cargo")
+            .args(["new", cargo_flag, &project.directory])
+            .output()?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("cargo new failed: {stderr}").into());
+        }
+        println!(
+            "  {} Scaffolded new Rust project at {}",
+            style("✓").green().bold(),
+            &project.directory
+        );
+    }
+
     // --- Persist ---
     let mut registry =
         ProjectRegistry::load().map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
     let prev_active_id = registry.active.as_ref().map(|p| p.id.clone());
     registry.set_active(project);
-    registry
-        .save()
-        .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
 
-    // Create rex/<project-id>/ directory
+    // Create rex/<project-id>/ directory and project-status.json
     let project_dir = format!("rex/{id}");
     fs::create_dir_all(&project_dir)?;
+
+    let status = ProjectStatus::new(include_existing_code_refs, include_user_knowledge);
+    status
+        .save(Path::new(&project_dir))
+        .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
 
     // --- Success output ---
     println!();
