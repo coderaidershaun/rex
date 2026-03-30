@@ -1,0 +1,12 @@
+{
+  "init_project": {
+    "agent": {
+      "effort": "medium",
+      "model": "sonnet",
+      "skills": ["rex-init-project"]
+    },
+    "inputs": ["rex/<insert-project-id>"],
+    "output": "projects.json",
+    "status": "not-started"
+  }
+}
