@@ -80,7 +80,7 @@ impl ProjectStatus {
             .map_err(|e| format!("Failed to parse project-status.json: {e}"))
     }
 
-    pub fn new(selected_items: &[String]) -> Self {
+    pub fn new(project_id: &str, selected_items: &[String]) -> Self {
         let onboarding = ONBOARDING_ITEMS
             .iter()
             .enumerate()
@@ -94,7 +94,7 @@ impl ProjectStatus {
 
                 let inputs = ONBOARDING_ITEMS[..i]
                     .iter()
-                    .map(|prev| format!("onboarding/{prev}.md"))
+                    .map(|prev| format!("rex/{project_id}/onboarding/{prev}.md"))
                     .collect();
 
                 TaskStep {
@@ -105,7 +105,7 @@ impl ProjectStatus {
                         skills: vec![format!("rex-onboarding-{item}")],
                     },
                     inputs,
-                    output: format!("onboarding/{item}.md"),
+                    output: format!("rex/{project_id}/onboarding/{item}.md"),
                     status,
                 }
             })
@@ -119,8 +119,8 @@ impl ProjectStatus {
                     model: "opus".into(),
                     skills: vec!["rex-user-input".into()],
                 },
-                inputs: vec!["user-support/requested.md".into()],
-                output: "user-support/provided.md".into(),
+                inputs: vec![format!("rex/{project_id}/user-support/requested.md")],
+                output: format!("rex/{project_id}/user-support/provided.md"),
                 status: Status::Completed,
             }],
             onboarding,

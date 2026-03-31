@@ -242,7 +242,7 @@ pub fn create() -> Result<(), Box<dyn std::error::Error>> {
         fs::create_dir_all(format!("{project_dir}/{sub}"))?;
     }
 
-    let status = ProjectStatus::new(&tab_result.selected_items);
+    let status = ProjectStatus::new(&id, &tab_result.selected_items);
     status.save(Path::new(&project_dir))?;
 
     registry.save()?;
