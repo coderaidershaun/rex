@@ -29,6 +29,43 @@ Good scope has three parts:
 
 ---
 
+## Project size sanity check
+
+After the user has described their scope, step back and assess whether the project is the right size for a single rex-managed project. This matters because not every project needs the full rex harness, and some projects are better split up. Think carefully before making this judgment — most users doing this are smart and capable, and the bar for "too big" should be high.
+
+### Projects that don't need rex
+
+Some things are just too simple. A hello world program, a small utility script, a single-file CLI tool — these don't need onboarding, planning phases, or a project harness. If the scope looks like something that could be built in an afternoon without any architectural decisions, say so plainly:
+
+> "This looks straightforward enough that you could just build it directly — the rex onboarding process would add more overhead than value here. Want to just go ahead and write it?"
+
+Don't be condescending about it. Some of the best software is simple.
+
+### Projects that might be better as multiple projects
+
+Large, multi-system projects often benefit from being broken into separate library/binary projects rather than built as one monolith. This is especially true when the project contains clearly separable concerns that could each be independently useful.
+
+**Example:** A user wants to build a trading engine. That's a legitimate, achievable goal. But if the current repo doesn't already have an exchange integration library, they're really scoping two projects: (1) an exchange integration crate that handles API connectivity, order management, and market data, and (2) the engine itself that uses that crate for strategy execution, risk management, etc. Building both as one project risks muddling concerns that should be clean boundaries.
+
+When you spot this pattern, suggest the split — but frame it as advice, not a gate:
+
+> "This is definitely buildable, but I think you'd get better results splitting it into [X] and [Y]. Each one becomes a focused project with clean boundaries, and [Y] can depend on [X] as a crate. A mono-repo approach works well here — both projects live in the same workspace, they just have separate rex onboarding so each gets the right focus."
+
+**Be ambitious, not reckless.** The goal is not to stop users from building big things. It's to help them build big things *well*. A trading engine is fine. A trading engine + exchange integration + backtesting framework + UI dashboard + data pipeline in one project — that's where you push back. But give it real thought before deciding something is too large. Users can always disagree and continue regardless.
+
+### When the user wants to change scope significantly
+
+If the sanity check leads the user to fundamentally change what they're building — not just trimming scope, but redefining the project — then the existing goal is no longer valid. In this case:
+
+1. Set the goal status back to in-progress: `rex project update-status goal in-progress`
+2. Tell the user the goal needs to be redefined to match the new direction
+3. Invoke the `rex-onboarding-goal` skill to walk through goal definition again
+4. Once the new goal is confirmed, return to scope definition with the updated goal
+
+This only applies when the project's fundamental direction changes. Trimming features or deferring work is normal scope refinement — it doesn't invalidate the goal.
+
+---
+
 ## How to run the conversation
 
 If you have the goal document, start from it. If not, ask the user what the project goal is so you have a frame.
@@ -44,7 +81,7 @@ Help the user be honest about what's actually v1 versus what they're hoping to s
 
 ### Converge
 
-Once you have a clear picture, present the scope back as three lists: in, out, deferred. Ask the user to confirm. Iterate until they're satisfied.
+Once you have a clear picture — and the sanity check above has been considered — present the scope back as three lists: in, out, deferred. Ask the user to confirm. Iterate until they're satisfied.
 
 ---
 
@@ -56,6 +93,9 @@ Once confirmed, write the output file. This document is the permanent record of 
 # Project Scope
 
 **Date:** YYYY-MM-DD
+
+## Project size assessment
+Brief note on whether this project is appropriately sized. If you recommended splitting or simplifying, capture what was discussed and what the user decided.
 
 ## What's in
 Bulleted list of what's included — specific enough to act on. Include the user's reasoning where they gave it.

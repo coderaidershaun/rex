@@ -161,13 +161,44 @@ pub fn create() -> Result<(), Box<dyn std::error::Error>> {
         .interact_text()?;
     let user_name = Some(user_name_input).filter(|s| !s.is_empty());
 
-    // --- Category & Onboarding (tab widget) ---
-    let tab_result = tab_select(&complexity)?;
+    // --- Category & Onboarding (tab widget) with go-back support ---
+    let tab_result = loop {
+        let result = tab_select(&complexity)?;
 
-    // --- Summary ---
-    println!();
-    println!("  {}", style("Summary").bold().underlined());
-    println!();
+        // --- Summary ---
+        println!();
+        println!("  {}", style("Summary").bold().underlined());
+        println!();
+
+        let preview = Project {
+            id: id.clone(),
+            category: result.category.clone(),
+            complexity: complexity.clone(),
+            title: title.clone(),
+            subtitle: subtitle.clone(),
+            description: description.clone(),
+            directory: directory.clone(),
+            user_name: user_name.clone(),
+        };
+        print_project(&preview);
+        println!();
+
+        // --- Confirm ---
+        let action = Select::with_theme(&theme)
+            .with_prompt("  Confirm")
+            .items(&["Create project", "Go back", "Cancel"])
+            .default(0)
+            .interact()?;
+
+        match action {
+            0 => break result,
+            1 => continue,
+            _ => {
+                println!("\n  {}", style("Cancelled.").yellow());
+                return Ok(());
+            }
+        }
+    };
 
     let project = Project {
         id: id.clone(),
@@ -179,20 +210,6 @@ pub fn create() -> Result<(), Box<dyn std::error::Error>> {
         directory,
         user_name,
     };
-
-    print_project(&project);
-    println!();
-
-    // --- Confirm ---
-    let confirmed = Confirm::with_theme(&theme)
-        .with_prompt("  Create this project?")
-        .default(true)
-        .interact()?;
-
-    if !confirmed {
-        println!("\n  {}", style("Cancelled.").yellow());
-        return Ok(());
-    }
 
     // Ensure the source directory exists, scaffold with cargo if not
     if !Path::new(&project.directory).is_dir() {
