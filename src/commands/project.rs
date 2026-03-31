@@ -132,18 +132,24 @@ pub fn create() -> Result<(), Box<dyn std::error::Error>> {
 
     // --- Title ---
     let title: String = Input::with_theme(&theme)
-        .with_prompt("  Title")
+        .with_prompt("  Title (Enter to complete later)")
+        .allow_empty(true)
         .interact_text()?;
+    let title = if title.is_empty() { "Complete later".into() } else { title };
 
     // --- Subtitle ---
     let subtitle: String = Input::with_theme(&theme)
-        .with_prompt("  Subtitle")
+        .with_prompt("  Subtitle (Enter to complete later)")
+        .allow_empty(true)
         .interact_text()?;
+    let subtitle = if subtitle.is_empty() { "Complete later".into() } else { subtitle };
 
     // --- Description ---
     let description: String = Input::with_theme(&theme)
-        .with_prompt("  Description")
+        .with_prompt("  Description (Enter to complete later)")
+        .allow_empty(true)
         .interact_text()?;
+    let description = if description.is_empty() { "Complete later".into() } else { description };
 
     // --- Directory ---
     let directory = resolve_directory(&theme, &id)?;

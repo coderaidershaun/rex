@@ -133,5 +133,5 @@ impl ProjectStatus {
 
 /// Items that are required regardless of category.
 fn is_required_always(item: &str) -> bool {
-    matches!(item, "goal" | "scope" | "uat")
+    matches!(item, "goal" | "scope" | "uat" | "checklist")
 }
