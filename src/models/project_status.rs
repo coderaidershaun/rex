@@ -1,8 +1,10 @@
+use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::fs;
 use std::path::Path;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, ValueEnum, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Status {
     NotStarted,
@@ -35,6 +37,17 @@ pub struct TaskStep {
     pub status: Status,
 }
 
+impl fmt::Display for Status {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NotStarted => f.write_str("not-started"),
+            Self::InProgress => f.write_str("in-progress"),
+            Self::NotRequired => f.write_str("not-required"),
+            Self::Completed => f.write_str("completed"),
+        }
+    }
+}
+
 pub const ONBOARDING_ITEMS: &[&str] = &[
     "goal",
     "scope",
@@ -43,12 +56,12 @@ pub const ONBOARDING_ITEMS: &[&str] = &[
     "research",
     "resources",
     "user-expertise",
-    "uat",
-    "known-risks",
     "success-measures",
+    "known-risks",
+    "uat",
     "environment-variables",
     "idea-generation",
-    "team-building",
+    "skill-building",
 ];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -58,6 +71,14 @@ pub struct ProjectStatus {
 }
 
 impl ProjectStatus {
+    pub fn load(project_dir: &Path) -> Result<Self, String> {
+        let path = project_dir.join("project-status.json");
+        let contents = fs::read_to_string(&path)
+            .map_err(|e| format!("Failed to read project-status.json: {e}"))?;
+        serde_json::from_str(&contents)
+            .map_err(|e| format!("Failed to parse project-status.json: {e}"))
+    }
+
     pub fn new(selected_items: &[String]) -> Self {
         let onboarding = ONBOARDING_ITEMS
             .iter()
@@ -74,7 +95,7 @@ impl ProjectStatus {
                     agent: Agent {
                         effort: "medium".into(),
                         model: "sonnet".into(),
-                        skills: vec![],
+                        skills: vec![format!("rex-onboarding-{item}")],
                     },
                     inputs: vec![],
                     output: format!("onboarding/{item}.md"),

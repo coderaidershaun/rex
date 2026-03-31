@@ -1,21 +1,22 @@
 use crate::models::project::{Category, Complexity, Project, ProjectRegistry};
-use crate::models::project_status::ProjectStatus;
+use crate::models::project_status::{ProjectStatus, Status};
 use crate::ui::tab_select::tab_select;
 use crate::ui::text_input::text_input;
 use console::style;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
+use std::fmt;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-fn print_field(label: &str, value: &str) {
-    println!("  {:<16} {}", style(format!("{label}:")).dim(), value);
+fn print_field(label: &str, value: impl fmt::Display) {
+    println!("  {:<16} {value}", style(format!("{label}:")).dim());
 }
 
 fn print_project(project: &Project) {
     print_field("ID", &project.id);
-    print_field("Category", &project.category.to_string());
-    print_field("Complexity", &project.complexity.to_string());
+    print_field("Category", &project.category);
+    print_field("Complexity", &project.complexity);
     print_field("Title", &project.title);
     print_field("Subtitle", &project.subtitle);
     print_field("Description", &project.description);
@@ -50,9 +51,7 @@ fn resolve_directory(
         }
     }
 
-    let dir = text_input("  Directory \u{203a}", id, None)?;
-
-    Ok(dir)
+    text_input("  Directory \u{203a}", id, None)
 }
 
 pub fn create() -> Result<(), Box<dyn std::error::Error>> {
@@ -79,7 +78,7 @@ pub fn create() -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     // Check for duplicate
-    let registry = ProjectRegistry::load().map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
+    let registry = ProjectRegistry::load()?;
     if registry.has_project(&id) {
         println!(
             "\n  {} A project with ID \"{}\" already exists.",
@@ -120,11 +119,7 @@ pub fn create() -> Result<(), Box<dyn std::error::Error>> {
         .with_prompt("  User Name (optional, press Enter to skip)")
         .allow_empty(true)
         .interact_text()?;
-    let user_name = if user_name_input.is_empty() {
-        None
-    } else {
-        Some(user_name_input)
-    };
+    let user_name = Some(user_name_input).filter(|s| !s.is_empty());
 
     // --- Category & Onboarding (tab widget) ---
     let tab_result = tab_select(&complexity)?;
@@ -180,8 +175,7 @@ pub fn create() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // --- Persist ---
-    let mut registry =
-        ProjectRegistry::load().map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
+    let mut registry = ProjectRegistry::load()?;
     let prev_active_id = registry.active.as_ref().map(|p| p.id.clone());
     registry.set_active(project);
 
@@ -192,13 +186,9 @@ pub fn create() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let status = ProjectStatus::new(&tab_result.selected_items);
-    status
-        .save(Path::new(&project_dir))
-        .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
+    status.save(Path::new(&project_dir))?;
 
-    registry
-        .save()
-        .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
+    registry.save()?;
 
     // --- Success output ---
     println!();
@@ -224,9 +214,160 @@ pub fn create() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+pub fn update_status(item: &str, status: Status) -> Result<(), Box<dyn std::error::Error>> {
+    let registry = ProjectRegistry::load()?;
+    let project = registry.active.ok_or("No active project.")?;
+
+    let project_dir = format!("rex/{}", project.id);
+    let mut project_status = ProjectStatus::load(Path::new(&project_dir))?;
+
+    let step = project_status
+        .onboarding
+        .iter_mut()
+        .chain(&mut project_status.user_support)
+        .find(|s| s.item == item)
+        .ok_or_else(|| format!("Item \"{item}\" not found in project status."))?;
+
+    step.status = status;
+    project_status.save(Path::new(&project_dir))?;
+
+    println!(
+        "\n  {} Updated \"{}\" to {} in project \"{}\".\n",
+        style("\u{2713}").green().bold(),
+        item,
+        style(status).cyan(),
+        project.id
+    );
+
+    Ok(())
+}
+
+pub fn remove(id: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let theme = ColorfulTheme::default();
+    let mut registry = ProjectRegistry::load()?;
+
+    let project = registry
+        .remove_project(id)
+        .ok_or_else(|| format!("Project \"{id}\" not found."))?;
+
+    // Remove rex/{id}/ project metadata directory
+    let rex_project_dir = format!("rex/{id}");
+    if Path::new(&rex_project_dir).is_dir() {
+        fs::remove_dir_all(&rex_project_dir)?;
+        println!(
+            "\n  {} Removed {rex_project_dir}/",
+            style("\u{2713}").green().bold()
+        );
+    }
+
+    // Ask about removing the project source directory
+    println!();
+    println!(
+        "  {} Do you also want the project source directory removed?",
+        style("WARNING").yellow().bold()
+    );
+    let choice = Select::with_theme(&theme)
+        .items(&[
+            style("No").green().to_string(),
+            style("Yes").yellow().to_string(),
+        ])
+        .default(0)
+        .interact()?;
+
+    if choice == 1 {
+        println!();
+        println!(
+            "  {} This will delete the entire project code in directory {}.",
+            style("WARNING").red().bold(),
+            style(&project.directory).bold()
+        );
+        let certain = Confirm::with_theme(&theme)
+            .with_prompt("  Are you certain?")
+            .default(false)
+            .interact()?;
+
+        if certain {
+            if Path::new(&project.directory).is_dir() {
+                fs::remove_dir_all(&project.directory)?;
+                println!(
+                    "  {} Removed {}",
+                    style("\u{2713}").green().bold(),
+                    &project.directory
+                );
+            } else {
+                println!(
+                    "  {} Directory {} does not exist.",
+                    style("\u{2139}").blue().bold(),
+                    &project.directory
+                );
+            }
+        }
+    }
+
+    registry.save()?;
+
+    println!(
+        "\n  {} Project \"{}\" has been removed.\n",
+        style("\u{2713}").green().bold(),
+        id
+    );
+
+    Ok(())
+}
+
+pub fn activate(id: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let mut registry = ProjectRegistry::load()?;
+
+    let prev_active_id = registry.active.as_ref().map(|p| p.id.clone());
+    registry.activate_project(id)?;
+    registry.save()?;
+
+    println!(
+        "\n  {} Project \"{}\" is now the active project.",
+        style("\u{2713}").green().bold(),
+        id
+    );
+    if let Some(prev_id) = prev_active_id {
+        println!(
+            "  {} Previous active project \"{}\" moved to inactive.",
+            style("\u{2139}").blue().bold(),
+            prev_id
+        );
+    }
+    println!();
+
+    Ok(())
+}
+
+pub fn update_directory(directory: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let mut registry = ProjectRegistry::load()?;
+
+    let project = registry.active.as_mut().ok_or("No active project.")?;
+    let old_directory = project.directory.clone();
+    project.directory = directory.to_owned();
+    registry.save()?;
+
+    println!(
+        "\n  {} Updated directory for project \"{}\".",
+        style("\u{2713}").green().bold(),
+        registry.active.as_ref().unwrap().id
+    );
+    println!(
+        "  {:<16} {}",
+        style("From:").dim(),
+        old_directory
+    );
+    println!(
+        "  {:<16} {}\n",
+        style("To:").dim(),
+        directory
+    );
+
+    Ok(())
+}
+
 pub fn get_active() -> Result<(), Box<dyn std::error::Error>> {
-    let registry =
-        ProjectRegistry::load().map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
+    let registry = ProjectRegistry::load()?;
 
     match registry.active {
         Some(project) => {

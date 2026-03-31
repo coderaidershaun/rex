@@ -67,44 +67,42 @@ pub fn text_input(
 
         stdout.flush()?;
 
-        match event::read()? {
-            Event::Key(KeyEvent {
-                code, modifiers, ..
-            }) => {
-                error_msg = None;
-                match code {
-                    KeyCode::Char('c') if modifiers.contains(KeyModifiers::CONTROL) => {
-                        return Err("Cancelled".into());
-                    }
-                    KeyCode::Tab => {
-                        if input.is_empty() && !placeholder.is_empty() {
-                            input = placeholder.to_string();
-                        }
-                    }
-                    KeyCode::Enter => {
-                        let value = if input.is_empty() {
-                            placeholder.to_string()
-                        } else {
-                            input.clone()
-                        };
-                        if let Some(validate) = &validator {
-                            if let Some(err) = validate(&value) {
-                                error_msg = Some(err);
-                                continue;
-                            }
-                        }
-                        break value;
-                    }
-                    KeyCode::Backspace => {
-                        input.pop();
-                    }
-                    KeyCode::Char(c) => {
-                        input.push(c);
-                    }
-                    _ => {}
+        if let Event::Key(KeyEvent {
+            code, modifiers, ..
+        }) = event::read()?
+        {
+            error_msg = None;
+            match code {
+                KeyCode::Char('c') if modifiers.contains(KeyModifiers::CONTROL) => {
+                    return Err("Cancelled".into());
                 }
+                KeyCode::Tab => {
+                    if input.is_empty() && !placeholder.is_empty() {
+                        input = placeholder.to_string();
+                    }
+                }
+                KeyCode::Enter => {
+                    let value = if input.is_empty() {
+                        placeholder.to_string()
+                    } else {
+                        input.clone()
+                    };
+                    if let Some(validate) = &validator {
+                        if let Some(err) = validate(&value) {
+                            error_msg = Some(err);
+                            continue;
+                        }
+                    }
+                    break value;
+                }
+                KeyCode::Backspace => {
+                    input.pop();
+                }
+                KeyCode::Char(c) => {
+                    input.push(c);
+                }
+                _ => {}
             }
-            _ => {}
         }
     };
 

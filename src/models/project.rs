@@ -78,7 +78,7 @@ pub struct Project {
     pub user_name: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ProjectRegistry {
     pub active: Option<Project>,
     pub inactive: Vec<Project>,
@@ -92,10 +92,7 @@ impl ProjectRegistry {
     pub fn load() -> Result<Self, String> {
         let path = Self::registry_path();
         if !path.exists() {
-            return Ok(Self {
-                active: None,
-                inactive: vec![],
-            });
+            return Ok(Self::default());
         }
         let contents = fs::read_to_string(&path)
             .map_err(|e| format!("Failed to read projects.json: {e}"))?;
@@ -124,11 +121,29 @@ impl ProjectRegistry {
     }
 
     pub fn has_project(&self, id: &str) -> bool {
-        if let Some(ref active) = self.active {
-            if active.id == id {
-                return true;
-            }
+        self.active.as_ref().is_some_and(|a| a.id == id)
+            || self.inactive.iter().any(|p| p.id == id)
+    }
+
+    pub fn remove_project(&mut self, id: &str) -> Option<Project> {
+        if self.active.as_ref().is_some_and(|a| a.id == id) {
+            return self.active.take();
         }
-        self.inactive.iter().any(|p| p.id == id)
+        let pos = self.inactive.iter().position(|p| p.id == id)?;
+        Some(self.inactive.remove(pos))
+    }
+
+    pub fn activate_project(&mut self, id: &str) -> Result<(), String> {
+        if self.active.as_ref().is_some_and(|a| a.id == id) {
+            return Err(format!("Project \"{id}\" is already the active project."));
+        }
+        let pos = self
+            .inactive
+            .iter()
+            .position(|p| p.id == id)
+            .ok_or_else(|| format!("Project \"{id}\" not found."))?;
+        let project = self.inactive.remove(pos);
+        self.set_active(project);
+        Ok(())
     }
 }

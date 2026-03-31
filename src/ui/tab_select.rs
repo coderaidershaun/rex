@@ -185,7 +185,7 @@ fn render(
             let marker = if is_cursor {
                 style("\u{203a} ").bold()
             } else {
-                style("  ").clone()
+                style("  ")
             };
             let label = format!("{}", style(*action).dim());
             write!(stdout, "  {marker}{label}\r\n")?;
@@ -193,7 +193,7 @@ fn render(
             let marker = if is_cursor {
                 style("\u{203a} ").bold()
             } else {
-                style("  ").clone()
+                style("  ")
             };
             let label = if is_cursor {
                 format!("{}", style(*action).bold().blue())
@@ -218,7 +218,7 @@ fn render(
         let marker = if is_cursor {
             style("\u{203a} ").bold()
         } else {
-            style("  ").clone()
+            style("  ")
         };
 
         let checkbox = if required {
@@ -226,7 +226,7 @@ fn render(
         } else if is_selected {
             format!("{}", style("[x]").green())
         } else {
-            format!("{}", style("[ ]").clone())
+            format!("{}", style("[ ]"))
         };
 
         let label = if required {
@@ -338,9 +338,8 @@ pub fn tab_select(
                     KeyCode::Enter => {
                         let selected_items: Vec<String> = ONBOARDING_ITEMS
                             .iter()
-                            .zip(selected.iter())
-                            .filter(|(_, sel)| **sel)
-                            .map(|(&item, _)| item.to_string())
+                            .zip(&selected)
+                            .filter_map(|(&item, &sel)| sel.then(|| item.to_owned()))
                             .collect();
                         break Ok(TabSelectResult {
                             category: category.clone(),

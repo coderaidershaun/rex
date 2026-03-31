@@ -1,4 +1,12 @@
 {
-  "active": null,
+  "active": {
+    "id": "some-brief-name",
+    "category": "library",
+    "complexity": "high",
+    "title": "dwdqwd",
+    "subtitle": "dqwdwq",
+    "description": "dqwdwqdwq",
+    "directory": "some-brief-name"
+  },
   "inactive": []
 }
