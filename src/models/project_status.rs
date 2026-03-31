@@ -83,13 +83,19 @@ impl ProjectStatus {
     pub fn new(selected_items: &[String]) -> Self {
         let onboarding = ONBOARDING_ITEMS
             .iter()
-            .map(|&item| {
+            .enumerate()
+            .map(|(i, &item)| {
                 let is_selected = selected_items.iter().any(|s| s == item);
                 let status = if is_required_always(item) || is_selected {
                     Status::NotStarted
                 } else {
                     Status::NotRequired
                 };
+
+                let inputs = ONBOARDING_ITEMS[..i]
+                    .iter()
+                    .map(|prev| format!("onboarding/{prev}.md"))
+                    .collect();
 
                 TaskStep {
                     item: item.to_string(),
@@ -98,7 +104,7 @@ impl ProjectStatus {
                         model: "sonnet".into(),
                         skills: vec![format!("rex-onboarding-{item}")],
                     },
-                    inputs: vec![],
+                    inputs,
                     output: format!("onboarding/{item}.md"),
                     status,
                 }
