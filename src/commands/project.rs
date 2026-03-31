@@ -1,8 +1,9 @@
-use crate::models::project::{Category, Project, ProjectRegistry};
+use crate::models::project::{Category, Complexity, Project, ProjectRegistry};
 use crate::models::project_status::ProjectStatus;
+use crate::ui::tab_select::tab_select;
+use crate::ui::text_input::text_input;
 use console::style;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
-use inquire::{MultiSelect, Text};
 use std::fs;
 use std::path::Path;
 use std::process::Command;
@@ -14,6 +15,7 @@ fn print_field(label: &str, value: &str) {
 fn print_project(project: &Project) {
     print_field("ID", &project.id);
     print_field("Category", &project.category.to_string());
+    print_field("Complexity", &project.complexity.to_string());
     print_field("Title", &project.title);
     print_field("Subtitle", &project.subtitle);
     print_field("Description", &project.description);
@@ -35,7 +37,7 @@ fn resolve_directory(
         println!();
         println!(
             "  {} Detected matching directory: {}",
-            style("→").cyan().bold(),
+            style("\u{2192}").cyan().bold(),
             style(&display_path).green()
         );
         let use_detected = Confirm::with_theme(theme)
@@ -48,9 +50,7 @@ fn resolve_directory(
         }
     }
 
-    let dir: String = Input::with_theme(theme)
-        .with_prompt("  Directory")
-        .interact_text()?;
+    let dir = text_input("  Directory \u{203a}", id, None)?;
 
     Ok(dir)
 }
@@ -60,33 +60,42 @@ pub fn create() -> Result<(), Box<dyn std::error::Error>> {
 
     println!();
     println!("  {}", style("Create New Project").bold().cyan());
-    println!("  {}", style("─".repeat(40)).dim());
+    println!("  {}", style("\u{2500}".repeat(40)).dim());
     println!();
 
     // --- Project ID ---
-    let id = Text::new("  Project ID ›")
-        .with_placeholder("some-brief-name")
-        .with_validator(inquire::required!("Project ID cannot be empty"))
-        .prompt()?;
+    let id = text_input(
+        "  Project ID \u{203a}",
+        "some-brief-name",
+        Some(&|input: &str| {
+            if input.is_empty() {
+                return Some("Project ID cannot be empty".into());
+            }
+            if !input.chars().all(|c| c.is_ascii_lowercase() || c == '-') {
+                return Some("Only lowercase letters and hyphens allowed".into());
+            }
+            None
+        }),
+    )?;
 
     // Check for duplicate
     let registry = ProjectRegistry::load().map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
     if registry.has_project(&id) {
         println!(
             "\n  {} A project with ID \"{}\" already exists.",
-            style("✗").red().bold(),
+            style("\u{2717}").red().bold(),
             id
         );
         return Ok(());
     }
 
-    // --- Category ---
-    let cat_idx = Select::with_theme(&theme)
-        .with_prompt("  Category")
-        .items(&Category::ALL)
-        .default(0)
+    // --- Complexity ---
+    let complexity_idx = Select::with_theme(&theme)
+        .with_prompt("  Complexity")
+        .items(&Complexity::ALL)
+        .default(1)
         .interact()?;
-    let category = Category::from_index(cat_idx);
+    let complexity = Complexity::from_index(complexity_idx);
 
     // --- Title ---
     let title: String = Input::with_theme(&theme)
@@ -117,15 +126,8 @@ pub fn create() -> Result<(), Box<dyn std::error::Error>> {
         Some(user_name_input)
     };
 
-    // --- Optional intake items ---
-    println!();
-    println!("  {}", style("Optional intake items").bold().underlined());
-    let intake_options = vec!["intake_existing_code_refs", "intake_user_knowledge"];
-    let selected = MultiSelect::new("  Select items ›", intake_options.clone())
-        .with_default(&[0, 1])
-        .prompt()?;
-    let include_existing_code_refs = selected.contains(&"intake_existing_code_refs");
-    let include_user_knowledge = selected.contains(&"intake_user_knowledge");
+    // --- Category & Onboarding (tab widget) ---
+    let tab_result = tab_select(&complexity)?;
 
     // --- Summary ---
     println!();
@@ -134,7 +136,8 @@ pub fn create() -> Result<(), Box<dyn std::error::Error>> {
 
     let project = Project {
         id: id.clone(),
-        category,
+        category: tab_result.category,
+        complexity,
         title,
         subtitle,
         description,
@@ -171,7 +174,7 @@ pub fn create() -> Result<(), Box<dyn std::error::Error>> {
         }
         println!(
             "  {} Scaffolded new Rust project at {}",
-            style("✓").green().bold(),
+            style("\u{2713}").green().bold(),
             &project.directory
         );
     }
@@ -186,27 +189,31 @@ pub fn create() -> Result<(), Box<dyn std::error::Error>> {
     let project_dir = format!("rex/{id}");
     fs::create_dir_all(&project_dir)?;
 
-    let status = ProjectStatus::new(include_existing_code_refs, include_user_knowledge);
+    let status = ProjectStatus::new(&tab_result.selected_items);
     status
         .save(Path::new(&project_dir))
+        .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
+
+    registry
+        .save()
         .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
 
     // --- Success output ---
     println!();
     println!(
         "  {} Project \"{}\" created and set as active.",
-        style("✓").green().bold(),
+        style("\u{2713}").green().bold(),
         id
     );
     println!(
         "  {} Created project directory: {}/",
-        style("✓").green().bold(),
+        style("\u{2713}").green().bold(),
         project_dir
     );
     if let Some(prev_id) = prev_active_id {
         println!(
             "  {} Previous active project \"{}\" moved to inactive.",
-            style("ℹ").blue().bold(),
+            style("\u{2139}").blue().bold(),
             prev_id
         );
     }
@@ -223,7 +230,7 @@ pub fn get_active() -> Result<(), Box<dyn std::error::Error>> {
         Some(project) => {
             println!();
             println!("  {}", style("Active Project").bold().cyan());
-            println!("  {}", style("─".repeat(40)).dim());
+            println!("  {}", style("\u{2500}".repeat(40)).dim());
             println!();
             print_project(&project);
             println!();
@@ -232,7 +239,7 @@ pub fn get_active() -> Result<(), Box<dyn std::error::Error>> {
             println!();
             println!(
                 "  {} No active project.",
-                style("ℹ").blue().bold()
+                style("\u{2139}").blue().bold()
             );
             println!();
         }

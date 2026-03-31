@@ -1,12 +1,36 @@
 {
-  "init_project": {
+  "user_support": {
     "agent": {
-      "effort": "medium",
-      "model": "sonnet",
-      "skills": ["rex-init-project"]
+      "effort": "high",
+      "model": "opus",
+      "skills": ["rex-user-input"]
     },
-    "inputs": ["rex/<insert-project-id>"],
-    "output": "projects.json",
-    "status": "not-started"
-  }
+    "inputs": ["user-support/requested.md"],
+    "output": "user-support/provided.md",
+    "status": "completed"
+  },
+  "onboarding": [
+    {
+      "item": "goal",
+      "agent": {
+        "effort": "medium",
+        "model": "opus",
+        "skills": ["rex-onboarding-goal"]
+      },
+      "inputs": [],
+      "output": "onboarding/goal.md",
+      "status": "not-started"
+    },
+    {
+      "item": "scope",
+      "agent": {
+        "effort": "medium",
+        "model": "opus",
+        "skills": ["rex-onboarding-scope"]
+      },
+      "inputs": [],
+      "output": "onboarding/scope.md",
+      "status": "not-started"
+    }
+  ]
 }

@@ -35,9 +35,41 @@ impl fmt::Display for Category {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Complexity {
+    Low,
+    Medium,
+    High,
+}
+
+impl Complexity {
+    pub const ALL: [&str; 3] = ["low", "medium", "high"];
+
+    pub fn from_index(index: usize) -> Self {
+        match index {
+            0 => Self::Low,
+            1 => Self::Medium,
+            2 => Self::High,
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl fmt::Display for Complexity {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Low => write!(f, "low"),
+            Self::Medium => write!(f, "medium"),
+            Self::High => write!(f, "high"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Project {
     pub id: String,
     pub category: Category,
+    pub complexity: Complexity,
     pub title: String,
     pub subtitle: String,
     pub description: String,

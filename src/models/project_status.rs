@@ -27,16 +27,62 @@ pub struct Step {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OnboardingStep {
+    pub item: String,
+    pub agent: Agent,
+    pub inputs: Vec<String>,
+    pub output: String,
+    pub status: Status,
+}
+
+pub const ONBOARDING_ITEMS: &[&str] = &[
+    "goal",
+    "scope",
+    "existing-code",
+    "libraries-and-sdks",
+    "research",
+    "resources",
+    "user-expertise",
+    "uat",
+    "known-risks",
+    "success-measures",
+    "environment-variables",
+    "idea-generation",
+    "team-building",
+];
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectStatus {
     pub user_support: Step,
-    pub intake_goal: Step,
-    pub intake_scope: Step,
-    pub intake_existing_code_refs: Step,
-    pub intake_user_knowledge: Step,
+    pub onboarding: Vec<OnboardingStep>,
 }
 
 impl ProjectStatus {
-    pub fn new(include_existing_code_refs: bool, include_user_knowledge: bool) -> Self {
+    pub fn new(selected_items: &[String]) -> Self {
+        let onboarding = ONBOARDING_ITEMS
+            .iter()
+            .map(|&item| {
+                let is_selected = selected_items.iter().any(|s| s == item);
+                let status = if is_required_always(item) || is_selected {
+                    Status::NotStarted
+                } else {
+                    Status::NotRequired
+                };
+
+                OnboardingStep {
+                    item: item.to_string(),
+                    agent: Agent {
+                        effort: "medium".into(),
+                        model: "sonnet".into(),
+                        skills: vec![],
+                    },
+                    inputs: vec![],
+                    output: format!("onboarding/{item}.md"),
+                    status,
+                }
+            })
+            .collect();
+
         Self {
             user_support: Step {
                 agent: Agent {
@@ -48,54 +94,7 @@ impl ProjectStatus {
                 output: "user-support/provided.md".into(),
                 status: Status::Completed,
             },
-            intake_goal: Step {
-                agent: Agent {
-                    effort: "medium".into(),
-                    model: "opus".into(),
-                    skills: vec!["rex-intake-goal".into()],
-                },
-                inputs: vec![],
-                output: "intake/goal.md".into(),
-                status: Status::NotStarted,
-            },
-            intake_scope: Step {
-                agent: Agent {
-                    effort: "medium".into(),
-                    model: "opus".into(),
-                    skills: vec!["rex-intake-scope".into()],
-                },
-                inputs: vec![],
-                output: "intake/scope.md".into(),
-                status: Status::NotStarted,
-            },
-            intake_existing_code_refs: Step {
-                agent: Agent {
-                    effort: "medium".into(),
-                    model: "sonnet".into(),
-                    skills: vec!["rex-intake-existing-code-refs".into()],
-                },
-                inputs: vec![],
-                output: "intake/existing-code-refs.md".into(),
-                status: if include_existing_code_refs {
-                    Status::NotStarted
-                } else {
-                    Status::NotRequired
-                },
-            },
-            intake_user_knowledge: Step {
-                agent: Agent {
-                    effort: "medium".into(),
-                    model: "sonnet".into(),
-                    skills: vec!["rex-intake-user-knowledge".into()],
-                },
-                inputs: vec![],
-                output: "intake/user-knowledge.md".into(),
-                status: if include_user_knowledge {
-                    Status::NotStarted
-                } else {
-                    Status::NotRequired
-                },
-            },
+            onboarding,
         }
     }
 
@@ -107,4 +106,9 @@ impl ProjectStatus {
             .map_err(|e| format!("Failed to write project-status.json: {e}"))?;
         Ok(())
     }
+}
+
+/// Items that are required regardless of category.
+fn is_required_always(item: &str) -> bool {
+    matches!(item, "goal" | "scope" | "uat")
 }
