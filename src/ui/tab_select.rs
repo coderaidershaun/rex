@@ -29,7 +29,7 @@ impl Drop for RawModeGuard {
 }
 
 fn is_required(item: &str, category: &Category) -> bool {
-    matches!(item, "goal" | "scope" | "uat")
+    matches!(item, "goal" | "scope" | "uat" | "checklist")
         || (item == "existing-code" && matches!(category, Category::Refactor))
 }
 
