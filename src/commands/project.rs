@@ -185,9 +185,11 @@ pub fn create() -> Result<(), Box<dyn std::error::Error>> {
     let prev_active_id = registry.active.as_ref().map(|p| p.id.clone());
     registry.set_active(project);
 
-    // Create rex/<project-id>/ directory and project-status.json
+    // Create rex/<project-id>/ directory, subdirectories, and project-status.json
     let project_dir = format!("rex/{id}");
-    fs::create_dir_all(&project_dir)?;
+    for sub in &["onboarding", "user-support", "planning", "execution", "uat"] {
+        fs::create_dir_all(format!("{project_dir}/{sub}"))?;
+    }
 
     let status = ProjectStatus::new(&tab_result.selected_items);
     status
