@@ -97,11 +97,13 @@ impl ProjectStatus {
                     .map(|prev| format!("rex/{project_id}/onboarding/{prev}.md"))
                     .collect();
 
+                let (effort, model) = agent_defaults(item);
+
                 TaskStep {
                     item: item.to_string(),
                     agent: Agent {
-                        effort: "medium".into(),
-                        model: "sonnet".into(),
+                        effort: effort.into(),
+                        model: model.into(),
                         skills: vec![format!("rex-onboarding-{item}")],
                     },
                     inputs,
@@ -140,4 +142,17 @@ impl ProjectStatus {
 /// Items that are required regardless of category.
 fn is_required_always(item: &str) -> bool {
     matches!(item, "goal" | "scope" | "uat" | "checklist")
+}
+
+/// Returns the default (effort, model) for each onboarding item.
+fn agent_defaults(item: &str) -> (&'static str, &'static str) {
+    match item {
+        "goal" | "scope" => ("high", "opus"),
+        "existing-code" | "libraries-and-sdks" | "research" | "resources" => ("medium", "sonnet"),
+        "user-expertise" | "success-measures" | "known-risks" | "uat" | "environment-variables" => {
+            ("high", "opus")
+        }
+        "idea-generation" | "skill-building" | "checklist" => ("ultrathink", "opus"),
+        _ => ("medium", "sonnet"),
+    }
 }

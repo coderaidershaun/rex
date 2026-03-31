@@ -27,8 +27,8 @@
     {
       "item": "scope",
       "agent": {
-        "effort": "medium",
-        "model": "sonnet",
+        "effort": "high",
+        "model": "opus",
         "skills": ["rex-onboarding-scope"]
       },
       "inputs": ["onboarding/goal.md"],
@@ -97,8 +97,8 @@
     {
       "item": "user-expertise",
       "agent": {
-        "effort": "medium",
-        "model": "sonnet",
+        "effort": "high",
+        "model": "opus",
         "skills": ["rex-onboarding-user-expertise"]
       },
       "inputs": [
@@ -115,8 +115,8 @@
     {
       "item": "success-measures",
       "agent": {
-        "effort": "medium",
-        "model": "sonnet",
+        "effort": "high",
+        "model": "opus",
         "skills": ["rex-onboarding-success-measures"]
       },
       "inputs": [
@@ -134,8 +134,8 @@
     {
       "item": "known-risks",
       "agent": {
-        "effort": "medium",
-        "model": "sonnet",
+        "effort": "high",
+        "model": "opus",
         "skills": ["rex-onboarding-known-risks"]
       },
       "inputs": [
@@ -154,8 +154,8 @@
     {
       "item": "uat",
       "agent": {
-        "effort": "medium",
-        "model": "sonnet",
+        "effort": "high",
+        "model": "opus",
         "skills": ["rex-onboarding-uat"]
       },
       "inputs": [
@@ -175,8 +175,8 @@
     {
       "item": "environment-variables",
       "agent": {
-        "effort": "medium",
-        "model": "sonnet",
+        "effort": "high",
+        "model": "opus",
         "skills": ["rex-onboarding-environment-variables"]
       },
       "inputs": [
@@ -197,8 +197,8 @@
     {
       "item": "idea-generation",
       "agent": {
-        "effort": "medium",
-        "model": "sonnet",
+        "effort": "ultrathink",
+        "model": "opus",
         "skills": ["rex-onboarding-idea-generation"]
       },
       "inputs": [
@@ -220,8 +220,8 @@
     {
       "item": "skill-building",
       "agent": {
-        "effort": "medium",
-        "model": "sonnet",
+        "effort": "ultrathink",
+        "model": "opus",
         "skills": ["rex-onboarding-skill-building"]
       },
       "inputs": [
@@ -244,8 +244,8 @@
     {
       "item": "checklist",
       "agent": {
-        "effort": "medium",
-        "model": "sonnet",
+        "effort": "ultrathink",
+        "model": "opus",
         "skills": ["rex-onboarding-checklist"]
       },
       "inputs": [
