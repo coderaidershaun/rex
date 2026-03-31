@@ -71,4 +71,16 @@ The key questions asked and what they revealed. Not a transcript, but a faithful
 Any framing choices — why a particular angle was chosen, what was deliberately left out of the goal statement, what the user emphasized.
 ```
 
+## Updating the project title, subtitle, and description
+
+After the goal is confirmed, review the active project's current title, subtitle, and description (from `rex project get-active`). If any of them are placeholder values like "Complete later", or if they're vague or no longer accurate given what you've learned about the goal, update them using these CLI commands:
+
+```
+rex project update-title "New title here"
+rex project update-subtitle "New subtitle here"
+rex project update-description "New description here"
+```
+
+Use what the user told you during the goal conversation to write clear, specific values. The title should name the project, the subtitle should be a one-line summary, and the description should capture the essential what/who/why in a sentence or two. Don't ask the user to wordsmith these — just derive them from the confirmed goal and update them.
+
 Write to the output path you were given (relative to the project's rex directory).
