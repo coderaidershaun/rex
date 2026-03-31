@@ -27,7 +27,7 @@ pub struct Step {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OnboardingStep {
+pub struct TaskStep {
     pub item: String,
     pub agent: Agent,
     pub inputs: Vec<String>,
@@ -53,8 +53,8 @@ pub const ONBOARDING_ITEMS: &[&str] = &[
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectStatus {
-    pub user_support: Step,
-    pub onboarding: Vec<OnboardingStep>,
+    pub user_support: Vec<TaskStep>,
+    pub onboarding: Vec<TaskStep>,
 }
 
 impl ProjectStatus {
@@ -69,7 +69,7 @@ impl ProjectStatus {
                     Status::NotRequired
                 };
 
-                OnboardingStep {
+                TaskStep {
                     item: item.to_string(),
                     agent: Agent {
                         effort: "medium".into(),
@@ -84,7 +84,8 @@ impl ProjectStatus {
             .collect();
 
         Self {
-            user_support: Step {
+            user_support: vec![TaskStep {
+                item: "user-input".into(),
                 agent: Agent {
                     effort: "high".into(),
                     model: "opus".into(),
@@ -93,7 +94,7 @@ impl ProjectStatus {
                 inputs: vec!["user-support/requested.md".into()],
                 output: "user-support/provided.md".into(),
                 status: Status::Completed,
-            },
+            }],
             onboarding,
         }
     }
