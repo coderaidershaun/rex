@@ -99,6 +99,8 @@ impl ProjectStatus {
 
                 let (effort, model) = agent_defaults(item);
 
+                let ext = if item == "checklist" { "json" } else { "md" };
+
                 TaskStep {
                     item: item.to_string(),
                     agent: Agent {
@@ -107,7 +109,7 @@ impl ProjectStatus {
                         skills: vec![format!("rex-onboarding-{item}")],
                     },
                     inputs,
-                    output: format!("rex/{project_id}/onboarding/{item}.md"),
+                    output: format!("rex/{project_id}/onboarding/{item}.{ext}"),
                     status,
                 }
             })

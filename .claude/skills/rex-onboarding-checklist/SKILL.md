@@ -9,7 +9,7 @@ user-invocable: false
 
 You've gathered everything — the goal, scope, risks, resources, expertise, success criteria, and ideas. Now distill all of that into a single checklist that tells the design, architecture, and planning phases exactly what they must address. You're not doing the work — you're defining what the work must include.
 
-You'll be told where to write the output (a file path like `onboarding/checklist.md`). **Read all available input files first** — goal, scope, existing code, libraries, research, resources, user expertise, UAT, known risks, success measures, environment variables, idea generation, skill building. Every onboarding document that exists is relevant. Then work with the user and write the final document to the output path.
+You'll be told where to write the output (a file path like `onboarding/checklist.json`). **Read all available input files first** — goal, scope, existing code, libraries, research, resources, user expertise, UAT, known risks, success measures, environment variables, idea generation, skill building. Every onboarding document that exists is relevant. Then work with the user and write the final document to the output path.
 
 ---
 
@@ -31,6 +31,18 @@ It **is not**:
 - Execution of any of the items — you're saying "this must be planned for," not "here's how to do it"
 
 Think of it as the acceptance criteria for the planning phase itself. If someone completed design and architecture but missed something on this checklist, they'd need to go back.
+
+---
+
+## Phase classification
+
+Every checklist item must be assigned to exactly one phase:
+
+- **`"design"`** — Discovery-related actions. Things that must happen when modules, mermaid diagrams, high-level structs, data models, system boundaries, interface contracts, and architectural decisions are being planned. This is the phase where the system's shape is discovered and defined. Examples: defining data models, drawing module boundaries, choosing architectural patterns, designing API contracts, creating system diagrams, prototyping unknowns, resolving research questions.
+
+- **`"planning"`** — Execution-related actions. Things that must happen when milestones, objectives, and tasks are being decided. This is the phase where the work is organized into deliverables and schedules. Examples: defining milestones, setting objectives, breaking work into tasks, establishing success criteria checkpoints, sequencing dependencies, assigning risk mitigations to specific milestones.
+
+When in doubt: if the item is about **what the system looks like** → `"design"`. If the item is about **how the work gets done** → `"planning"`.
 
 ---
 
@@ -71,67 +83,110 @@ Keep the conversation proportional to the project. A small project might need a 
 
 ## Writing the output
 
-The checklist should be immediately useful to whoever picks up design and planning next — whether that's an agent or the user. Every item should be concrete enough that someone can look at it and say "yes, we addressed this" or "no, we missed this."
+The output is a **JSON file** (`checklist.json`). Every item must have these fields:
 
-```markdown
-# Project Checklist
+| Field         | Type     | Description |
+|---------------|----------|-------------|
+| `id`          | `string` | A unique, stable, kebab-case identifier for the item (e.g. `"design-data-models"`, `"plan-milestone-mvp"`) |
+| `title`       | `string` | Short, actionable title (e.g. `"Define core data models"`) |
+| `description` | `string` | What this item requires and why — include which onboarding input(s) it was derived from |
+| `complete`    | `bool`   | Always `false` when first written — downstream phases mark items complete |
+| `phase`       | `string` | Either `"design"` or `"planning"` — see phase classification above |
 
-**Date:** YYYY-MM-DD
+The top-level structure groups items by category:
 
-## Design Must-Haves
-Things the design phase must address — architectural decisions, data models, interface contracts, system boundaries.
-
-- [ ] [Item] — *Source: [which onboarding input(s)]*
-- [ ] [Item] — *Source: [which onboarding input(s)]*
-
-## Architecture Constraints
-Non-negotiable constraints the architecture must respect — technology choices, compatibility requirements, performance targets, security requirements.
-
-- [ ] [Item] — *Source: [which onboarding input(s)]*
-
-## Planning Milestones
-Key milestones the project plan should define — what "done" looks like at each stage.
-
-### Milestone 1: [Name]
-- **What:** description of what this milestone delivers
-- **Validates:** what success measures or UAT criteria this satisfies
-- **Checklist:**
-  - [ ] [Specific deliverable or verification]
-  - [ ] [Specific deliverable or verification]
-
-### Milestone 2: [Name]
-...
-
-## Objectives
-High-level objectives the project must achieve — traced back to the goal and success measures.
-
-- [ ] [Objective] — *Measured by: [how to verify]*
-
-## Tasks to Plan For
-Specific tasks that must appear in the project plan — things that could be overlooked if not called out explicitly.
-
-- [ ] [Task] — *Why: [brief reasoning]*
-- [ ] [Task] — *Why: [brief reasoning]*
-
-## Research and Prototyping
-Items that need investigation or proof-of-concept work before full implementation.
-
-- [ ] [Item] — *Unknown: [what needs to be resolved]*
-
-## Risk Mitigations to Design For
-Risks from onboarding that the design and plan must actively address.
-
-- [ ] [Risk] — *Mitigation: [what the plan should include]*
-
-## Out of Scope (Confirmed)
-Items explicitly excluded — listed here so downstream phases don't accidentally include them.
-
-- [Item] — *Reason: [why excluded]*
-
-## Context
-How this checklist was derived — what the user emphasized, what was added or removed during review, any priorities or sequencing preferences discussed.
+```json
+{
+  "project_checklist": {
+    "date": "YYYY-MM-DD",
+    "design_must_haves": [
+      {
+        "id": "design-example-item",
+        "title": "Example design item",
+        "description": "What this requires and why. Source: goal, scope",
+        "complete": false,
+        "phase": "design"
+      }
+    ],
+    "architecture_constraints": [
+      {
+        "id": "arch-example-constraint",
+        "title": "Example constraint",
+        "description": "Non-negotiable constraint the architecture must respect. Source: libraries-and-sdks",
+        "complete": false,
+        "phase": "design"
+      }
+    ],
+    "planning_milestones": [
+      {
+        "id": "plan-milestone-mvp",
+        "title": "MVP milestone",
+        "description": "What this milestone delivers and what success measures or UAT criteria it satisfies. Source: uat, success-measures",
+        "complete": false,
+        "phase": "planning"
+      }
+    ],
+    "objectives": [
+      {
+        "id": "obj-example-objective",
+        "title": "Example objective",
+        "description": "High-level objective traced to goal and success measures. Measured by: how to verify. Source: goal, success-measures",
+        "complete": false,
+        "phase": "planning"
+      }
+    ],
+    "tasks_to_plan_for": [
+      {
+        "id": "task-example-task",
+        "title": "Example task",
+        "description": "Specific task that could be overlooked if not called out. Why: brief reasoning. Source: known-risks",
+        "complete": false,
+        "phase": "planning"
+      }
+    ],
+    "research_and_prototyping": [
+      {
+        "id": "research-example-item",
+        "title": "Example research item",
+        "description": "What needs to be resolved before full implementation. Unknown: what needs investigation. Source: research",
+        "complete": false,
+        "phase": "design"
+      }
+    ],
+    "risk_mitigations": [
+      {
+        "id": "risk-example-risk",
+        "title": "Example risk mitigation",
+        "description": "Risk from onboarding that the design and plan must address. Mitigation: what the plan should include. Source: known-risks",
+        "complete": false,
+        "phase": "design"
+      }
+    ],
+    "out_of_scope": [
+      {
+        "id": "oos-example-item",
+        "title": "Example excluded item",
+        "description": "Why excluded — listed so downstream phases don't accidentally include it. Source: scope"
+      }
+    ],
+    "context": "How this checklist was derived — what the user emphasized, what was added or removed during review, any priorities or sequencing preferences discussed."
+  }
+}
 ```
 
-Adjust sections based on what's relevant. If the project has no research items, drop that section. If there are many milestones, expand that section. The template is a guide, not a constraint.
+### Phase assignment guidance by category
 
-Write to the output path you were given (relative to the project's rex directory).
+These are defaults — override based on the specific item's nature:
+
+- **`design_must_haves`** → typically `"design"` (architectural decisions, data models, interface contracts)
+- **`architecture_constraints`** → typically `"design"` (technology choices, compatibility, performance targets)
+- **`planning_milestones`** → always `"planning"` (defining what "done" looks like at each stage)
+- **`objectives`** → typically `"planning"` (high-level goals the project plan must achieve)
+- **`tasks_to_plan_for`** → typically `"planning"` (specific work items to schedule)
+- **`research_and_prototyping`** → typically `"design"` (unknowns to resolve before building)
+- **`risk_mitigations`** → use judgement: structural/architectural mitigations → `"design"`, process/scheduling mitigations → `"planning"`
+- **`out_of_scope`** → no `complete` or `phase` field needed (these are exclusions, not action items)
+
+Adjust categories based on what's relevant. If the project has no research items, drop that array. If there are many milestones, expand that section. The schema is a guide — categories can be added or removed, but the item schema (`id`, `title`, `description`, `complete`, `phase`) is fixed.
+
+Write valid JSON to the output path you were given (relative to the project's rex directory).

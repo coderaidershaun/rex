@@ -1,12 +1,4 @@
 {
-  "active": {
-    "id": "some-brief-name",
-    "category": "library",
-    "complexity": "medium",
-    "title": "Complete later",
-    "subtitle": "Complete later",
-    "description": "Complete later",
-    "directory": "/Users/shaun/Code/DEVELOPMENT/rex/some-brief-name"
-  },
+  "active": null,
   "inactive": []
 }
