@@ -406,6 +406,57 @@ pub fn update_directory(directory: &str) -> Result<(), Box<dyn std::error::Error
     Ok(())
 }
 
+pub fn update_title(title: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let mut registry = ProjectRegistry::load()?;
+    let project = registry.active.as_mut().ok_or("No active project.")?;
+    let old = project.title.clone();
+    project.title = title.to_owned();
+    registry.save()?;
+
+    println!(
+        "\n  {} Updated title for project \"{}\".",
+        style("\u{2713}").green().bold(),
+        registry.active.as_ref().unwrap().id
+    );
+    println!("  {:<16} {}", style("From:").dim(), old);
+    println!("  {:<16} {}\n", style("To:").dim(), title);
+    Ok(())
+}
+
+pub fn update_subtitle(subtitle: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let mut registry = ProjectRegistry::load()?;
+    let project = registry.active.as_mut().ok_or("No active project.")?;
+    let old = project.subtitle.clone();
+    project.subtitle = subtitle.to_owned();
+    registry.save()?;
+
+    println!(
+        "\n  {} Updated subtitle for project \"{}\".",
+        style("\u{2713}").green().bold(),
+        registry.active.as_ref().unwrap().id
+    );
+    println!("  {:<16} {}", style("From:").dim(), old);
+    println!("  {:<16} {}\n", style("To:").dim(), subtitle);
+    Ok(())
+}
+
+pub fn update_description(description: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let mut registry = ProjectRegistry::load()?;
+    let project = registry.active.as_mut().ok_or("No active project.")?;
+    let old = project.description.clone();
+    project.description = description.to_owned();
+    registry.save()?;
+
+    println!(
+        "\n  {} Updated description for project \"{}\".",
+        style("\u{2713}").green().bold(),
+        registry.active.as_ref().unwrap().id
+    );
+    println!("  {:<16} {}", style("From:").dim(), old);
+    println!("  {:<16} {}\n", style("To:").dim(), description);
+    Ok(())
+}
+
 pub fn get_active() -> Result<(), Box<dyn std::error::Error>> {
     let registry = ProjectRegistry::load()?;
 

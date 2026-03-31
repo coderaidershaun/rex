@@ -47,6 +47,21 @@ enum ProjectAction {
         #[arg(value_enum)]
         status: Status,
     },
+    /// Update the active project's title
+    UpdateTitle {
+        /// New title
+        title: String,
+    },
+    /// Update the active project's subtitle
+    UpdateSubtitle {
+        /// New subtitle
+        subtitle: String,
+    },
+    /// Update the active project's description
+    UpdateDescription {
+        /// New description
+        description: String,
+    },
 }
 
 fn main() {
@@ -63,6 +78,15 @@ fn main() {
             }
             ProjectAction::UpdateStatus { item, status } => {
                 rex::commands::project::update_status(&item, status)
+            }
+            ProjectAction::UpdateTitle { title } => {
+                rex::commands::project::update_title(&title)
+            }
+            ProjectAction::UpdateSubtitle { subtitle } => {
+                rex::commands::project::update_subtitle(&subtitle)
+            }
+            ProjectAction::UpdateDescription { description } => {
+                rex::commands::project::update_description(&description)
             }
         },
     };

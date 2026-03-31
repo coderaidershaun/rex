@@ -23,9 +23,9 @@ When a project is created, a metadata directory is also created at `rex/<project
 |---------------|----------|--------------------------------------------------|
 | `id`          | yes      | Unique project identifier (used as directory name)|
 | `category`    | yes      | One of `binary`, `library`, `refactor`           |
-| `title`       | yes      | Project title                                    |
-| `subtitle`    | yes      | Short one-line summary                           |
-| `description` | yes      | Detailed project description                     |
+| `title`       | yes      | Project title (defaults to "Complete later")     |
+| `subtitle`    | yes      | Short one-line summary (defaults to "Complete later") |
+| `description` | yes      | Detailed project description (defaults to "Complete later") |
 | `directory`   | yes      | Absolute path to the project's working directory |
 | `user_name`   | no       | Name of the project owner                        |
 
@@ -145,6 +145,63 @@ rex project update-directory /path/to/new/directory
 
 - Updates the `directory` field of the active project in `rex/projects.json`.
 - Prints the old and new directory paths.
+
+**Error cases:**
+
+- `"No active project."` — if no project is currently active.
+
+---
+
+### `rex project update-title <TITLE>`
+
+Updates the active project's title.
+
+```
+rex project update-title "My New Title"
+```
+
+**Behavior:**
+
+- Updates the `title` field of the active project in `rex/projects.json`.
+- Prints the old and new title.
+
+**Error cases:**
+
+- `"No active project."` — if no project is currently active.
+
+---
+
+### `rex project update-subtitle <SUBTITLE>`
+
+Updates the active project's subtitle.
+
+```
+rex project update-subtitle "A brief summary of the project"
+```
+
+**Behavior:**
+
+- Updates the `subtitle` field of the active project in `rex/projects.json`.
+- Prints the old and new subtitle.
+
+**Error cases:**
+
+- `"No active project."` — if no project is currently active.
+
+---
+
+### `rex project update-description <DESCRIPTION>`
+
+Updates the active project's description.
+
+```
+rex project update-description "Detailed description of what this project does"
+```
+
+**Behavior:**
+
+- Updates the `description` field of the active project in `rex/projects.json`.
+- Prints the old and new description.
 
 **Error cases:**
 
