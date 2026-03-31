@@ -62,6 +62,7 @@ pub const ONBOARDING_ITEMS: &[&str] = &[
     "environment-variables",
     "idea-generation",
     "skill-building",
+    "checklist",
 ];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
