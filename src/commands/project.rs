@@ -51,7 +51,41 @@ fn resolve_directory(
         }
     }
 
-    text_input("  Directory \u{203a}", id, None)
+    let cwd_for_validator = cwd.clone();
+    let directory = text_input(
+        "  Directory \u{203a}",
+        id,
+        Some(&move |input: &str| {
+            let path = Path::new(input);
+            let resolved = if path.is_absolute() {
+                path.to_path_buf()
+            } else {
+                cwd_for_validator.join(path)
+            };
+
+            // If the directory already exists, it's valid
+            if resolved.is_dir() {
+                return None;
+            }
+
+            // Check that the parent directory exists
+            match resolved.parent() {
+                Some(parent) if parent.is_dir() => None,
+                _ => Some(format!(
+                    "Parent directory does not exist: {}",
+                    resolved.parent().map(|p| p.display().to_string()).unwrap_or_default()
+                )),
+            }
+        }),
+    )?;
+
+    // Resolve relative paths to absolute so cargo new always gets a valid path
+    let path = Path::new(&directory);
+    if path.is_absolute() {
+        Ok(directory)
+    } else {
+        Ok(cwd.join(path).display().to_string())
+    }
 }
 
 pub fn create() -> Result<(), Box<dyn std::error::Error>> {
