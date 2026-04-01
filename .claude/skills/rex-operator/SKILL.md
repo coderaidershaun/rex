@@ -404,10 +404,68 @@ Operator complete.
 
 ---
 
+## CLI Quick Reference
+
+These are the **exact** commands available. Do not invent commands that aren't listed here.
+
+```
+# Project
+rex-cli project get-active
+rex-cli project next-item
+rex-cli project create
+rex-cli project remove <id>
+rex-cli project activate <id>
+rex-cli project update-status <item> <status>
+rex-cli project update-title "<title>"
+rex-cli project update-subtitle "<subtitle>"
+rex-cli project update-description "<description>"
+rex-cli project update-directory "<path>"
+
+# Planning
+rex-cli milestone upsert --id <id> [--title --description --status] [--add-reference ...] [--add-upstream ...]
+rex-cli milestone get <id>
+rex-cli milestone list [--status <status>]
+rex-cli milestone remove <id>
+
+rex-cli objective upsert --id <id> [--milestone --title --description --status] [--add-reference ...] [--add-upstream ...]
+rex-cli objective get <id>
+rex-cli objective list [--milestone <id>] [--status <status>]
+rex-cli objective remove <id>
+
+rex-cli task upsert --id <id> [--objective --title --description --status] [--add-reference ...] [--add-upstream ...]
+rex-cli task get <id>
+rex-cli task list [--objective <id>] [--status <status>]
+rex-cli task remove <id>
+rex-cli task next
+
+# History
+rex-cli history list
+rex-cli history get-recent
+rex-cli history insert-recent --id <id> --timestamp <iso8601> --summary "<text>" [--entity ...] [--file ...] [--session <id>]
+rex-cli history remove-from-recent <id>
+rex-cli history insert-compacted --id <id> --timestamp <iso8601> --summary "<text>" [--entity ...] [--file ...] [--session <id>]
+rex-cli history remove-from-compacted <id>
+
+# Checklist
+rex-cli checklist init [--date <YYYY-MM-DD>]
+rex-cli checklist add --category <cat> --id <id> --title "<title>" --description "<desc>" [--phase <phase>]
+rex-cli checklist list [--category <cat>] [--phase <phase>] [--complete] [--incomplete]
+rex-cli checklist get <id>
+rex-cli checklist update <id> [--title --description --phase]
+rex-cli checklist complete <id>
+rex-cli checklist uncomplete <id>
+rex-cli checklist remove <id>
+rex-cli checklist set-context "<text>"
+```
+
+**Important:** There is no `rex-cli project update` command. Title, subtitle, and description must be updated with separate commands (`update-title`, `update-subtitle`, `update-description`).
+
+---
+
 ## Rules
 
 - **One item per invocation.** The operator processes exactly one work item (or one task within execution) and stops. It does not loop.
-- **CLI only for data management.** All reads and writes to rex data structures go through `rex` CLI commands. Never write `project-status.json`, `history.json`, or `planning.json` directly.
+- **CLI only for data management.** All reads and writes to rex data structures go through `rex-cli` commands. Never write `project-status.json`, `history.json`, or `planning.json` directly.
 - **Blocking dispatch.** Never launch agents in the background. Always wait for completion. This is critical for headless/automated operation.
 - **Respect the lock.** If the project is locked, stop immediately. No exceptions, no "let me just check one thing."
 - **Respect agent responses.** If an agent says not to mark complete, don't mark complete.

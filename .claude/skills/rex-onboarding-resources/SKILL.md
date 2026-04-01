@@ -26,6 +26,12 @@ You'll be told where to write the output (a file path like `onboarding/resources
 
 ## How to run the conversation
 
+### Conversation style
+
+Ask open-ended questions and let the user describe their tooling. **Never present numbered options, menus, or dropdown-style choices.** Don't list categories of resources for them to pick from — ask "What tools or resources are available for this project?" and let them tell you what they've got.
+
+### Flow
+
 Ask the user what tools, codebases, or external resources are available for this project. For each one, get:
 
 - **What it is** — name and type (MCP, CLI tool, codebase, API, etc.)

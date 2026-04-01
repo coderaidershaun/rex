@@ -39,13 +39,17 @@ Before talking to the user, think through the inputs. Look for:
 
 ## How to run the conversation
 
-Present 3-5 ideas. For each, briefly explain what it is, why it would matter for this project specifically, and roughly how much effort it would add. Then ask the user what resonates.
+### Conversation style
 
-Don't oversell. If an idea is speculative, say so. If it would add significant scope, flag that. The user decides what's worth pursuing — your job is to show them options they hadn't considered.
+**Do not present a numbered menu of ideas for the user to pick from.** This is a conversation, not a catalogue. Start by asking the user if there's anything they've been thinking about that could make the project better — let them go first. Then share your ideas one at a time, conversationally, and discuss each before moving on. "One thing I noticed is..." is better than "Here are 5 ideas: 1)..."
 
-If the user likes an idea, discuss it enough to capture what they want. If they don't, move on — don't argue for your ideas.
+### Flow
 
-If the user has ideas of their own that come up during this conversation, capture those too. This is a collaborative brainstorm, not a presentation.
+Start by asking the user if they have ideas of their own — things they've been considering but haven't committed to. Discuss those first.
+
+Then share your own ideas, one at a time. For each, briefly explain what it is and why it matters for this project specifically. Discuss it with the user before moving to the next one. Don't dump everything at once.
+
+Don't oversell. If an idea is speculative, say so. If it would add significant scope, flag that. The user decides what's worth pursuing — your job is to show them options they hadn't considered. If they don't like an idea, move on — don't argue for it.
 
 ---
 

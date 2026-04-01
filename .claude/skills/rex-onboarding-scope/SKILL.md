@@ -68,6 +68,14 @@ This only applies when the project's fundamental direction changes. Trimming fea
 
 ## How to run the conversation
 
+### Conversation style
+
+Ask open-ended questions and let the user describe things in their own words. **Never present numbered options, menus, or dropdown-style choices.** Don't ask "Which of these would you include? 1) Auth 2) Dashboard 3) API..." — ask "What needs to exist for this goal to be met?" and let them walk you through it. The user's natural way of describing boundaries is more useful than picking from your list.
+
+The only time a fixed-choice question is appropriate is for genuinely binary decisions that don't benefit from discussion (e.g., "Web only, or mobile too?"). Even then, phrase it as a question, not a numbered list.
+
+### Flow
+
 If you have the goal document, start from it. If not, ask the user what the project goal is so you have a frame.
 
 Then work through what's needed to achieve that goal:

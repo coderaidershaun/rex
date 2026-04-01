@@ -48,6 +48,12 @@ Refactor projects have existing code by definition — that's the whole point. Y
 
 ## How to run the conversation
 
+### Conversation style
+
+Ask open-ended questions and let the user describe their code. **Never present numbered options, menus, or dropdown-style choices.** Don't ask "What type of codebase is this? 1) Monolith 2) Microservices 3) Library..." — ask "What are you working with?" and let them walk you through it. The only time a fixed-choice question is appropriate is for genuinely binary decisions (e.g., "lift-and-shift or in-place refactor?") where the options are well-defined and don't need open discussion.
+
+### Flow
+
 Start by asking what existing code they're bringing, if any. For refactor projects, you already know there is some — ask them to point you at it.
 
 If the user provides a path, explore it briefly (list the top-level structure) so you can have an informed conversation rather than taking everything on faith.

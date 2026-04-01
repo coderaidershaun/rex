@@ -30,6 +30,12 @@ You're not doing the research — you're capturing what needs researching, where
 
 ## How to run the conversation
 
+### Conversation style
+
+Ask open-ended questions and let the user describe what needs researching. **Never present numbered options, menus, or dropdown-style choices.** Don't pre-populate a list of research categories for them to pick from — ask "Is there anything that needs investigating before we start building?" and let them tell you what they're thinking.
+
+### Flow
+
 Ask the user if there's anything that needs investigating before design and build starts. For each topic they mention, get:
 
 - **What to research** — the topic, algorithm, repo, API, paper, etc.

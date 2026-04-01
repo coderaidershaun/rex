@@ -39,6 +39,12 @@ Ask what they think the right approach is. Even rough instincts are valuable —
 
 ## How to run the conversation
 
+### Conversation style
+
+Ask open-ended questions and let the user talk. **Never present numbered options, menus, or dropdown-style choices.** Don't ask "Which best describes your experience level? 1) Beginner 2) Intermediate 3) Expert..." — ask "What's your experience with this kind of problem?" and let them tell you. This is a conversation where the user is the expert — let them frame it their way.
+
+### Flow
+
 Start by asking about their background as it relates to this project. Then go deeper into what they know that would help:
 
 - "What's your experience with this kind of problem?"

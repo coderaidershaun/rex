@@ -41,11 +41,20 @@ Propose concrete deliverables and ask the user which ones would be valuable:
 
 ## How to run the conversation
 
-Start by suggesting a few UAT deliverables that would make sense for this project, then ask the user what resonates and what's missing. Let them shape it.
+### Conversation style
 
-- "Would it help if you got a set of commands to run with expected outputs?"
-- "Would a diagram of the flow be useful, or do you prefer to just see it working?"
-- "What would make you confident this is done — what do you need to see?"
+Lead with an open-ended question, not a menu of deliverable types. **Never present a numbered list of UAT options for the user to pick from.** Don't say "Which of these would you like? 1) Commands 2) Diagrams 3) Walkthrough 4) Checklist..." — ask "When this is done, what would you need to see to feel confident it works?" and let the user describe what matters to them.
+
+Once they've set the frame, you can suggest specific deliverables that fit what they described — one or two at a time, conversationally, not as a catalogue. The suggestions in the "Things to suggest" section above are your toolkit, not a menu to present.
+
+### Flow
+
+Start by asking what would make the user confident the project is done:
+
+- "What would you need to see or try to know this works?"
+- "How do you prefer to test things — running commands, reading docs, poking around interactively?"
+
+Once they describe what they want, suggest specific deliverables that fit — and ask if there's anything else. Let them shape the handoff.
 
 The user knows what would make them confident. Your job is to suggest options they might not have thought of and capture exactly what they want.
 

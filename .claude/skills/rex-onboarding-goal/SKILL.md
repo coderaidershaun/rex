@@ -29,6 +29,14 @@ That's the whole job. Scope, risks, success measures, and completion criteria ar
 
 ## How to run the conversation
 
+### Conversation style
+
+Ask open-ended questions and let the user describe things in their own words. **Never present numbered options, menus, or dropdown-style choices.** Don't ask "Which of these best describes your project: 1) CLI tool 2) Web app 3) Library..." — ask "What are you building?" and let them tell you. The user's natural framing is more valuable than anything you'd put in a list.
+
+The only time a fixed-choice question is appropriate is for genuinely binary or small-set decisions that don't benefit from discussion (e.g., "Is this a new project or a refactor?"). Even then, phrase it as a question, not a numbered list.
+
+### Flow
+
 Ask the user to describe their project however feels natural. Then listen for the three elements above and probe for whatever's missing:
 
 - If the **what** is vague: "Can you describe the thing itself — what would someone see or use?"

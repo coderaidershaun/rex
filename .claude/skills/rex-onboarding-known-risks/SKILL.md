@@ -35,7 +35,13 @@ Don't dump all of these on the user. Mention the 2-3 that are most relevant to *
 
 ## How to run the conversation
 
-Start by sharing a couple of risks you see — both project-specific (based on what you know) and agent-related. Keep it brief. Then ask the user:
+### Conversation style
+
+Lead with open-ended questions, not numbered lists of risks. **Never present a menu of risks for the user to pick from.** Don't say "Here are the top 5 risks: 1)... 2)... 3)..." — instead, mention one or two concerns conversationally and ask what the user thinks. Let them surface their own worries first. You can weave in your observations as the conversation develops, but the user's concerns take priority over your catalogue.
+
+### Flow
+
+Start by briefly mentioning a concern or two you see — both project-specific and agent-related. Frame them conversationally, not as a numbered list. Then ask the user:
 
 - "Do any of these concern you? Are there others you're thinking about?"
 - "Have you been burned by anything like this before?"

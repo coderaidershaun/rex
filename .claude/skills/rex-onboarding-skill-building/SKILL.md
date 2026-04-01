@@ -42,9 +42,15 @@ Before talking to the user, review all the onboarding inputs and the list of cur
 
 ## How to run the conversation
 
-Present your assessment: the 2-4 specialist skills you think the project needs, why each one matters, and what existing skills already cover. Be reasonable — don't propose skills for things agents can handle without guidance.
+### Conversation style
 
-For each proposed skill, ask the user:
+**Do not present a numbered menu of proposed skills.** Start by asking the user if there are areas where they think agents will need specialist guidance. Discuss what they raise first. Then share your own observations one at a time — "One area I think would benefit from a dedicated skill is..." — and discuss each before moving on. This is a collaborative conversation about what the project needs, not a presentation of your recommendations.
+
+### Flow
+
+Start by asking the user where they think agents might struggle or need specialist knowledge. Discuss what they raise.
+
+Then share your own observations about skill gaps, one at a time. Be reasonable — don't propose skills for things agents can handle without guidance. For each area you raise, ask the user:
 
 - "Does this sound right? Would agents actually struggle here without guidance?"
 - "What should this specialist know? What's the right way to think about this?"

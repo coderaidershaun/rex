@@ -29,6 +29,12 @@ If the user says there are no environment variables and none expected, that's a 
 
 ## How to run the conversation
 
+### Conversation style
+
+Ask open-ended questions. **Never present numbered options, menus, or dropdown-style choices.** Don't list common variable types for them to pick from — ask "Does this project need any API keys, credentials, or environment variables?" and let them tell you.
+
+### Flow
+
 Ask the user whether the project needs any environment variables or credentials. If they say yes, get the details for each one. If they're unsure, prompt gently:
 
 - "Does this project talk to any external APIs or services?"

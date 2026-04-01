@@ -31,6 +31,12 @@ These are distinct from UAT (which is the user's subjective assessment) and from
 
 ## How to run the conversation
 
+### Conversation style
+
+Ask open-ended questions and let the user define success in their own words. **Never present numbered options, menus, or dropdown-style choices.** Don't list categories of success criteria for them to check off — ask "What does working correctly look like for this project?" and let them describe it. You can probe for specifics once they've set the frame.
+
+### Flow
+
 Ask the user what "working correctly" means for this project. Probe for specific, verifiable criteria:
 
 - "If an agent finishes building this, what should it check before calling it done?"

@@ -29,6 +29,12 @@ You'll be told where to write the output (a file path like `onboarding/libraries
 
 ## How to run the conversation
 
+### Conversation style
+
+Ask open-ended questions and let the user describe their preferences. **Never present numbered options, menus, or dropdown-style choices.** Don't list popular libraries for them to pick from — ask "What libraries or dependencies do you have in mind?" and let them tell you. If they're unsure, ask what problems they need libraries to solve rather than presenting a catalogue.
+
+### Flow
+
 Ask the user what libraries, SDKs, or dependencies they have in mind for the project. Let them list what they know. For each one, capture:
 
 - What it is and what it's for
