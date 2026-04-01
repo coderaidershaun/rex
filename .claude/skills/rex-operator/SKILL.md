@@ -7,9 +7,11 @@ user-invocable: true
 
 # Rex Operator
 
-You are the operator — the orchestrator that drives a rex project forward one item at a time. Each invocation processes exactly one work item from the active project's `project-status.json`, dispatches the right agent(s) to execute it, records what happened, and stops.
+You are the operator — the orchestrator that drives a rex project forward one item at a time. Each invocation processes exactly one work item from the active project's `project-status.json`, executes it (either directly or via sub-agents), records what happened, and continues or stops.
 
-This is designed for headless operation. Do not ask the user questions unless the work item's skill requires user interaction. Do not improvise or skip steps. Follow the sequence exactly.
+**Hybrid dispatch:** Items that require user interaction (onboarding, user-support, and design user-acceptance) are executed **directly by you** — you invoke the skill yourself and talk to the user. Non-interactive items (other design, planning, execution) are dispatched to **sub-agents**.
+
+Do not ask the user questions unless the work item's skill requires user interaction. Do not improvise or skip steps. Follow the sequence exactly.
 
 ---
 
@@ -144,9 +146,42 @@ Capture the output — you'll pass this context to the agent(s) so they understa
 
 ---
 
-## Step 6: Prepare the agent dispatch
+## Step 6: Prepare the dispatch
 
-### Standard phases (onboarding, design, planning, user-support)
+### Determine dispatch mode
+
+Check whether this item requires user interaction:
+
+- **Direct invoke** if: phase is `"onboarding"` or `"user-support"`, OR the item name is `"user-acceptance"`
+- **Sub-agent dispatch** if: everything else (design items other than user-acceptance, planning, execution)
+
+This determines how the item gets executed in Step 7.
+
+---
+
+### Direct invoke (user-interactive items)
+
+When the dispatch mode is **direct invoke**, the operator does NOT spawn a sub-agent. You ARE the agent. The user will talk directly to the skill through you — no relay, no middleman.
+
+Prepare as follows:
+
+1. **Read all `inputs` files yourself.** Don't delegate this — you need the context.
+2. **Note the effort level.** Before invoking the skill, state the effort level in your output:
+   - `"medium"` → "Applying moderate reasoning depth."
+   - `"high"` → "Thinking carefully and thoroughly."
+   - `"max"` → "ultrathink. Thinking very deeply about this item."
+   - `"ultrathink"` → "ultrathink. Thinking extremely deeply about this critical item."
+   
+   The literal word `ultrathink` must appear for max/ultrathink levels — it triggers deep reasoning.
+3. **`agent.model` is informational only** — you run on the session's model. This is fine because interactive items benefit from the user's chosen model.
+4. **`agent.count` is ignored** — you are one agent. No parallelization for interactive items.
+5. **Proceed to Step 7** to invoke the skill(s).
+
+---
+
+### Sub-agent dispatch (non-interactive items)
+
+When the dispatch mode is **sub-agent dispatch**, build a prompt for the sub-agent.
 
 From the work item JSON, extract:
 
@@ -161,13 +196,13 @@ From the work item JSON, extract:
 
 #### Building the agent prompt
 
-The prompt you give each agent must include:
+The prompt you give each sub-agent must include:
 
-1. **The full project object as JSON** — paste the complete project object (from step 1) so the agent has all metadata: id, category, complexity, title, subtitle, description, directory, locked status. This is critical — onboarding skills use this metadata to avoid re-asking the user things that are already known.
+1. **The full project object as JSON** — paste the complete project object (from step 1) so the agent has all metadata: id, category, complexity, title, subtitle, description, directory, locked status.
 2. **Recent history** — paste the recent history JSON (from step 5) so the agent knows what's been done.
-3. **The skill(s) to invoke** — tell the agent which skill(s) to invoke from `agent.skills`, using the Skill tool. Be explicit for each skill: "You MUST invoke the skill `/<skill-name>` using the Skill tool. Do not try to follow the skill's instructions from memory — actually call it."
+3. **The skill(s) to invoke** — tell the agent which skill(s) to invoke from `agent.skills`, using the Skill tool. Be explicit: "You MUST invoke the skill `/<skill-name>` using the Skill tool. Do not follow from memory — actually call it."
    - **Single skill** (`agent.skills` has 1 entry): The agent invokes that one skill.
-   - **Multiple skills** (`agent.skills` has 2+ entries): List ALL skills and tell the agent to invoke them sequentially, in order. Example: "You MUST invoke these skills in order using the Skill tool: first `/rex-onboarding-goal`, then `/rex-onboarding-scope`."
+   - **Multiple skills** (`agent.skills` has 2+ entries): List ALL skills and tell the agent to invoke them sequentially, in order.
 4. **Input files** — list every file in `inputs` and instruct the agent to read them before starting work.
 5. **Output files** — list every file in `outputs` and instruct the agent to write its results there.
 6. **Effort level** — include the effort level as a literal instruction at the end of the prompt. Map the effort field:
@@ -178,20 +213,20 @@ The prompt you give each agent must include:
 
    **Important:** For `"max"` and `"ultrathink"` effort levels, the literal word `ultrathink` must appear in the prompt — it triggers deep reasoning mode.
 
-#### Example agent prompt (standard phase)
+#### Example agent prompt (sub-agent dispatch)
 
 ```
-You are working on the rex project "Hello World Library" (id: some-brief-name).
+You are working on the rex project "My Auth System" (id: auth-system).
 
 ## Project (full metadata)
 {
-  "id": "some-brief-name",
-  "category": "library",
-  "complexity": "medium",
-  "title": "Hello World Library",
-  "subtitle": "A minimal Rust hello world library",
-  "description": "A simple Rust library crate that exposes a hello world function",
-  "directory": "/Users/someone/Code/my-project",
+  "id": "auth-system",
+  "category": "binary",
+  "complexity": "high",
+  "title": "My Auth System",
+  "subtitle": "JWT-based authentication service",
+  "description": "A Rust binary that provides authentication endpoints with JWT sessions",
+  "directory": "/Users/someone/Code/auth-system",
   "locked": false
 }
 
@@ -201,15 +236,13 @@ You are working on the rex project "Hello World Library" (id: some-brief-name).
 ## Your Task
 You MUST invoke the skill `/<skill-from-agent.skills>` using the Skill tool. Do not follow the skill from memory — actually call it via the Skill tool.
 
-Complete the "<item-name>" onboarding item.
-
 Before you begin, read these input files:
-(none for this item)
+- rex/auth-system/onboarding/goal.md
 
 Write your output to:
-- rex/some-brief-name/onboarding/goal.md
+- rex/auth-system/design/architecture.md
 
-Think carefully and thoroughly.
+ultrathink. Think very deeply. Take your time and consider all angles.
 ```
 
 ### Execution phase
@@ -273,9 +306,23 @@ ultrathink. Think very deeply. Take your time and consider all angles.
 
 ---
 
-## Step 7: Dispatch the agent(s)
+## Step 7: Execute the item
 
-### Single agent (count = 1)
+### Direct invoke (user-interactive items)
+
+When the dispatch mode is **direct invoke** (from Step 6), you execute the skill yourself. No sub-agents. No relay. You ARE the agent.
+
+1. **Read all `inputs` files** listed in the work item.
+2. **Invoke each skill** in `agent.skills` sequentially using the Skill tool (e.g., `skill: "rex-onboarding-goal"`).
+3. **The skill runs in your context.** It will ask the user questions directly. The user responds directly to you. No middleman. No paraphrasing.
+4. **If `agent.skills` has multiple entries**, invoke them in order. Complete each skill fully before moving to the next.
+5. **Write output files** as instructed by the skill.
+
+That's it. You are the agent doing the work. Proceed to Step 8 when the skill completes.
+
+---
+
+### Sub-agent dispatch — single agent (count = 1)
 
 Spawn one agent using the Agent tool with these **exact parameters**:
 
@@ -288,7 +335,7 @@ Spawn one agent using the Agent tool with these **exact parameters**:
 
 **You must set the `model` parameter on the Agent tool call itself** — not just mention the model in the prompt text. This is how the agent gets the right model.
 
-### Multiple agents (count > 1)
+### Sub-agent dispatch — multiple agents (count > 1)
 
 When `agent.count` is greater than 1, spawn that many worker agents plus one coordinator agent. **Every worker agent MUST use the same `model` from `agent.model`.** The model is not optional — it must be set on each Agent tool call.
 
@@ -310,34 +357,23 @@ When `agent.count` is greater than 1, spawn that many worker agents plus one coo
 
 **Critical: Do not launch agents in the background and move on.** The operator must wait until all agents complete and report back. This is essential for headless operation.
 
----
-
-## Step 7a: Handling user-interactive skills
-
-Some skills (especially onboarding skills) need to ask the user questions. When a sub-agent needs user input:
-
-1. **The sub-agent will return a question for the user.** When this happens, present the question to the user using AskUserQuestion.
-2. **When the user responds**, forward their response to the sub-agent using SendMessage. **You must always include the `summary` parameter** — this is required when the message is a string. Use a brief summary of the user's response (e.g., "User describes their project goal").
-
-Example relay flow:
-```
-Agent returns: "What is the project you're building?"
-→ You ask the user (AskUserQuestion)
-→ User responds: "I want a CLI that manages config files"
-→ You forward to agent: SendMessage(to: <agent-id>, message: "I want a CLI that manages config files", summary: "User describes project as a CLI for config management")
-```
-
-Continue relaying until the sub-agent completes its work. Each SendMessage **must** include `summary` — omitting it will cause an error.
+**Note:** Sub-agents dispatched here are always non-interactive. They should never need to ask the user questions. If a sub-agent unexpectedly returns a question instead of completing its work, leave the item as in-progress and report what happened.
 
 ---
 
-## Step 8: Check the agent response and mark task complete
+## Step 8: Check completion and mark task complete
+
+### Direct invoke (user-interactive items)
+
+Once the skill completes:
+- If the skill wrote its output files and the conversation reached a natural conclusion, proceed to Step 9.
+- If the skill indicated it should not be marked complete (e.g., user-acceptance where the user said "stop for now"), leave the item as `in-progress` and skip to Step 11.
+
+### Sub-agent dispatch (standard phases)
 
 Once the agent(s) report back, check their response text.
 
-### Standard phases
-
-In rare cases, an agent may instruct you **not to mark the item as complete** — for example, if it encountered an issue, needs user input that wasn't available, or wants the item to remain in-progress for a follow-up session.
+In rare cases, an agent may instruct you **not to mark the item as complete** — for example, if it encountered an issue or wants the item to remain in-progress for a follow-up session.
 
 - If the agent says **do not mark complete**: leave the item as `in-progress` and skip to Step 11.
 - Otherwise: continue to Step 9.
@@ -534,13 +570,14 @@ rex checklist set-context "<text>"
 
 ## Rules
 
-- **The work item is the contract.** Every field in the work item JSON must be honored exactly:
-  - `agent.model` → set on the Agent tool `model` parameter. Not optional.
+- **Dispatch mode is determined by the item.** Onboarding, user-support, and design `user-acceptance` items use **direct invoke** (you are the agent). Everything else uses **sub-agent dispatch**. Never spawn a sub-agent for an interactive item. Never direct-invoke a non-interactive item.
+- **The work item is the contract.** Every field must be honored:
+  - `agent.model` → for sub-agent dispatch: set on the Agent tool `model` parameter (required). For direct invoke: informational only (you run on the session's model).
   - `agent.skills` → every skill listed must be invoked via the Skill tool. If multiple, invoke in order.
-  - `agent.count` → spawn exactly this many worker agents. Not fewer, not more.
+  - `agent.count` → for sub-agent dispatch: spawn exactly this many workers. For direct invoke: ignored (you are one agent).
   - `agent.effort` → map to the correct effort instruction including `ultrathink` keyword for max/ultrathink.
-  - `inputs` → every file listed must be read by the agent before starting.
-  - `outputs` → every file listed must be written by the agent.
+  - `inputs` → every file listed must be read before starting.
+  - `outputs` → every file listed must be written.
 - **Respect `stop-on-finish`.** After completing an item, check its `stop-on-finish` field. If `false`, loop back to Step 3 and process the next item. If `true`, stop. If the item was left in-progress, always stop.
 - **CLI only for data management.** All reads and writes to rex data structures go through `rex` commands. Never write `project-status.json`, `history.json`, or `planning.json` directly.
 - **Blocking dispatch.** Never launch agents in the background. Always wait for completion. This is critical for headless/automated operation.
