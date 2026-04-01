@@ -10,7 +10,9 @@
         "skills": ["rex-design-rust-existing-code-exploration"]
       },
       "inputs": [],
-      "output": "rex/<insert-project-id>/design/existing-code-exploration.md",
+      "outputs": [
+        "rex/<insert-project-id>/design/existing-code-exploration.md"
+      ],
       "status": "not-started"
     },
     {
@@ -23,7 +25,7 @@
         "skills": ["rex-design-rust-library-review"]
       },
       "inputs": [],
-      "output": "rex/<insert-project-id>/design/library-review.md",
+      "outputs": ["rex/<insert-project-id>/design/library-review.md"],
       "status": "not-started"
     },
     {
@@ -36,7 +38,7 @@
         "skills": ["rex-design-rust-modules"]
       },
       "inputs": [],
-      "output": "rex/<insert-project-id>/design/module-design.md",
+      "outputs": ["rex/<insert-project-id>/design/module-design.md"],
       "status": "not-started"
     },
     {
@@ -49,7 +51,7 @@
         "skills": ["rex-design-rust-architecture"]
       },
       "inputs": [],
-      "output": "rex/<insert-project-id>/design/architecture-design.md",
+      "outputs": ["rex/<insert-project-id>/design/architecture-design.md"],
       "status": "not-started"
     },
     {
@@ -62,7 +64,20 @@
         "skills": ["rex-design-rust-integration-tests"]
       },
       "inputs": [],
-      "output": "rex/<insert-project-id>/design/integration-tests.md",
+      "outputs": ["rex/<insert-project-id>/design/integration-tests.md"],
+      "status": "not-started"
+    },
+    {
+      "item": "foreign-critique",
+      "agent-count": 3,
+      "stop-on-finish": true,
+      "agent": {
+        "effort": "max",
+        "model": "opus",
+        "skills": ["rex-design-foreign-critique"]
+      },
+      "inputs": [],
+      "outputs": ["rex/<insert-project-id>/design/foreign-critique.md"],
       "status": "not-started"
     },
     {
@@ -75,7 +90,36 @@
         "skills": ["rex-design-rust-errors"]
       },
       "inputs": [],
-      "output": "rex/<insert-project-id>/design/error-handling.md",
+      "outputs": ["rex/<insert-project-id>/design/error-handling.md"],
+      "status": "not-started"
+    },
+    {
+      "item": "architecture-proposal",
+      "agent-count": 3,
+      "stop-on-finish": true,
+      "agent": {
+        "effort": "max",
+        "model": "opus",
+        "skills": ["rex-design-rust-architecture-proposal"]
+      },
+      "inputs": [],
+      "outputs": [
+        "rex/<insert-project-id>/design/architecture-proposal.md",
+        "rex/<insert-project-id>/design/architecture-proposal.html"
+      ],
+      "status": "not-started"
+    },
+    {
+      "item": "user-acceptance",
+      "agent-count": 3,
+      "stop-on-finish": true,
+      "agent": {
+        "effort": "max",
+        "model": "opus",
+        "skills": ["rex-design-rust-architecture-proposal"]
+      },
+      "inputs": [],
+      "outputs": [],
       "status": "not-started"
     }
   ]

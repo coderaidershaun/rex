@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>__PROJECT_TITLE__ — Architecture Proposal</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg-alt: #f8f9fa;
+    --bg-code: #f1f3f5;
+    --text: #212529;
+    --text-muted: #6c757d;
+    --border: #dee2e6;
+    --accent: #2563eb;
+    --accent-light: #dbeafe;
+    --success: #16a34a;
+    --warning: #d97706;
+    --danger: #dc2626;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-mono: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', Menlo, Courier, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1b1e;
+      --bg-alt: #25262b;
+      --bg-code: #2c2e33;
+      --text: #c1c2c5;
+      --text-muted: #909296;
+      --border: #373a40;
+      --accent: #4dabf7;
+      --accent-light: #1c3a5e;
+      --success: #40c057;
+      --warning: #fab005;
+      --danger: #ff6b6b;
+    }
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+
+  /* Navigation sidebar (table of contents) */
+  nav.toc {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 280px;
+    height: 100vh;
+    overflow-y: auto;
+    background: var(--bg-alt);
+    border-right: 1px solid var(--border);
+    padding: 1.5rem 1rem;
+    font-size: 0.85rem;
+    z-index: 100;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+  }
+
+  nav.toc.open { transform: translateX(0); }
+
+  nav.toc a {
+    display: block;
+    color: var(--text-muted);
+    text-decoration: none;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    margin-bottom: 2px;
+  }
+
+  nav.toc a:hover { color: var(--accent); background: var(--bg); }
+  nav.toc a.h3 { padding-left: 1.25rem; font-size: 0.8rem; }
+
+  .toc-toggle {
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    z-index: 101;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 0.4rem 0.75rem;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-family: var(--font-sans);
+  }
+
+  /* Typography */
+  #content h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 2.5rem 0 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--accent);
+    color: var(--accent);
+  }
+
+  #content h1:first-child { margin-top: 0; }
+
+  #content h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 2rem 0 0.75rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  #content h3 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 1.5rem 0 0.5rem;
+    color: var(--accent);
+  }
+
+  #content h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 1.25rem 0 0.5rem;
+  }
+
+  #content p { margin: 0.75rem 0; }
+
+  #content a { color: var(--accent); text-decoration: none; }
+  #content a:hover { text-decoration: underline; }
+
+  #content strong { font-weight: 600; }
+
+  /* Lists */
+  #content ul, #content ol {
+    margin: 0.5rem 0 0.75rem 1.5rem;
+  }
+
+  #content li { margin-bottom: 0.3rem; }
+
+  /* Code */
+  #content code {
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    background: var(--bg-code);
+    padding: 0.15em 0.4em;
+    border-radius: 4px;
+  }
+
+  #content pre {
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    overflow-x: auto;
+    margin: 1rem 0;
+    line-height: 1.5;
+  }
+
+  #content pre code {
+    background: none;
+    padding: 0;
+    font-size: 0.85rem;
+  }
+
+  /* Tables */
+  #content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+  }
+
+  #content th, #content td {
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--border);
+    text-align: left;
+  }
+
+  #content th {
+    background: var(--bg-alt);
+    font-weight: 600;
+  }
+
+  #content tr:nth-child(even) { background: var(--bg-alt); }
+
+  /* Blockquotes */
+  #content blockquote {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-light);
+    padding: 0.75rem 1rem;
+    margin: 1rem 0;
+    border-radius: 0 6px 6px 0;
+  }
+
+  #content blockquote p { margin: 0.25rem 0; }
+
+  /* Mermaid diagrams */
+  .mermaid {
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+    text-align: center;
+    overflow-x: auto;
+  }
+
+  /* Horizontal rules */
+  #content hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  /* Status badges */
+  .badge-critical {
+    display: inline-block;
+    background: var(--danger);
+    color: white;
+    padding: 0.15em 0.5em;
+    border-radius: 4px;
+    font-size: 0.8em;
+    font-weight: 600;
+  }
+
+  .badge-important {
+    display: inline-block;
+    background: var(--warning);
+    color: white;
+    padding: 0.15em 0.5em;
+    border-radius: 4px;
+    font-size: 0.8em;
+    font-weight: 600;
+  }
+
+  /* Print styles */
+  @media print {
+    body { max-width: none; padding: 1rem; }
+    nav.toc, .toc-toggle { display: none; }
+    #content pre { white-space: pre-wrap; }
+    .mermaid { break-inside: avoid; }
+  }
+
+  /* Meta header */
+  .proposal-meta {
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.5rem;
+    margin-bottom: 2rem;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+  }
+
+  .proposal-meta strong { color: var(--text); }
+</style>
+</head>
+<body>
+
+<button class="toc-toggle" onclick="document.querySelector('.toc').classList.toggle('open')">Contents</button>
+<nav class="toc" id="toc"></nav>
+
+<div class="proposal-meta">
+  <strong>__PROJECT_TITLE__</strong> — Architecture Proposal<br>
+  Generated: __DATE__
+</div>
+
+<div id="content"></div>
+
+<script>
+  const markdownPath = '__MARKDOWN_FILENAME__';
+
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default',
+    securityLevel: 'loose',
+    flowchart: { useMaxWidth: true, htmlLabels: true },
+    sequence: { useMaxWidth: true },
+  });
+
+  async function render() {
+    try {
+      const resp = await fetch(markdownPath);
+      if (!resp.ok) throw new Error(`Failed to load ${markdownPath}`);
+      let md = await resp.text();
+
+      // Configure marked
+      marked.setOptions({
+        gfm: true,
+        breaks: false,
+        headerIds: true,
+      });
+
+      // Render markdown but preserve mermaid blocks
+      const mermaidBlocks = [];
+      md = md.replace(/```mermaid\n([\s\S]*?)```/g, (_, code) => {
+        const idx = mermaidBlocks.length;
+        mermaidBlocks.push(code.trim());
+        return `<div class="mermaid" id="mermaid-${idx}">${code.trim()}</div>`;
+      });
+
+      const html = marked.parse(md);
+      document.getElementById('content').innerHTML = html;
+
+      // Render mermaid diagrams
+      await mermaid.run({ querySelector: '.mermaid' });
+
+      // Build table of contents
+      buildToc();
+    } catch (err) {
+      document.getElementById('content').innerHTML =
+        `<h1>Error loading proposal</h1><p>${err.message}</p>
+         <p>Make sure <code>${markdownPath}</code> is in the same directory as this HTML file.</p>`;
+    }
+  }
+
+  function buildToc() {
+    const headings = document.querySelectorAll('#content h1, #content h2, #content h3');
+    const toc = document.getElementById('toc');
+    let tocHtml = '<strong style="display:block;margin-bottom:0.75rem;">Contents</strong>';
+
+    headings.forEach((h, i) => {
+      const id = h.id || `heading-${i}`;
+      h.id = id;
+      const cls = h.tagName.toLowerCase();
+      const text = h.textContent;
+      tocHtml += `<a href="#${id}" class="${cls}">${text}</a>`;
+    });
+
+    toc.innerHTML = tocHtml;
+
+    // Close toc on link click (mobile)
+    toc.querySelectorAll('a').forEach(a => {
+      a.addEventListener('click', () => toc.classList.remove('open'));
+    });
+  }
+
+  render();
+</script>
+</body>
+</html>
