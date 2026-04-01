@@ -2,6 +2,8 @@ use clap::{Args, Parser, Subcommand};
 use console::style;
 use rex_cli::models::checklist::{ChecklistCategory, Phase};
 use rex_cli::models::planning::{ListMods, PlanningStatus};
+use rex_cli::models::project::Category;
+use rex_cli::models::project::Complexity;
 use rex_cli::models::project_status::Status;
 
 #[derive(Parser)]
@@ -175,6 +177,18 @@ enum ProjectAction {
     UpdateDescription {
         /// New description
         description: String,
+    },
+    /// Update the active project's category
+    UpdateCategory {
+        /// New category
+        #[arg(value_enum)]
+        category: Category,
+    },
+    /// Update the active project's complexity
+    UpdateComplexity {
+        /// New complexity
+        #[arg(value_enum)]
+        complexity: Complexity,
     },
     /// Get the next actionable item from the project status
     NextItem,
@@ -505,6 +519,12 @@ fn main() {
             }
             ProjectAction::UpdateDescription { description } => {
                 rex_cli::commands::project::update_description(&description)
+            }
+            ProjectAction::UpdateCategory { category } => {
+                rex_cli::commands::project::update_category(category)
+            }
+            ProjectAction::UpdateComplexity { complexity } => {
+                rex_cli::commands::project::update_complexity(complexity)
             }
             ProjectAction::NextItem => rex_cli::commands::project::next_item(),
         },

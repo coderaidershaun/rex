@@ -526,6 +526,8 @@ rex project update-status <item> <status>
 rex project update-title "<title>"
 rex project update-subtitle "<subtitle>"
 rex project update-description "<description>"
+rex project update-category <binary|library|refactor>
+rex project update-complexity <low|medium|high>
 rex project update-directory "<path>"
 
 # Planning

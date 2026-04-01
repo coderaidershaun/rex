@@ -465,6 +465,40 @@ pub fn update_subtitle(subtitle: &str) -> Result<(), Box<dyn std::error::Error>>
     Ok(())
 }
 
+pub fn update_category(category: Category) -> Result<(), Box<dyn std::error::Error>> {
+    let mut registry = ProjectRegistry::load()?;
+    let project = registry.active.as_mut().ok_or("No active project.")?;
+    let old = project.category.clone();
+    project.category = category.clone();
+    registry.save()?;
+
+    println!(
+        "\n  {} Updated category for project \"{}\".",
+        style("\u{2713}").green().bold(),
+        registry.active.as_ref().unwrap().id
+    );
+    println!("  {:<16} {}", style("From:").dim(), old);
+    println!("  {:<16} {}\n", style("To:").dim(), category);
+    Ok(())
+}
+
+pub fn update_complexity(complexity: Complexity) -> Result<(), Box<dyn std::error::Error>> {
+    let mut registry = ProjectRegistry::load()?;
+    let project = registry.active.as_mut().ok_or("No active project.")?;
+    let old = project.complexity.clone();
+    project.complexity = complexity.clone();
+    registry.save()?;
+
+    println!(
+        "\n  {} Updated complexity for project \"{}\".",
+        style("\u{2713}").green().bold(),
+        registry.active.as_ref().unwrap().id
+    );
+    println!("  {:<16} {}", style("From:").dim(), old);
+    println!("  {:<16} {}\n", style("To:").dim(), complexity);
+    Ok(())
+}
+
 pub fn update_description(description: &str) -> Result<(), Box<dyn std::error::Error>> {
     let mut registry = ProjectRegistry::load()?;
     let project = registry.active.as_mut().ok_or("No active project.")?;

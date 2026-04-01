@@ -95,6 +95,15 @@ rex project update-subtitle "New subtitle here"
 rex project update-description "New description here"
 ```
 
+**If the user changed their mind about the project type or complexity** during the conversation (e.g., "actually this should be a binary, not a library" or "this is more complex than I thought"), update those too:
+
+```
+rex project update-category binary
+rex project update-complexity high
+```
+
+Valid categories: `binary`, `library`, `refactor`. Valid complexities: `low`, `medium`, `high`.
+
 Use what the user told you during the goal conversation to write clear, specific values. The title should name the project, the subtitle should be a one-line summary, and the description should capture the essential what/who/why in a sentence or two. Don't ask the user to wordsmith these — just derive them from the confirmed goal and update them.
 
 Write to the output path you were given (relative to the project's rex directory).
