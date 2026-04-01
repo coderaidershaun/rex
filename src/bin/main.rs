@@ -68,6 +68,8 @@ enum ProjectAction {
         /// New description
         description: String,
     },
+    /// Get the next actionable item from the project status
+    NextItem,
 }
 
 #[derive(Subcommand)]
@@ -176,6 +178,7 @@ fn main() {
             ProjectAction::UpdateDescription { description } => {
                 rex::commands::project::update_description(&description)
             }
+            ProjectAction::NextItem => rex::commands::project::next_item(),
         },
         Commands::Checklist { action } => match action {
             ChecklistAction::Init { date } => rex::commands::checklist::init(date),

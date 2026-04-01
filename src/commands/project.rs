@@ -478,6 +478,99 @@ pub fn update_description(description: &str) -> Result<(), Box<dyn std::error::E
     Ok(())
 }
 
+pub fn next_item() -> Result<(), Box<dyn std::error::Error>> {
+    let registry = ProjectRegistry::load()?;
+    let project = registry.active.ok_or("No active project.")?;
+
+    let project_dir = format!("rex/{}", project.id);
+    let path = Path::new(&project_dir).join("project-status.json");
+    let contents = fs::read_to_string(&path)
+        .map_err(|e| format!("Failed to read project-status.json: {e}"))?;
+    let raw: serde_json::Value = serde_json::from_str(&contents)
+        .map_err(|e| format!("Failed to parse project-status.json: {e}"))?;
+
+    let tasks = flatten_tasks(&raw)?;
+
+    let next = tasks.iter().find(|task| {
+        match task.get("status").and_then(|s| s.as_str()) {
+            Some("completed") | Some("not-required") => false,
+            _ => true,
+        }
+    });
+
+    match next {
+        Some(task) => {
+            println!("{}", serde_json::to_string_pretty(task)?);
+        }
+        None => {
+            println!(
+                "\n  {} All items are completed or not required in project \"{}\".\n",
+                style("\u{2139}").blue().bold(),
+                project.id
+            );
+        }
+    }
+
+    Ok(())
+}
+
+/// Flattens project-status.json into an ordered list of tasks with a `phase` field.
+///
+/// Supports two formats:
+/// - **Grouped (current):** an object with phase keys (`user_support`, `onboarding`, `design`)
+///   each containing an array of task objects. A `"phase"` field is injected into each task.
+/// - **Flat (future):** a top-level array of task objects that already contain a `"phase"` field.
+fn flatten_tasks(
+    raw: &serde_json::Value,
+) -> Result<Vec<serde_json::Value>, Box<dyn std::error::Error>> {
+    let mut tasks = Vec::new();
+
+    if let Some(obj) = raw.as_object() {
+        // Current format: object with phase keys containing arrays of tasks.
+        // Process known phases in workflow order, then any remaining keys.
+        let known_phases = ["user_support", "onboarding", "design"];
+        for phase_key in &known_phases {
+            if let Some(items) = obj.get(*phase_key).and_then(|v| v.as_array()) {
+                let phase_name = phase_key.replace('_', "-");
+                for item in items {
+                    let mut task = item.clone();
+                    if let Some(task_obj) = task.as_object_mut() {
+                        task_obj.insert(
+                            "phase".to_string(),
+                            serde_json::Value::String(phase_name.clone()),
+                        );
+                    }
+                    tasks.push(task);
+                }
+            }
+        }
+        for (key, value) in obj {
+            if !known_phases.contains(&key.as_str()) {
+                if let Some(items) = value.as_array() {
+                    let phase_name = key.replace('_', "-");
+                    for item in items {
+                        let mut task = item.clone();
+                        if let Some(task_obj) = task.as_object_mut() {
+                            task_obj.insert(
+                                "phase".to_string(),
+                                serde_json::Value::String(phase_name.clone()),
+                            );
+                        }
+                        tasks.push(task);
+                    }
+                }
+            }
+        }
+    } else if let Some(arr) = raw.as_array() {
+        // Future flat format: array of tasks with phase field already present.
+        tasks = arr.clone();
+    } else {
+        return Err("project-status.json has unexpected format.".into());
+    }
+
+    Ok(tasks)
+}
+
 pub fn get_active() -> Result<(), Box<dyn std::error::Error>> {
     let registry = ProjectRegistry::load()?;
 

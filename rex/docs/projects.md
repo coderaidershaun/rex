@@ -23,6 +23,7 @@ When a project is created, a metadata directory is also created at `rex/<project
 |---------------|----------|--------------------------------------------------|
 | `id`          | yes      | Unique project identifier (used as directory name)|
 | `category`    | yes      | One of `binary`, `library`, `refactor`           |
+| `complexity`  | yes      | One of `small`, `medium`, `large`                |
 | `title`       | yes      | Project title (defaults to "Complete later")     |
 | `subtitle`    | yes      | Short one-line summary (defaults to "Complete later") |
 | `description` | yes      | Detailed project description (defaults to "Complete later") |
@@ -45,21 +46,23 @@ rex project create
 
 **Prompts (in order):**
 
-1. **Project ID** — must be unique across all projects (active and inactive).
-2. **Category** — select from `binary`, `library`, `refactor`.
-3. **Title** — project title.
-4. **Subtitle** — short summary.
-5. **Description** — detailed description.
-6. **Directory** — the project's working directory. If a folder matching the project ID exists in the current working directory, it is auto-detected and offered as the default. Otherwise the user types a path manually.
+1. **Project ID** — must be unique across all projects (active and inactive). Lowercase letters and hyphens only.
+2. **Complexity** — select from `small`, `medium`, `large`.
+3. **Title** — project title (press Enter to default to "Complete later").
+4. **Subtitle** — short summary (press Enter to default to "Complete later").
+5. **Description** — detailed description (press Enter to default to "Complete later").
+6. **Directory** — the project's working directory. If a folder matching the project ID exists in the current working directory, it is auto-detected and offered as the default. Otherwise the user types a path manually. Relative paths are resolved to absolute.
 7. **User Name** — optional, press Enter to skip.
-
-After all prompts, a **summary** is displayed and the user must **confirm** before anything is written.
+8. **Category & Onboarding/Design Items** — interactive tab-selection widget for category (`binary`, `library`, `refactor`) and which onboarding/design steps to include.
+9. **Summary & Confirm** — review all fields. Options: Create, Go back (returns to step 8), Cancel.
 
 **Behavior on confirm:**
 
 - If there is already an active project, it is moved to `inactive`.
 - The new project becomes `active`.
-- The directory `rex/<project-id>/` is created.
+- If the project directory does not exist, it is scaffolded via `cargo new`.
+- The directory `rex/<project-id>/` is created with subdirectories: `onboarding/`, `user-support/`, `planning/`, `design/`, `execution/`, `uat/`.
+- `rex/<project-id>/project-status.json` is created with the selected onboarding and design items.
 - `rex/projects.json` is updated.
 
 **Behavior on cancel:**
@@ -228,10 +231,55 @@ rex project update-status scope in-progress
 **Behavior:**
 
 - Loads the active project's `rex/<project-id>/project-status.json`.
-- Searches both `onboarding` and `user_support` lists for the matching item.
+- Searches the `onboarding`, `user_support`, and `design` lists for the matching item.
 - Updates the item's `status` field and saves.
 
 **Error cases:**
 
 - `"No active project."` — if no project is currently active.
 - `"Item X not found in project status."` — if the item name doesn't match any entry.
+
+---
+
+### `rex project next-item`
+
+Outputs the next actionable item from the active project's `project-status.json` as a JSON object.
+
+```
+rex project next-item
+```
+
+**Algorithm:**
+
+1. Loads the active project's `rex/<project-id>/project-status.json`.
+2. Flattens all tasks into a single ordered list. For the current grouped format (object with `user_support`, `onboarding`, `design` keys), tasks are collected in workflow order and each is tagged with a `"phase"` field (e.g., `"user-support"`, `"onboarding"`, `"design"`). A future flat array format (where tasks already contain a `"phase"` field) is also supported.
+3. Iterates through the flattened list and returns the **first** task whose `status` is **not** `completed` and **not** `not-required`.
+
+**Output:**
+
+A single JSON object containing all fields of the task plus an injected `"phase"` field:
+
+```json
+{
+  "item": "goal",
+  "phase": "onboarding",
+  "stop-on-finish": false,
+  "agent": {
+    "count": 1,
+    "effort": "high",
+    "model": "opus",
+    "skills": ["rex-onboarding-goal"]
+  },
+  "inputs": [],
+  "outputs": ["rex/my-project/onboarding/goal.md"],
+  "status": "not-started"
+}
+```
+
+If all items are completed or not required, prints an informational message instead.
+
+**Error cases:**
+
+- `"No active project."` — if no project is currently active.
+- `"Failed to read project-status.json: ..."` — if the file is missing or unreadable.
+- `"project-status.json has unexpected format."` — if the file is neither an object nor an array.
