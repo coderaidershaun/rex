@@ -1,11 +1,11 @@
 {
-  "planning": [
+  "design": [
     {
-      "item": "error-handling",
+      "item": "rex-design-rust-library-review",
       "agent": {
         "effort": "high",
-        "model": "sonnet",
-        "skills": ["rex-design-rust-errors"]
+        "model": "opus",
+        "skills": ["rex-design-rust-library-review"]
       },
       "inputs": [],
       "output": "rex/<insert-project-id>/design/error-handling.md",
