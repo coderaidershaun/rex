@@ -2,7 +2,7 @@
   <img src="static/logo.png" alt="Rex" width="200" />
 </p>
 
-<h1 align="center">Rex</h1>
+<h1 align="center">Rex-Cli</h1>
 
 <p align="center">
   A Rust CLI for harness management — structure, plan, and execute Rust exclusive projects with AI agents.
