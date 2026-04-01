@@ -63,11 +63,29 @@ This returns a JSON object describing the next actionable item from `project-sta
 
 If all items are completed, report this and stop.
 
-**After getting the item, check its `phase` field.** If the phase is `"execution"`, follow the **Execution Phase** path described in Step 3a. For all other phases (onboarding, design, planning, user-support), continue with the standard flow at Step 4.
+**After getting the item, check its `phase` field.** If the phase is `"execution"`, follow the **Execution Phase** path described in Step 3c. For all other phases (onboarding, design, planning, user-support), continue with the standard flow at Step 3b.
 
 ---
 
-## Step 3a: Execution Phase — Resolve the Next Task
+## Step 3b: Pre-dispatch validation
+
+Before marking an item as in-progress and dispatching it, check whether the item should be skipped. Some items are conditional on prior outputs — launching agents for them when the precondition isn't met wastes tokens.
+
+**Existing code exploration (`existing-code-exploration` in the design phase):**
+
+Read `rex/<project-id>/onboarding/existing-code.md`. If the file indicates there is no existing code (e.g., contains "Greenfield", "no existing code", or the Code Resources section is empty/absent), skip this item:
+
+```bash
+rex project update-status existing-code-exploration not-required
+```
+
+Then loop back to Step 3 to get the next item. Do not dispatch agents for exploration when there is nothing to explore.
+
+If the file confirms there is existing code to explore, proceed normally to Step 4.
+
+---
+
+## Step 3c: Execution Phase — Resolve the Next Task
 
 The execution phase works differently from other phases. Instead of the item itself describing a single piece of work, the execution item is a container — the real work lives in the planning tree (milestones → objectives → tasks). The operator uses `rex task next` to find the next task to work on, and dispatches an agent for that specific task.
 
