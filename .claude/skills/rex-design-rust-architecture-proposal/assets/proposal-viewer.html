@@ -274,9 +274,9 @@
 
 <div id="content"></div>
 
-<script>
-  const markdownPath = '__MARKDOWN_FILENAME__';
+<script type="text/markdown" id="md-source">__MARKDOWN_CONTENT__</script>
 
+<script>
   mermaid.initialize({
     startOnLoad: false,
     theme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default',
@@ -286,39 +286,31 @@
   });
 
   async function render() {
-    try {
-      const resp = await fetch(markdownPath);
-      if (!resp.ok) throw new Error(`Failed to load ${markdownPath}`);
-      let md = await resp.text();
+    let md = document.getElementById('md-source').textContent;
 
-      // Configure marked
-      marked.setOptions({
-        gfm: true,
-        breaks: false,
-        headerIds: true,
-      });
+    // Configure marked
+    marked.setOptions({
+      gfm: true,
+      breaks: false,
+      headerIds: true,
+    });
 
-      // Render markdown but preserve mermaid blocks
-      const mermaidBlocks = [];
-      md = md.replace(/```mermaid\n([\s\S]*?)```/g, (_, code) => {
-        const idx = mermaidBlocks.length;
-        mermaidBlocks.push(code.trim());
-        return `<div class="mermaid" id="mermaid-${idx}">${code.trim()}</div>`;
-      });
+    // Render markdown but preserve mermaid blocks
+    const mermaidBlocks = [];
+    md = md.replace(/```mermaid\n([\s\S]*?)```/g, (_, code) => {
+      const idx = mermaidBlocks.length;
+      mermaidBlocks.push(code.trim());
+      return `<div class="mermaid" id="mermaid-${idx}">${code.trim()}</div>`;
+    });
 
-      const html = marked.parse(md);
-      document.getElementById('content').innerHTML = html;
+    const html = marked.parse(md);
+    document.getElementById('content').innerHTML = html;
 
-      // Render mermaid diagrams
-      await mermaid.run({ querySelector: '.mermaid' });
+    // Render mermaid diagrams
+    await mermaid.run({ querySelector: '.mermaid' });
 
-      // Build table of contents
-      buildToc();
-    } catch (err) {
-      document.getElementById('content').innerHTML =
-        `<h1>Error loading proposal</h1><p>${err.message}</p>
-         <p>Make sure <code>${markdownPath}</code> is in the same directory as this HTML file.</p>`;
-    }
+    // Build table of contents
+    buildToc();
   }
 
   function buildToc() {

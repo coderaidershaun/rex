@@ -148,23 +148,24 @@ Aim for 5-8 diagrams in a typical proposal. More is fine if each one earns its p
 
 ## Generating the HTML viewer
 
-After writing the markdown proposal, generate an HTML file that renders it beautifully. Use the template at `assets/proposal-viewer.html` in this skill's directory.
+After writing the markdown proposal, generate a self-contained HTML file that renders it beautifully. Use the template at `assets/proposal-viewer.html` in this skill's directory.
 
 Steps:
 1. Read the template from `assets/proposal-viewer.html`
-2. Replace the placeholders:
+2. Read the markdown proposal you just wrote
+3. Escape the markdown content for embedding: replace any `</script>` occurrences with `<\/script>`
+4. Replace the placeholders in the template:
    - `__PROJECT_TITLE__` → the project's title (from onboarding goal or project metadata)
    - `__DATE__` → today's date
-   - `__MARKDOWN_FILENAME__` → the filename of the markdown proposal (just the filename, not the full path — e.g., `proposal.md`)
-3. Write the HTML file alongside the markdown file (same directory, same name but `.html` extension)
+   - `__MARKDOWN_CONTENT__` → the full escaped markdown content
+5. Write the HTML file alongside the markdown file (same directory, same name but `.html` extension)
 
-The HTML viewer:
-- Fetches and renders the markdown file client-side using marked.js
+The HTML viewer is fully self-contained — the markdown is embedded directly in the HTML, so it works when opened via `file:///` URLs with no server required. It:
+- Renders the embedded markdown client-side using marked.js
 - Renders mermaid diagrams inline
 - Has a collapsible table of contents built from headings
 - Supports dark mode automatically
 - Is print-friendly
-- Works offline after first load (CDN scripts are cached)
 
 Tell the user both files exist and suggest they open the HTML file in a browser for the best reading experience. Alternatively, the markdown file works in any markdown viewer (GitHub, VS Code, Obsidian) with mermaid support.
 
