@@ -192,6 +192,10 @@ enum ProjectAction {
     },
     /// Get the next actionable item from the project status
     NextItem,
+    /// Lock the active project
+    Lock,
+    /// Unlock the active project
+    Unlock,
 }
 
 // ---------------------------------------------------------------------------
@@ -539,6 +543,8 @@ fn main() {
                 rex_cli::commands::project::update_complexity(complexity)
             }
             ProjectAction::NextItem => rex_cli::commands::project::next_item(),
+            ProjectAction::Lock => rex_cli::commands::project::lock(),
+            ProjectAction::Unlock => rex_cli::commands::project::unlock(),
         },
 
         // -- Checklist ------------------------------------------------------

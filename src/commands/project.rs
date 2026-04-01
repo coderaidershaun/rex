@@ -609,6 +609,56 @@ fn flatten_tasks(
     Ok(tasks)
 }
 
+pub fn lock() -> Result<(), Box<dyn std::error::Error>> {
+    let mut registry = ProjectRegistry::load()?;
+    let project = registry.active.as_mut().ok_or("No active project.")?;
+
+    if project.locked {
+        println!(
+            "\n  {} Project \"{}\" is already locked.\n",
+            style("\u{2139}").blue().bold(),
+            project.id
+        );
+        return Ok(());
+    }
+
+    project.locked = true;
+    let id = project.id.clone();
+    registry.save()?;
+
+    println!(
+        "\n  {} Project \"{}\" is now locked.\n",
+        style("\u{2713}").green().bold(),
+        id
+    );
+    Ok(())
+}
+
+pub fn unlock() -> Result<(), Box<dyn std::error::Error>> {
+    let mut registry = ProjectRegistry::load()?;
+    let project = registry.active.as_mut().ok_or("No active project.")?;
+
+    if !project.locked {
+        println!(
+            "\n  {} Project \"{}\" is already unlocked.\n",
+            style("\u{2139}").blue().bold(),
+            project.id
+        );
+        return Ok(());
+    }
+
+    project.locked = false;
+    let id = project.id.clone();
+    registry.save()?;
+
+    println!(
+        "\n  {} Project \"{}\" is now unlocked.\n",
+        style("\u{2713}").green().bold(),
+        id
+    );
+    Ok(())
+}
+
 pub fn get_active() -> Result<(), Box<dyn std::error::Error>> {
     let registry = ProjectRegistry::load()?;
 
