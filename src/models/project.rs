@@ -76,6 +76,8 @@ pub struct Project {
     pub directory: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_name: Option<String>,
+    #[serde(default)]
+    pub locked: bool,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

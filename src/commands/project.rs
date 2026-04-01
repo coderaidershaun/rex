@@ -181,6 +181,7 @@ pub fn create() -> Result<(), Box<dyn std::error::Error>> {
             description: description.clone(),
             directory: directory.clone(),
             user_name: user_name.clone(),
+            locked: false,
         };
         print_project(&preview);
         println!();
@@ -211,6 +212,7 @@ pub fn create() -> Result<(), Box<dyn std::error::Error>> {
         description,
         directory,
         user_name,
+        locked: false,
     };
 
     // Ensure the source directory exists, scaffold with cargo if not

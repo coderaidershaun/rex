@@ -29,6 +29,7 @@ When a project is created, a metadata directory is also created at `rex/<project
 | `description` | yes      | Detailed project description (defaults to "Complete later") |
 | `directory`   | yes      | Absolute path to the project's working directory |
 | `user_name`   | no       | Name of the project owner                        |
+| `locked`      | yes      | `false` by default. When `true`, agents must not work on the project and the operator will skip it |
 
 ---
 
