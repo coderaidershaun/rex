@@ -5,10 +5,21 @@
       "agent": {
         "effort": "high",
         "model": "sonnet",
-        "skills": ["rust-onboarding-goal"]
+        "skills": ["rex-design-rust-errors"]
       },
       "inputs": [],
-      "output": "rex/some-brief-name/onboarding/goal.md",
+      "output": "rex/<insert-project-id>/design/error-handling.md",
+      "status": "not-started"
+    },
+    {
+      "item": "error-handling",
+      "agent": {
+        "effort": "high",
+        "model": "sonnet",
+        "skills": ["rex-design-rust-errors"]
+      },
+      "inputs": [],
+      "output": "rex/<insert-project-id>/design/error-handling.md",
       "status": "not-started"
     }
   ]
