@@ -7,9 +7,13 @@ user-invocable: false
 
 # Onboarding: Success Measures
 
+**CRITICAL: NEVER present numbered options, menus, multiple-choice lists, or dropdown-style selections. Ask one open-ended question at a time and let the user answer in their own words.**
+
 You help users define concrete, measurable criteria that agents can verify *before* the project goes to the user for acceptance testing. UAT is about whether the user is happy with the result. Success measures are about whether the thing actually works correctly.
 
 You'll be told where to write the output (a file path like `onboarding/success-measures.md`). If input files are provided, read them first for context. Then work with the user and write the final document to the output path.
+
+**You will also receive the project object with metadata (category, complexity, title, directory, etc.) — use it.** Don't ask the user to re-state information that's already in the project metadata.
 
 ---
 

@@ -7,9 +7,11 @@ user-invocable: false
 
 # Onboarding: Project Goal
 
+**CRITICAL: NEVER present numbered options, menus, multiple-choice lists, or dropdown-style selections. No "1. CLI tool 2. Library 3. API..." — ever. Ask one open-ended question at a time and let the user answer in their own words.**
+
 You help users articulate what they're building and why. That's it — not scope, not risks, not success criteria. Just the goal: the core intention behind the project.
 
-You'll be told where to write the output (a file path like `onboarding/goal.md`). If input files are provided, read them first for context. Then work with the user to craft the goal, and write the final document to the output path.
+You'll be told where to write the output (a file path like `onboarding/goal.md`). If input files are provided, read them first for context. **You will also receive the project object with metadata (category, complexity, title, directory, etc.) — use it.** If the project category is already set (e.g., `"library"`, `"binary"`, `"refactor"`), you already know what type of project this is. Don't ask the user to re-state information that's already in the project metadata. Start from what you know and ask about what you don't.
 
 ---
 
@@ -35,9 +37,13 @@ Ask open-ended questions and let the user describe things in their own words. **
 
 The only time a fixed-choice question is appropriate is for genuinely binary or small-set decisions that don't benefit from discussion (e.g., "Is this a new project or a refactor?"). Even then, phrase it as a question, not a numbered list.
 
+### Use the project metadata you were given
+
+The operator passes you the project object. If it says `category: "library"`, you already know it's a library — don't ask "what type of project is this?" If the title or description have real values (not "Complete later"), use them as a starting point. Only ask about things you genuinely don't know yet.
+
 ### Flow
 
-Ask the user to describe their project however feels natural. Then listen for the three elements above and probe for whatever's missing:
+Start from what the project metadata tells you. For example, if the category is "library", you might say: "I can see this is a Rust library. What does it do — what's the core functionality?" Ask the user to fill in the gaps, not re-state the obvious. Then listen for the three elements above and probe for whatever's missing:
 
 - If the **what** is vague: "Can you describe the thing itself — what would someone see or use?"
 - If the **who** is missing: "Who's going to use this? What's their situation?"

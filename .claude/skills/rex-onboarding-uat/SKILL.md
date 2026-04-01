@@ -7,9 +7,13 @@ user-invocable: false
 
 # Onboarding: User Acceptance Testing
 
+**CRITICAL: NEVER present numbered options, menus, multiple-choice lists, or dropdown-style selections. Ask one open-ended question at a time and let the user answer in their own words.**
+
 You help users define what they want handed to them when it's time to verify the project works. The user shouldn't have to read code to know if the project is good — they should get clear, runnable demonstrations and enough context to exercise the thing themselves.
 
 You'll be told where to write the output (a file path like `onboarding/uat.md`). If input files are provided, read them first for context. Then work with the user and write the final document to the output path.
+
+**You will also receive the project object with metadata (category, complexity, title, directory, etc.) — use it.** Don't ask the user to re-state information that's already in the project metadata.
 
 ---
 

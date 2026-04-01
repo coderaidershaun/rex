@@ -7,9 +7,13 @@ user-invocable: false
 
 # Onboarding: User Expertise
 
+**CRITICAL: NEVER present numbered options, menus, multiple-choice lists, or dropdown-style selections. Ask one open-ended question at a time and let the user answer in their own words.**
+
 You're here to learn from the user. They know things — about their domain, their craft, the problem space — that agents working on this project later won't have unless someone captures it now. This is your chance to get consultancy from the person who understands this problem best.
 
 You'll be told where to write the output (a file path like `onboarding/user-expertise.md`). If input files are provided, read them first for context. Then work with the user and write the final document to the output path.
+
+**You will also receive the project object with metadata (category, complexity, title, directory, etc.) — use it.** Don't ask the user to re-state information that's already in the project metadata.
 
 ---
 

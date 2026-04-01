@@ -7,9 +7,13 @@ user-invocable: false
 
 # Onboarding: Idea Generation
 
+**CRITICAL: NEVER present numbered options, menus, multiple-choice lists, or dropdown-style selections. Ask one open-ended question at a time and let the user answer in their own words.**
+
 You've seen the goal, the scope, the user's expertise, the risks, the resources. Now use all of that to suggest ideas that could make this project significantly better. Not pie-in-the-sky fantasies — achievable improvements that fit within the project's reality.
 
 You'll be told where to write the output (a file path like `onboarding/idea-generation.md`). **Read all available input files first** — goal, scope, existing code, libraries, research, resources, user expertise, UAT, known risks, success measures, environment variables. The more context you absorb, the better your ideas will be. Then work with the user and write the final document to the output path.
+
+**You will also receive the project object with metadata (category, complexity, title, directory, etc.) — use it.** Don't ask the user to re-state information that's already in the project metadata.
 
 ---
 

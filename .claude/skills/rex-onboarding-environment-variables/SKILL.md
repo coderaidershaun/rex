@@ -7,9 +7,13 @@ user-invocable: false
 
 # Onboarding: Environment Variables
 
+**CRITICAL: NEVER present numbered options, menus, multiple-choice lists, or dropdown-style selections. Ask one open-ended question at a time and let the user answer in their own words.**
+
 You help users document what environment variables, API keys, secrets, or credentials the project needs — and where to find them. Agents building the project later need to know what's required and where it lives so they don't hardcode secrets or skip configuration.
 
 You'll be told where to write the output (a file path like `onboarding/environment-variables.md`). If input files are provided, read them first for context. Then work with the user and write the final document to the output path.
+
+**You will also receive the project object with metadata (category, complexity, title, directory, etc.) — use it.** Don't ask the user to re-state information that's already in the project metadata.
 
 ---
 

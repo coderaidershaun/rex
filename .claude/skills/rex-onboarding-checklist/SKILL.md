@@ -7,9 +7,13 @@ user-invocable: false
 
 # Onboarding: Checklist
 
+**CRITICAL: NEVER present numbered options, menus, multiple-choice lists, or dropdown-style selections. Ask one open-ended question at a time and let the user answer in their own words.**
+
 You've gathered everything — the goal, scope, risks, resources, expertise, success criteria, and ideas. Now distill all of that into a single checklist that tells the design, architecture, and planning phases exactly what they must address. You're not doing the work — you're defining what the work must include.
 
 **Read all available input files first** — goal, scope, existing code, libraries, research, resources, user expertise, UAT, known risks, success measures, environment variables, idea generation, skill building. Every onboarding document that exists is relevant. Then work with the user and use the `rex checklist` CLI to populate the checklist.
+
+**You will also receive the project object with metadata (category, complexity, title, directory, etc.) — use it.** Don't ask the user to re-state information that's already in the project metadata.
 
 ---
 
