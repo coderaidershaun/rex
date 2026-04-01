@@ -1,11 +1,11 @@
 use clap::{Args, Parser, Subcommand};
 use console::style;
-use rex::models::checklist::{ChecklistCategory, Phase};
-use rex::models::planning::{ListMods, PlanningStatus};
-use rex::models::project_status::Status;
+use rex_cli::models::checklist::{ChecklistCategory, Phase};
+use rex_cli::models::planning::{ListMods, PlanningStatus};
+use rex_cli::models::project_status::Status;
 
 #[derive(Parser)]
-#[command(name = "rex", about = "Rex project management CLI", version)]
+#[command(name = "rex-cli", about = "Rex project management CLI", version)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -478,65 +478,65 @@ fn main() {
         // -- Init -----------------------------------------------------------
         Commands::Init { claude, cursor } => {
             let agent_os = if claude {
-                Some(rex::commands::init::AgentOs::Claude)
+                Some(rex_cli::commands::init::AgentOs::Claude)
             } else if cursor {
-                Some(rex::commands::init::AgentOs::Cursor)
+                Some(rex_cli::commands::init::AgentOs::Cursor)
             } else {
                 None
             };
-            rex::commands::init::init(agent_os)
+            rex_cli::commands::init::init(agent_os)
         }
 
         // -- Project --------------------------------------------------------
         Commands::Project { action } => match action {
-            ProjectAction::Create => rex::commands::project::create(),
-            ProjectAction::GetActive => rex::commands::project::get_active(),
-            ProjectAction::Remove { id } => rex::commands::project::remove(&id),
-            ProjectAction::Activate { id } => rex::commands::project::activate(&id),
+            ProjectAction::Create => rex_cli::commands::project::create(),
+            ProjectAction::GetActive => rex_cli::commands::project::get_active(),
+            ProjectAction::Remove { id } => rex_cli::commands::project::remove(&id),
+            ProjectAction::Activate { id } => rex_cli::commands::project::activate(&id),
             ProjectAction::UpdateDirectory { directory } => {
-                rex::commands::project::update_directory(&directory)
+                rex_cli::commands::project::update_directory(&directory)
             }
             ProjectAction::UpdateStatus { item, status } => {
-                rex::commands::project::update_status(&item, status)
+                rex_cli::commands::project::update_status(&item, status)
             }
-            ProjectAction::UpdateTitle { title } => rex::commands::project::update_title(&title),
+            ProjectAction::UpdateTitle { title } => rex_cli::commands::project::update_title(&title),
             ProjectAction::UpdateSubtitle { subtitle } => {
-                rex::commands::project::update_subtitle(&subtitle)
+                rex_cli::commands::project::update_subtitle(&subtitle)
             }
             ProjectAction::UpdateDescription { description } => {
-                rex::commands::project::update_description(&description)
+                rex_cli::commands::project::update_description(&description)
             }
-            ProjectAction::NextItem => rex::commands::project::next_item(),
+            ProjectAction::NextItem => rex_cli::commands::project::next_item(),
         },
 
         // -- Checklist ------------------------------------------------------
         Commands::Checklist { action } => match action {
-            ChecklistAction::Init { date } => rex::commands::checklist::init(date),
+            ChecklistAction::Init { date } => rex_cli::commands::checklist::init(date),
             ChecklistAction::Add {
                 category,
                 id,
                 title,
                 description,
                 phase,
-            } => rex::commands::checklist::add(category, &id, &title, &description, phase),
+            } => rex_cli::commands::checklist::add(category, &id, &title, &description, phase),
             ChecklistAction::List {
                 category,
                 phase,
                 complete,
                 incomplete,
-            } => rex::commands::checklist::list(category, phase, complete, incomplete),
-            ChecklistAction::Get { id } => rex::commands::checklist::get(&id),
+            } => rex_cli::commands::checklist::list(category, phase, complete, incomplete),
+            ChecklistAction::Get { id } => rex_cli::commands::checklist::get(&id),
             ChecklistAction::Update {
                 id,
                 title,
                 description,
                 phase,
-            } => rex::commands::checklist::update(&id, title, description, phase),
-            ChecklistAction::Complete { id } => rex::commands::checklist::complete(&id),
-            ChecklistAction::Uncomplete { id } => rex::commands::checklist::uncomplete(&id),
-            ChecklistAction::Remove { id } => rex::commands::checklist::remove(&id),
+            } => rex_cli::commands::checklist::update(&id, title, description, phase),
+            ChecklistAction::Complete { id } => rex_cli::commands::checklist::complete(&id),
+            ChecklistAction::Uncomplete { id } => rex_cli::commands::checklist::uncomplete(&id),
+            ChecklistAction::Remove { id } => rex_cli::commands::checklist::remove(&id),
             ChecklistAction::SetContext { context } => {
-                rex::commands::checklist::set_context(&context)
+                rex_cli::commands::checklist::set_context(&context)
             }
         },
 
@@ -548,10 +548,10 @@ fn main() {
                 description,
                 status,
                 mods,
-            } => rex::commands::milestone::upsert(&id, title, description, status, mods.into()),
-            MilestoneAction::Get { id } => rex::commands::milestone::get(&id),
-            MilestoneAction::List { status } => rex::commands::milestone::list(status),
-            MilestoneAction::Remove { id } => rex::commands::milestone::remove(&id),
+            } => rex_cli::commands::milestone::upsert(&id, title, description, status, mods.into()),
+            MilestoneAction::Get { id } => rex_cli::commands::milestone::get(&id),
+            MilestoneAction::List { status } => rex_cli::commands::milestone::list(status),
+            MilestoneAction::Remove { id } => rex_cli::commands::milestone::remove(&id),
         },
 
         // -- Objective ------------------------------------------------------
@@ -563,14 +563,14 @@ fn main() {
                 description,
                 status,
                 mods,
-            } => rex::commands::objective::upsert(
+            } => rex_cli::commands::objective::upsert(
                 &id, milestone, title, description, status, mods.into(),
             ),
-            ObjectiveAction::Get { id } => rex::commands::objective::get(&id),
+            ObjectiveAction::Get { id } => rex_cli::commands::objective::get(&id),
             ObjectiveAction::List { milestone, status } => {
-                rex::commands::objective::list(milestone, status)
+                rex_cli::commands::objective::list(milestone, status)
             }
-            ObjectiveAction::Remove { id } => rex::commands::objective::remove(&id),
+            ObjectiveAction::Remove { id } => rex_cli::commands::objective::remove(&id),
         },
 
         // -- Task -----------------------------------------------------------
@@ -583,14 +583,14 @@ fn main() {
                 status,
                 mods,
             } => {
-                rex::commands::task::upsert(&id, objective, title, description, status, mods.into())
+                rex_cli::commands::task::upsert(&id, objective, title, description, status, mods.into())
             }
-            TaskAction::Get { id } => rex::commands::task::get(&id),
+            TaskAction::Get { id } => rex_cli::commands::task::get(&id),
             TaskAction::List { objective, status } => {
-                rex::commands::task::list(objective, status)
+                rex_cli::commands::task::list(objective, status)
             }
-            TaskAction::Remove { id } => rex::commands::task::remove(&id),
-            TaskAction::Next => rex::commands::task::next(),
+            TaskAction::Remove { id } => rex_cli::commands::task::remove(&id),
+            TaskAction::Next => rex_cli::commands::task::next(),
         },
 
         // -- History --------------------------------------------------------
@@ -602,11 +602,11 @@ fn main() {
                 entities,
                 files,
                 session,
-            } => rex::commands::history::insert_recent(
+            } => rex_cli::commands::history::insert_recent(
                 &id, &timestamp, &summary, entities, files, session,
             ),
             HistoryAction::RemoveFromRecent { id } => {
-                rex::commands::history::remove_from_recent(&id)
+                rex_cli::commands::history::remove_from_recent(&id)
             }
             HistoryAction::InsertCompacted {
                 id,
@@ -615,14 +615,14 @@ fn main() {
                 entities,
                 files,
                 session,
-            } => rex::commands::history::insert_compacted(
+            } => rex_cli::commands::history::insert_compacted(
                 &id, &timestamp, &summary, entities, files, session,
             ),
             HistoryAction::RemoveFromCompacted { id } => {
-                rex::commands::history::remove_from_compacted(&id)
+                rex_cli::commands::history::remove_from_compacted(&id)
             }
-            HistoryAction::GetRecent => rex::commands::history::get_recent(),
-            HistoryAction::List => rex::commands::history::list(),
+            HistoryAction::GetRecent => rex_cli::commands::history::get_recent(),
+            HistoryAction::List => rex_cli::commands::history::list(),
         },
     };
 

@@ -5,7 +5,7 @@
 <h1 align="center">Rex</h1>
 
 <p align="center">
-  A Rust CLI for harness management — structure, plan, and execute projects with AI agents.
+  A Rust CLI for harness management — structure, plan, and execute Rust exclusive projects with AI agents.
 </p>
 
 <p align="center">
@@ -26,13 +26,13 @@ cargo install rex-cli
 Set up the rex harness in your project directory:
 
 ```bash
-rex init
+rex-cli init
 ```
 
 ### Create a Project
 
 ```bash
-rex project create
+rex-cli project create
 ```
 
 ### Run the Operator
@@ -60,18 +60,18 @@ Rex gives AI agents the scaffolding they need to build real software — trackin
 
 | Command | Description |
 |---|---|
-| `rex init` | Initialize the harness in the current directory |
-| `rex project create` | Create a new project interactively |
-| `rex project get-active` | Show the current active project |
-| `rex project next-item` | Get the next actionable item |
-| `rex milestone upsert` | Create or update a milestone |
-| `rex objective upsert` | Create or update an objective |
-| `rex task upsert` | Create or update a task |
-| `rex task next` | Get the next task to work on |
-| `rex checklist list` | List checklist items |
-| `rex history list` | View session history |
+| `rex-cli init` | Initialize the harness in the current directory |
+| `rex-cli project create` | Create a new project interactively |
+| `rex-cli project get-active` | Show the current active project |
+| `rex-cli project next-item` | Get the next actionable item |
+| `rex-cli milestone upsert` | Create or update a milestone |
+| `rex-cli objective upsert` | Create or update an objective |
+| `rex-cli task upsert` | Create or update a task |
+| `rex-cli task next` | Get the next task to work on |
+| `rex-cli checklist list` | List checklist items |
+| `rex-cli history list` | View session history |
 
-Run `rex --help` or `rex <command> --help` for full usage details.
+Run `rex-cli --help` or `rex-cli <command> --help` for full usage details.
 
 ## License
 
