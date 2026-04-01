@@ -1,3 +1,4 @@
+use crate::models::project::Category;
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -15,9 +16,15 @@ pub enum Status {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Agent {
+    #[serde(default = "default_count")]
+    pub count: u32,
     pub effort: String,
     pub model: String,
     pub skills: Vec<String>,
+}
+
+fn default_count() -> u32 {
+    1
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -31,9 +38,11 @@ pub struct Step {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskStep {
     pub item: String,
+    #[serde(rename = "stop-on-finish", default)]
+    pub stop_on_finish: bool,
     pub agent: Agent,
     pub inputs: Vec<String>,
-    pub output: String,
+    pub outputs: Vec<String>,
     pub status: Status,
 }
 
@@ -65,10 +74,23 @@ pub const ONBOARDING_ITEMS: &[&str] = &[
     "checklist",
 ];
 
+pub const DESIGN_ITEMS: &[&str] = &[
+    "existing-code-exploration",
+    "library-review",
+    "module-design",
+    "architecture-design",
+    "integration-testing",
+    "foreign-critique",
+    "error-handling",
+    "architecture-proposal",
+    "user-acceptance",
+];
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectStatus {
     pub user_support: Vec<TaskStep>,
     pub onboarding: Vec<TaskStep>,
+    pub design: Vec<TaskStep>,
 }
 
 impl ProjectStatus {
@@ -80,12 +102,17 @@ impl ProjectStatus {
             .map_err(|e| format!("Failed to parse project-status.json: {e}"))
     }
 
-    pub fn new(project_id: &str, selected_items: &[String]) -> Self {
+    pub fn new(
+        project_id: &str,
+        selected_onboarding: &[String],
+        selected_design: &[String],
+        category: &Category,
+    ) -> Self {
         let onboarding = ONBOARDING_ITEMS
             .iter()
             .enumerate()
             .map(|(i, &item)| {
-                let is_selected = selected_items.iter().any(|s| s == item);
+                let is_selected = selected_onboarding.iter().any(|s| s == item);
                 let status = if is_required_always(item) || is_selected {
                     Status::NotStarted
                 } else {
@@ -98,36 +125,42 @@ impl ProjectStatus {
                     .collect();
 
                 let (effort, model) = agent_defaults(item);
-
                 let ext = if item == "checklist" { "json" } else { "md" };
 
                 TaskStep {
                     item: item.to_string(),
+                    stop_on_finish: false,
                     agent: Agent {
+                        count: 1,
                         effort: effort.into(),
                         model: model.into(),
                         skills: vec![format!("rex-onboarding-{item}")],
                     },
                     inputs,
-                    output: format!("rex/{project_id}/onboarding/{item}.{ext}"),
+                    outputs: vec![format!("rex/{project_id}/onboarding/{item}.{ext}")],
                     status,
                 }
             })
             .collect();
 
+        let design = build_design_steps(project_id, selected_design, category);
+
         Self {
             user_support: vec![TaskStep {
                 item: "user-input".into(),
+                stop_on_finish: false,
                 agent: Agent {
+                    count: 1,
                     effort: "high".into(),
                     model: "opus".into(),
                     skills: vec!["rex-user-input".into()],
                 },
                 inputs: vec![format!("rex/{project_id}/user-support/requested.md")],
-                output: format!("rex/{project_id}/user-support/provided.md"),
+                outputs: vec![format!("rex/{project_id}/user-support/provided.md")],
                 status: Status::Completed,
             }],
             onboarding,
+            design,
         }
     }
 
@@ -156,5 +189,192 @@ fn agent_defaults(item: &str) -> (&'static str, &'static str) {
         }
         "idea-generation" | "skill-building" | "checklist" => ("ultrathink", "opus"),
         _ => ("medium", "sonnet"),
+    }
+}
+
+/// Design items that are always required.
+pub fn is_design_required(item: &str, category: &Category) -> bool {
+    matches!(
+        item,
+        "module-design" | "architecture-design" | "error-handling" | "architecture-proposal"
+    ) || (item == "existing-code-exploration" && matches!(category, Category::Refactor))
+}
+
+fn build_design_steps(
+    project_id: &str,
+    selected_items: &[String],
+    category: &Category,
+) -> Vec<TaskStep> {
+    DESIGN_ITEMS
+        .iter()
+        .map(|&item| {
+            let is_selected = selected_items.iter().any(|s| s == item);
+            let status = if is_design_required(item, category) || is_selected {
+                Status::NotStarted
+            } else {
+                Status::NotRequired
+            };
+
+            let (count, effort, model, skills) = design_agent_config(item);
+
+            TaskStep {
+                item: item.to_string(),
+                stop_on_finish: true,
+                agent: Agent {
+                    count,
+                    effort: effort.into(),
+                    model: model.into(),
+                    skills: skills.iter().map(|s| s.to_string()).collect(),
+                },
+                inputs: design_inputs(project_id, item),
+                outputs: design_outputs(project_id, item),
+                status,
+            }
+        })
+        .collect()
+}
+
+fn design_agent_config(item: &str) -> (u32, &'static str, &'static str, Vec<&'static str>) {
+    match item {
+        "existing-code-exploration" => (
+            3,
+            "high",
+            "opus",
+            vec!["rex-design-rust-existing-code-exploration"],
+        ),
+        "library-review" => (1, "high", "opus", vec!["rex-design-rust-library-review"]),
+        "module-design" => (1, "max", "opus", vec!["rex-design-rust-modules"]),
+        "architecture-design" => (1, "max", "opus", vec!["rex-design-rust-architecture"]),
+        "integration-testing" => (
+            1,
+            "max",
+            "opus",
+            vec!["rex-design-rust-integration-tests"],
+        ),
+        "foreign-critique" => (3, "max", "opus", vec!["rex-design-foreign-critique"]),
+        "error-handling" => (1, "high", "sonnet", vec!["rex-design-rust-errors"]),
+        "architecture-proposal" => (
+            3,
+            "max",
+            "opus",
+            vec!["rex-design-rust-architecture-proposal"],
+        ),
+        "user-acceptance" => (3, "max", "opus", vec!["rex-design-user-acceptance"]),
+        _ => (1, "high", "sonnet", vec![]),
+    }
+}
+
+fn design_inputs(id: &str, item: &str) -> Vec<String> {
+    let o = |name: &str| format!("rex/{id}/onboarding/{name}");
+    let d = |name: &str| format!("rex/{id}/design/{name}");
+
+    match item {
+        "existing-code-exploration" => vec![o("goal.md"), o("scope.md"), o("existing-code.md")],
+        "library-review" => vec![
+            o("goal.md"),
+            o("scope.md"),
+            o("user-expertise.md"),
+            o("checklist.json"),
+            o("libraries-and-sdks.md"),
+        ],
+        "module-design" => vec![
+            o("research.md"),
+            o("resources.md"),
+            o("user-expertise.md"),
+            o("success-measures.md"),
+            o("known-risks.md"),
+            o("uat.md"),
+            o("environment-variables.md"),
+            o("idea-generation.md"),
+            o("goal.md"),
+            o("user-expertise.md"),
+            o("checklist.json"),
+            o("libraries-and-sdks.md"),
+            d("existing-code-exploration.md"),
+            d("library-review.md"),
+        ],
+        "architecture-design" => vec![
+            o("research.md"),
+            o("resources.md"),
+            o("user-expertise.md"),
+            o("success-measures.md"),
+            o("known-risks.md"),
+            o("uat.md"),
+            o("environment-variables.md"),
+            o("idea-generation.md"),
+            o("goal.md"),
+            o("user-expertise.md"),
+            o("checklist.json"),
+            o("libraries-and-sdks.md"),
+            d("existing-code-exploration.md"),
+            d("library-review.md"),
+            d("module-design.md"),
+        ],
+        "integration-testing" => vec![
+            o("research.md"),
+            o("resources.md"),
+            o("user-expertise.md"),
+            o("success-measures.md"),
+            o("known-risks.md"),
+            o("uat.md"),
+            o("environment-variables.md"),
+            o("idea-generation.md"),
+            o("goal.md"),
+            o("user-expertise.md"),
+            o("checklist.json"),
+            o("libraries-and-sdks.md"),
+            d("existing-code-exploration.md"),
+            d("library-review.md"),
+            d("module-design.md"),
+            d("architecture-design.md"),
+        ],
+        "foreign-critique" => vec![
+            o("goal.md"),
+            o("scope.md"),
+            o("existing-code.md"),
+            o("libraries-and-sdks.md"),
+            o("research.md"),
+            o("resources.md"),
+            o("user-expertise.md"),
+            o("success-measures.md"),
+            o("known-risks.md"),
+            o("uat.md"),
+            o("environment-variables.md"),
+            o("idea-generation.md"),
+            o("skill-building.md"),
+            d("existing-code-exploration.md"),
+            d("library-review.md"),
+            d("module-design.md"),
+            d("architecture-design.md"),
+        ],
+        "error-handling" => vec![
+            d("existing-code-exploration.md"),
+            d("library-review.md"),
+            d("module-design.md"),
+            d("architecture-design.md"),
+        ],
+        "architecture-proposal" => vec![
+            o("goal.md"),
+            o("scope.md"),
+            d("error-handling.md"),
+            d("existing-code-exploration.md"),
+            d("library-review.md"),
+            d("module-design.md"),
+            d("architecture-design.md"),
+        ],
+        "user-acceptance" => vec![d("architecture-proposal.html")],
+        _ => vec![],
+    }
+}
+
+fn design_outputs(id: &str, item: &str) -> Vec<String> {
+    let d = |name: &str| format!("rex/{id}/design/{name}");
+
+    match item {
+        "architecture-proposal" => {
+            vec![d("architecture-proposal.md"), d("architecture-proposal.html")]
+        }
+        "integration-testing" => vec![d("integration-tests.md")],
+        _ => vec![d(&format!("{item}.md"))],
     }
 }

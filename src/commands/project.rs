@@ -1,5 +1,6 @@
 use crate::models::project::{Category, Complexity, Project, ProjectRegistry};
 use crate::models::project_status::{ProjectStatus, Status};
+use crate::ui::design_select::design_select;
 use crate::ui::tab_select::tab_select;
 use crate::ui::text_input::text_input;
 use console::style;
@@ -161,9 +162,10 @@ pub fn create() -> Result<(), Box<dyn std::error::Error>> {
         .interact_text()?;
     let user_name = Some(user_name_input).filter(|s| !s.is_empty());
 
-    // --- Category & Onboarding (tab widget) with go-back support ---
-    let tab_result = loop {
+    // --- Category, Onboarding & Design (interactive widgets) with go-back support ---
+    let (tab_result, design_result) = loop {
         let result = tab_select(&complexity)?;
+        let design = design_select(&complexity, &result.category)?;
 
         // --- Summary ---
         println!();
@@ -191,7 +193,7 @@ pub fn create() -> Result<(), Box<dyn std::error::Error>> {
             .interact()?;
 
         match action {
-            0 => break result,
+            0 => break (result, design),
             1 => continue,
             _ => {
                 println!("\n  {}", style("Cancelled.").yellow());
@@ -234,6 +236,7 @@ pub fn create() -> Result<(), Box<dyn std::error::Error>> {
     // --- Persist ---
     let mut registry = ProjectRegistry::load()?;
     let prev_active_id = registry.active.as_ref().map(|p| p.id.clone());
+    let category = project.category.clone();
     registry.set_active(project);
 
     // Create rex/<project-id>/ directory, subdirectories, and project-status.json
@@ -242,7 +245,7 @@ pub fn create() -> Result<(), Box<dyn std::error::Error>> {
         fs::create_dir_all(format!("{project_dir}/{sub}"))?;
     }
 
-    let status = ProjectStatus::new(&id, &tab_result.selected_items);
+    let status = ProjectStatus::new(&id, &tab_result.selected_items, &design_result.selected_items, &category);
     status.save(Path::new(&project_dir))?;
 
     registry.save()?;
@@ -282,6 +285,7 @@ pub fn update_status(item: &str, status: Status) -> Result<(), Box<dyn std::erro
         .onboarding
         .iter_mut()
         .chain(&mut project_status.user_support)
+        .chain(&mut project_status.design)
         .find(|s| s.item == item)
         .ok_or_else(|| format!("Item \"{item}\" not found in project status."))?;
 

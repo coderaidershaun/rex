@@ -1,0 +1,307 @@
+{
+  "user_support": [
+    {
+      "item": "user-input",
+      "agent": {
+        "effort": "high",
+        "model": "opus",
+        "skills": [
+          "rex-user-input"
+        ]
+      },
+      "inputs": [
+        "rex/some-brief-namesss/user-support/requested.md"
+      ],
+      "output": "rex/some-brief-namesss/user-support/provided.md",
+      "status": "completed"
+    }
+  ],
+  "onboarding": [
+    {
+      "item": "goal",
+      "agent": {
+        "effort": "high",
+        "model": "opus",
+        "skills": [
+          "rex-onboarding-goal"
+        ]
+      },
+      "inputs": [],
+      "output": "rex/some-brief-namesss/onboarding/goal.md",
+      "status": "not-started"
+    },
+    {
+      "item": "scope",
+      "agent": {
+        "effort": "high",
+        "model": "opus",
+        "skills": [
+          "rex-onboarding-scope"
+        ]
+      },
+      "inputs": [
+        "rex/some-brief-namesss/onboarding/goal.md"
+      ],
+      "output": "rex/some-brief-namesss/onboarding/scope.md",
+      "status": "not-started"
+    },
+    {
+      "item": "existing-code",
+      "agent": {
+        "effort": "medium",
+        "model": "sonnet",
+        "skills": [
+          "rex-onboarding-existing-code"
+        ]
+      },
+      "inputs": [
+        "rex/some-brief-namesss/onboarding/goal.md",
+        "rex/some-brief-namesss/onboarding/scope.md"
+      ],
+      "output": "rex/some-brief-namesss/onboarding/existing-code.md",
+      "status": "not-started"
+    },
+    {
+      "item": "libraries-and-sdks",
+      "agent": {
+        "effort": "medium",
+        "model": "sonnet",
+        "skills": [
+          "rex-onboarding-libraries-and-sdks"
+        ]
+      },
+      "inputs": [
+        "rex/some-brief-namesss/onboarding/goal.md",
+        "rex/some-brief-namesss/onboarding/scope.md",
+        "rex/some-brief-namesss/onboarding/existing-code.md"
+      ],
+      "output": "rex/some-brief-namesss/onboarding/libraries-and-sdks.md",
+      "status": "not-started"
+    },
+    {
+      "item": "research",
+      "agent": {
+        "effort": "medium",
+        "model": "sonnet",
+        "skills": [
+          "rex-onboarding-research"
+        ]
+      },
+      "inputs": [
+        "rex/some-brief-namesss/onboarding/goal.md",
+        "rex/some-brief-namesss/onboarding/scope.md",
+        "rex/some-brief-namesss/onboarding/existing-code.md",
+        "rex/some-brief-namesss/onboarding/libraries-and-sdks.md"
+      ],
+      "output": "rex/some-brief-namesss/onboarding/research.md",
+      "status": "not-started"
+    },
+    {
+      "item": "resources",
+      "agent": {
+        "effort": "medium",
+        "model": "sonnet",
+        "skills": [
+          "rex-onboarding-resources"
+        ]
+      },
+      "inputs": [
+        "rex/some-brief-namesss/onboarding/goal.md",
+        "rex/some-brief-namesss/onboarding/scope.md",
+        "rex/some-brief-namesss/onboarding/existing-code.md",
+        "rex/some-brief-namesss/onboarding/libraries-and-sdks.md",
+        "rex/some-brief-namesss/onboarding/research.md"
+      ],
+      "output": "rex/some-brief-namesss/onboarding/resources.md",
+      "status": "not-started"
+    },
+    {
+      "item": "user-expertise",
+      "agent": {
+        "effort": "high",
+        "model": "opus",
+        "skills": [
+          "rex-onboarding-user-expertise"
+        ]
+      },
+      "inputs": [
+        "rex/some-brief-namesss/onboarding/goal.md",
+        "rex/some-brief-namesss/onboarding/scope.md",
+        "rex/some-brief-namesss/onboarding/existing-code.md",
+        "rex/some-brief-namesss/onboarding/libraries-and-sdks.md",
+        "rex/some-brief-namesss/onboarding/research.md",
+        "rex/some-brief-namesss/onboarding/resources.md"
+      ],
+      "output": "rex/some-brief-namesss/onboarding/user-expertise.md",
+      "status": "not-started"
+    },
+    {
+      "item": "success-measures",
+      "agent": {
+        "effort": "high",
+        "model": "opus",
+        "skills": [
+          "rex-onboarding-success-measures"
+        ]
+      },
+      "inputs": [
+        "rex/some-brief-namesss/onboarding/goal.md",
+        "rex/some-brief-namesss/onboarding/scope.md",
+        "rex/some-brief-namesss/onboarding/existing-code.md",
+        "rex/some-brief-namesss/onboarding/libraries-and-sdks.md",
+        "rex/some-brief-namesss/onboarding/research.md",
+        "rex/some-brief-namesss/onboarding/resources.md",
+        "rex/some-brief-namesss/onboarding/user-expertise.md"
+      ],
+      "output": "rex/some-brief-namesss/onboarding/success-measures.md",
+      "status": "not-started"
+    },
+    {
+      "item": "known-risks",
+      "agent": {
+        "effort": "high",
+        "model": "opus",
+        "skills": [
+          "rex-onboarding-known-risks"
+        ]
+      },
+      "inputs": [
+        "rex/some-brief-namesss/onboarding/goal.md",
+        "rex/some-brief-namesss/onboarding/scope.md",
+        "rex/some-brief-namesss/onboarding/existing-code.md",
+        "rex/some-brief-namesss/onboarding/libraries-and-sdks.md",
+        "rex/some-brief-namesss/onboarding/research.md",
+        "rex/some-brief-namesss/onboarding/resources.md",
+        "rex/some-brief-namesss/onboarding/user-expertise.md",
+        "rex/some-brief-namesss/onboarding/success-measures.md"
+      ],
+      "output": "rex/some-brief-namesss/onboarding/known-risks.md",
+      "status": "not-started"
+    },
+    {
+      "item": "uat",
+      "agent": {
+        "effort": "high",
+        "model": "opus",
+        "skills": [
+          "rex-onboarding-uat"
+        ]
+      },
+      "inputs": [
+        "rex/some-brief-namesss/onboarding/goal.md",
+        "rex/some-brief-namesss/onboarding/scope.md",
+        "rex/some-brief-namesss/onboarding/existing-code.md",
+        "rex/some-brief-namesss/onboarding/libraries-and-sdks.md",
+        "rex/some-brief-namesss/onboarding/research.md",
+        "rex/some-brief-namesss/onboarding/resources.md",
+        "rex/some-brief-namesss/onboarding/user-expertise.md",
+        "rex/some-brief-namesss/onboarding/success-measures.md",
+        "rex/some-brief-namesss/onboarding/known-risks.md"
+      ],
+      "output": "rex/some-brief-namesss/onboarding/uat.md",
+      "status": "not-started"
+    },
+    {
+      "item": "environment-variables",
+      "agent": {
+        "effort": "high",
+        "model": "opus",
+        "skills": [
+          "rex-onboarding-environment-variables"
+        ]
+      },
+      "inputs": [
+        "rex/some-brief-namesss/onboarding/goal.md",
+        "rex/some-brief-namesss/onboarding/scope.md",
+        "rex/some-brief-namesss/onboarding/existing-code.md",
+        "rex/some-brief-namesss/onboarding/libraries-and-sdks.md",
+        "rex/some-brief-namesss/onboarding/research.md",
+        "rex/some-brief-namesss/onboarding/resources.md",
+        "rex/some-brief-namesss/onboarding/user-expertise.md",
+        "rex/some-brief-namesss/onboarding/success-measures.md",
+        "rex/some-brief-namesss/onboarding/known-risks.md",
+        "rex/some-brief-namesss/onboarding/uat.md"
+      ],
+      "output": "rex/some-brief-namesss/onboarding/environment-variables.md",
+      "status": "not-started"
+    },
+    {
+      "item": "idea-generation",
+      "agent": {
+        "effort": "ultrathink",
+        "model": "opus",
+        "skills": [
+          "rex-onboarding-idea-generation"
+        ]
+      },
+      "inputs": [
+        "rex/some-brief-namesss/onboarding/goal.md",
+        "rex/some-brief-namesss/onboarding/scope.md",
+        "rex/some-brief-namesss/onboarding/existing-code.md",
+        "rex/some-brief-namesss/onboarding/libraries-and-sdks.md",
+        "rex/some-brief-namesss/onboarding/research.md",
+        "rex/some-brief-namesss/onboarding/resources.md",
+        "rex/some-brief-namesss/onboarding/user-expertise.md",
+        "rex/some-brief-namesss/onboarding/success-measures.md",
+        "rex/some-brief-namesss/onboarding/known-risks.md",
+        "rex/some-brief-namesss/onboarding/uat.md",
+        "rex/some-brief-namesss/onboarding/environment-variables.md"
+      ],
+      "output": "rex/some-brief-namesss/onboarding/idea-generation.md",
+      "status": "not-started"
+    },
+    {
+      "item": "skill-building",
+      "agent": {
+        "effort": "ultrathink",
+        "model": "opus",
+        "skills": [
+          "rex-onboarding-skill-building"
+        ]
+      },
+      "inputs": [
+        "rex/some-brief-namesss/onboarding/goal.md",
+        "rex/some-brief-namesss/onboarding/scope.md",
+        "rex/some-brief-namesss/onboarding/existing-code.md",
+        "rex/some-brief-namesss/onboarding/libraries-and-sdks.md",
+        "rex/some-brief-namesss/onboarding/research.md",
+        "rex/some-brief-namesss/onboarding/resources.md",
+        "rex/some-brief-namesss/onboarding/user-expertise.md",
+        "rex/some-brief-namesss/onboarding/success-measures.md",
+        "rex/some-brief-namesss/onboarding/known-risks.md",
+        "rex/some-brief-namesss/onboarding/uat.md",
+        "rex/some-brief-namesss/onboarding/environment-variables.md",
+        "rex/some-brief-namesss/onboarding/idea-generation.md"
+      ],
+      "output": "rex/some-brief-namesss/onboarding/skill-building.md",
+      "status": "not-started"
+    },
+    {
+      "item": "checklist",
+      "agent": {
+        "effort": "ultrathink",
+        "model": "opus",
+        "skills": [
+          "rex-onboarding-checklist"
+        ]
+      },
+      "inputs": [
+        "rex/some-brief-namesss/onboarding/goal.md",
+        "rex/some-brief-namesss/onboarding/scope.md",
+        "rex/some-brief-namesss/onboarding/existing-code.md",
+        "rex/some-brief-namesss/onboarding/libraries-and-sdks.md",
+        "rex/some-brief-namesss/onboarding/research.md",
+        "rex/some-brief-namesss/onboarding/resources.md",
+        "rex/some-brief-namesss/onboarding/user-expertise.md",
+        "rex/some-brief-namesss/onboarding/success-measures.md",
+        "rex/some-brief-namesss/onboarding/known-risks.md",
+        "rex/some-brief-namesss/onboarding/uat.md",
+        "rex/some-brief-namesss/onboarding/environment-variables.md",
+        "rex/some-brief-namesss/onboarding/idea-generation.md",
+        "rex/some-brief-namesss/onboarding/skill-building.md"
+      ],
+      "output": "rex/some-brief-namesss/onboarding/checklist.json",
+      "status": "not-started"
+    }
+  ]
+}
