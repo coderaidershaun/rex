@@ -128,7 +128,9 @@ Returns the highest-priority eligible task along with its parent objective and m
 
 Within each tier, tasks are ranked by **transitive downstream impact** (tasks that unblock the most future work win), then by array position (milestones, objectives, tasks) as a tiebreaker.
 
-Exits with an error if no eligible tasks remain (all completed or all blocked by unmet dependencies).
+When no eligible tasks remain:
+- If all tasks are completed: returns `NO TASKS - Please mark as item complete`
+- If tasks exist but are blocked by unmet dependencies: returns an error explaining the blockage
 
 ## Agentic Usage Patterns
 

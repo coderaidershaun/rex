@@ -270,7 +270,7 @@ pub fn next() -> Result<(), Box<dyn std::error::Error>> {
             .iter()
             .all(|t| t.status == PlanningStatus::Completed);
         if all_done {
-            return Err("All tasks are completed.".into());
+            return Err("NO TASKS - Please mark as item complete".into());
         }
         return Err(
             "No eligible tasks. Remaining tasks are blocked by unmet dependencies.".into(),
