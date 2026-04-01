@@ -278,6 +278,25 @@ When `agent.count` is greater than 1, spawn that many worker agents plus one coo
 
 ---
 
+## Step 7a: Handling user-interactive skills
+
+Some skills (especially onboarding skills) need to ask the user questions. When a sub-agent needs user input:
+
+1. **The sub-agent will return a question for the user.** When this happens, present the question to the user using AskUserQuestion.
+2. **When the user responds**, forward their response to the sub-agent using SendMessage. **You must always include the `summary` parameter** — this is required when the message is a string. Use a brief summary of the user's response (e.g., "User describes their project goal").
+
+Example relay flow:
+```
+Agent returns: "What is the project you're building?"
+→ You ask the user (AskUserQuestion)
+→ User responds: "I want a CLI that manages config files"
+→ You forward to agent: SendMessage(to: <agent-id>, message: "I want a CLI that manages config files", summary: "User describes project as a CLI for config management")
+```
+
+Continue relaying until the sub-agent completes its work. Each SendMessage **must** include `summary` — omitting it will cause an error.
+
+---
+
 ## Step 8: Check the agent response and mark task complete
 
 Once the agent(s) report back, check their response text.
