@@ -61,15 +61,76 @@ This returns a JSON object describing the next actionable item from `project-sta
 
 If all items are completed, report this and stop.
 
+**After getting the item, check its `phase` field.** If the phase is `"execution"`, follow the **Execution Phase** path described in Step 3a. For all other phases (onboarding, design, planning, user-support), continue with the standard flow at Step 4.
+
 ---
 
-## Step 4: Mark item as in-progress
+## Step 3a: Execution Phase — Resolve the Next Task
+
+The execution phase works differently from other phases. Instead of the item itself describing a single piece of work, the execution item is a container — the real work lives in the planning tree (milestones → objectives → tasks). The operator uses `rex task next` to find the next task to work on, and dispatches an agent for that specific task.
+
+```bash
+rex task next
+```
+
+This returns the next eligible task along with its parent objective and milestone:
+
+```json
+{
+  "task": {
+    "id": "t-token-endpoint",
+    "objective_id": "o-password-reset",
+    "title": "Implement the token-generation endpoint",
+    "description": "POST /auth/reset-token — generates a secure token...",
+    "status": "not-started",
+    "references": ["docs/auth-spec.md#token-generation"],
+    "outputs": ["src/auth/reset_token.rs"],
+    "checklist": [...],
+    "upstream": [],
+    "downstream": ["t-email-template"]
+  },
+  "objective": {
+    "id": "o-password-reset",
+    "milestone_id": "m-auth-system",
+    "title": "Users can securely reset their passwords via email",
+    ...
+  },
+  "milestone": {
+    "id": "m-auth-system",
+    "title": "User authentication system is fully operational",
+    ...
+  }
+}
+```
+
+**If `rex task next` returns "NO TASKS - Please mark as item complete":** All tasks in the planning tree are done. Mark the execution item as complete and proceed to history/stop:
+
+```bash
+rex project update-status <execution-item-name> completed
+```
+
+Then skip to Step 9 to record history.
+
+**Otherwise:** You have a task to work on. Save the full task, objective, and milestone objects — you'll need them for the agent prompt. Continue to Step 4.
+
+---
+
+## Step 4: Mark as in-progress
+
+### Standard phases (onboarding, design, planning, user-support)
 
 ```bash
 rex project update-status <item-name> in-progress
 ```
 
-For example: `rex project update-status goal in-progress`
+### Execution phase
+
+Mark both the execution item and the specific task as in-progress:
+
+```bash
+rex project update-status <execution-item-name> in-progress
+rex task upsert --id <task-id> --status in-progress
+```
 
 ---
 
@@ -85,6 +146,8 @@ Capture the output — you'll pass this context to the agent(s) so they understa
 
 ## Step 6: Prepare the agent dispatch
 
+### Standard phases (onboarding, design, planning, user-support)
+
 From the work item JSON, extract:
 
 | Field | What it tells you |
@@ -95,9 +158,8 @@ From the work item JSON, extract:
 | `agent.skills` | Which skill(s) to invoke — the agent should use these |
 | `inputs` | Files the agent MUST read before executing |
 | `outputs` | Files the agent MUST write to |
-| `stop-on-finish` | Whether the session should stop after this item (always true for the operator — it processes one item and stops) |
 
-### Building the agent prompt
+#### Building the agent prompt
 
 The prompt you give each agent must include:
 
@@ -112,7 +174,7 @@ The prompt you give each agent must include:
    - `"max"` → "Think very deeply. Take your time and consider all angles."
    - `"ultrathink"` → "Think extremely deeply. This is a critical task — exhaust every consideration before concluding."
 
-### Example agent prompt (single agent)
+#### Example agent prompt (standard phase)
 
 ```
 You are working on the rex project "<project-title>" (id: <project-id>).
@@ -134,6 +196,56 @@ Write your output to:
 Think carefully and thoroughly.
 ```
 
+### Execution phase
+
+For execution, the agent prompt is built from the **task** (from `rex task next`), not the execution item. The execution item's `agent` config still controls the model, effort, and skills — but the task provides the actual work, inputs, and outputs.
+
+#### Building the execution agent prompt
+
+The prompt must include:
+
+1. **The project context** — same as standard phases.
+2. **Recent history** — same as standard phases.
+3. **The milestone context** — pass the full milestone object so the agent understands the high-level goal it's contributing to.
+4. **The objective context** — pass the full objective object so the agent understands the strategic outcome this task serves.
+5. **The task details** — pass the full task object: title, description, checklist items, references, outputs, upstream/downstream dependencies.
+6. **The skill to use** — from `agent.skills` on the execution item.
+7. **Input files** — the task's `references` array contains file paths and entity IDs the agent should read. Pass all file paths as inputs.
+8. **Output files** — the task's `outputs` array lists files the agent must write to.
+9. **Effort level** — from `agent.effort` on the execution item.
+
+#### Example agent prompt (execution phase)
+
+```
+You are working on the rex project "<project-title>" (id: <project-id>).
+Project directory: <directory>
+Category: <category> | Complexity: <complexity>
+Description: <description>
+
+Recent project history:
+<paste recent history JSON>
+
+## Milestone
+<paste full milestone JSON>
+
+## Objective
+<paste full objective JSON>
+
+## Your Task
+<paste full task JSON>
+
+Use the skill "rust-team-coordinator" to implement this task.
+
+Before you begin, read these reference/input files:
+- docs/auth-spec.md#token-generation
+
+Write your output to:
+- src/auth/reset_token.rs
+- tests/auth/reset_token_test.rs
+
+Think very deeply. Take your time and consider all angles.
+```
+
 ---
 
 ## Step 7: Dispatch the agent(s)
@@ -143,7 +255,7 @@ Think carefully and thoroughly.
 Spawn one agent using the Agent tool:
 - Set `model` to the value from `agent.model`
 - Set `prompt` to the prepared prompt from step 6
-- Set the `description` to something like "rex: <item-name>"
+- Set the `description` to something like "rex: <item-name>" (or "rex: <task-id>" for execution phase)
 - **Do NOT set `run_in_background: true`** — the operator must block and wait for the agent to complete
 
 ### Multiple agents (count > 1)
@@ -166,20 +278,43 @@ When `agent.count` is greater than 1, spawn that many worker agents plus one coo
 
 ---
 
-## Step 8: Check the agent response
+## Step 8: Check the agent response and mark task complete
 
 Once the agent(s) report back, check their response text.
 
+### Standard phases
+
 In rare cases, an agent may instruct you **not to mark the item as complete** — for example, if it encountered an issue, needs user input that wasn't available, or wants the item to remain in-progress for a follow-up session.
 
-- If the agent says **do not mark complete**: leave the item as `in-progress` and skip to step 11.
-- Otherwise: continue to step 9.
+- If the agent says **do not mark complete**: leave the item as `in-progress` and skip to Step 11.
+- Otherwise: continue to Step 9.
+
+### Execution phase
+
+If the agent says **do not mark complete**: leave the task as `in-progress` and skip to Step 11.
+
+Otherwise, **mark the task as complete**:
+
+```bash
+rex task upsert --id <task-id> --status completed
+```
+
+Then check whether all tasks in the planning tree are now done:
+
+```bash
+rex task next
+```
+
+- If `rex task next` returns **"NO TASKS - Please mark as item complete"**: all tasks are finished. The execution phase is done — you will mark the execution item as complete in Step 10.
+- If `rex task next` returns **another task**: more work remains. The execution item stays `in-progress` — do NOT mark it as complete. Continue to Step 9 to record history (skipping Step 10).
 
 ---
 
 ## Step 9: Record history
 
 Insert a history entry for what was just done:
+
+### Standard phases
 
 ```bash
 rex history insert-recent \
@@ -190,17 +325,42 @@ rex history insert-recent \
   --file <each-output-file>
 ```
 
-The summary should be a concise description of what was accomplished — not a dump of the agent's full response. One or two sentences.
+### Execution phase
 
-Use `--entity` for the item name, and `--file` for each output file listed in the item's `outputs` array.
+```bash
+rex history insert-recent \
+  --id "session-<task-id>-<timestamp-short>" \
+  --timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  --summary "<brief description of what the agent accomplished on the task>" \
+  --entity <task-id> \
+  --entity <objective-id> \
+  --entity <milestone-id> \
+  --file <each-task-output-file>
+```
+
+Include the task, objective, and milestone IDs as entities so the history captures the full context of what was worked on.
+
+The summary should be a concise description of what was accomplished — not a dump of the agent's full response. One or two sentences.
 
 ---
 
 ## Step 10: Mark item as complete
 
+### Standard phases
+
 ```bash
 rex project update-status <item-name> completed
 ```
+
+### Execution phase
+
+Only mark the execution item as complete if Step 8 confirmed that **all tasks are done** (i.e., `rex task next` returned "NO TASKS").
+
+```bash
+rex project update-status <execution-item-name> completed
+```
+
+If tasks remain, **skip this step entirely** — the execution item stays as `in-progress`. It will be picked up again on the next operator invocation, which will run `rex task next` to find the next task.
 
 ---
 
@@ -218,9 +378,9 @@ Use the same model as the work item's agent, or default to `sonnet` (history man
 
 ## Step 12: Stop
 
-The operator's job for this invocation is done. Report what item was processed, whether it was marked complete, and stop.
+The operator's job for this invocation is done. Report what was processed and stop.
 
-Output format:
+### Standard phases
 
 ```
 Operator complete.
@@ -229,13 +389,28 @@ Operator complete.
 - Output(s): <list of output files>
 ```
 
+### Execution phase
+
+```
+Operator complete.
+- Phase: execution
+- Task: <task-id> — <task-title>
+- Task status: completed | left in-progress
+- Objective: <objective-id> — <objective-title>
+- Milestone: <milestone-id> — <milestone-title>
+- Execution item status: completed (all tasks done) | in-progress (tasks remaining)
+- Output(s): <list of task output files>
+```
+
 ---
 
 ## Rules
 
-- **One item per invocation.** The operator processes exactly one work item and stops. It does not loop.
+- **One item per invocation.** The operator processes exactly one work item (or one task within execution) and stops. It does not loop.
 - **CLI only for data management.** All reads and writes to rex data structures go through `rex` CLI commands. Never write `project-status.json`, `history.json`, or `planning.json` directly.
 - **Blocking dispatch.** Never launch agents in the background. Always wait for completion. This is critical for headless/automated operation.
 - **Respect the lock.** If the project is locked, stop immediately. No exceptions, no "let me just check one thing."
 - **Respect agent responses.** If an agent says not to mark complete, don't mark complete.
 - **Pass full context.** Agents should receive the project object and recent history so they have everything they need.
+- **Execution uses `rex task next`, not the item itself.** During execution, the planning tree drives what gets worked on. The execution item's `agent` config provides the model/effort/skills, but the task provides the work, inputs, and outputs.
+- **Mark tasks complete via CLI.** Always run `rex task upsert --id <id> --status completed` when a task is done. Only mark the execution item complete when all tasks are finished.
