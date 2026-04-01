@@ -49,7 +49,7 @@
         "skills": ["rex-design-rust-architecture"]
       },
       "inputs": [],
-      "output": "rex/<insert-project-id>/design/module-design.md",
+      "output": "rex/<insert-project-id>/design/architecture-design.md",
       "status": "not-started"
     },
     {
