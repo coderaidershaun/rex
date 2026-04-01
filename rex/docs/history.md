@@ -87,19 +87,31 @@ rex history insert-compacted \
 rex history remove-from-compacted compact-week-1
 ```
 
+### Get recent entries only
+
+```bash
+rex history get-recent
+```
+
+Outputs just the `recent` array as JSON to stdout. Useful for agents that only need the last few sessions of context without the full archive.
+
 ### List all history
 
 ```bash
 rex history list
 ```
 
-Outputs the full `history.json` contents as JSON to stdout.
+Outputs the full `history.json` contents (both `recent` and `archived`) as JSON to stdout.
 
 ## Agentic Usage Patterns
 
 ### Session start — read context
 
 ```bash
+# Quick: just the last few sessions
+rex history get-recent
+
+# Full: recent + archived
 rex history list
 ```
 

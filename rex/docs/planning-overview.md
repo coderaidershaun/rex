@@ -55,7 +55,7 @@ The `references` field is for additional context pointers — design docs, specs
 
 ## CLI Pattern
 
-All three entity types follow the same four commands:
+All three entity types share these core commands:
 
 ```
 rex <entity> upsert --id <id> [--title <t>] [--description <d>] [--status <s>] [list-mod flags...]
@@ -68,6 +68,8 @@ rex <entity> remove <id>
 - `get` outputs the entity as JSON to stdout
 - `list` outputs a filtered JSON array to stdout
 - `remove` deletes the entity and cleans up references
+
+Additionally, `rex task next` returns the highest-priority eligible task along with its parent objective and milestone, using dependency-aware ordering across all three levels of the hierarchy. See [tasks.md](tasks.md#get-the-next-task-to-work-on) for details.
 
 Status messages go to stderr; machine-parseable JSON goes to stdout. This allows agents to pipe output directly.
 
