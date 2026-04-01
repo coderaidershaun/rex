@@ -395,23 +395,37 @@ Use the same model as the work item's agent, or default to `sonnet` (history man
 
 ---
 
-## Step 12: Stop
+## Step 12: Continue or stop
+
+Check the `stop-on-finish` field from the work item (captured in Step 3).
+
+### If `stop-on-finish` is `false` — continue
+
+The operator should **loop back to Step 3** to get the next work item and keep processing. Do not stop. Print a brief status line and continue:
+
+```
+Completed: <item-name> (<phase>). Continuing to next item...
+```
+
+This is the default for most items. The operator keeps going until it hits an item with `stop-on-finish: true` or runs out of items.
+
+### If `stop-on-finish` is `true` — stop
 
 The operator's job for this invocation is done. Report what was processed and stop.
 
-### Standard phases
+#### Standard phases
 
 ```
-Operator complete.
+Operator complete (stop-on-finish).
 - Item: <item-name> (<phase>)
 - Status: completed | left in-progress
 - Output(s): <list of output files>
 ```
 
-### Execution phase
+#### Execution phase
 
 ```
-Operator complete.
+Operator complete (stop-on-finish).
 - Phase: execution
 - Task: <task-id> — <task-title>
 - Task status: completed | left in-progress
@@ -420,6 +434,10 @@ Operator complete.
 - Execution item status: completed (all tasks done) | in-progress (tasks remaining)
 - Output(s): <list of task output files>
 ```
+
+### If the item was left in-progress — always stop
+
+If the item was not marked complete (agent said don't mark complete, or execution has remaining tasks), always stop regardless of `stop-on-finish`. The item needs another invocation.
 
 ---
 
@@ -483,7 +501,7 @@ rex-cli checklist set-context "<text>"
 
 ## Rules
 
-- **One item per invocation.** The operator processes exactly one work item (or one task within execution) and stops. It does not loop.
+- **Respect `stop-on-finish`.** After completing an item, check its `stop-on-finish` field. If `false`, loop back to Step 3 and process the next item. If `true`, stop. If the item was left in-progress, always stop.
 - **CLI only for data management.** All reads and writes to rex data structures go through `rex-cli` commands. Never write `project-status.json`, `history.json`, or `planning.json` directly.
 - **Blocking dispatch.** Never launch agents in the background. Always wait for completion. This is critical for headless/automated operation.
 - **Respect the lock.** If the project is locked, stop immediately. No exceptions, no "let me just check one thing."
