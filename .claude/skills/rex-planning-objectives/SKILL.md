@@ -23,6 +23,8 @@ You are decomposing milestones into their essential conditions — the things th
 
 **Right-sized scoping.** An objective is not a task and not a milestone. The sizing test: Could a single agent complete this in one work session? Then it's a task — push it down. Could this stand alone as a major project checkpoint? Then it's a milestone — push it up. An objective occupies the middle: it requires multiple tasks to achieve, but it's one coherent goal within a larger milestone.
 
+**1 to 3 objectives per milestone. No more.** This is a hard constraint, not a suggestion. Agents have a habit of generating exhaustive lists of objectives that don't add value — turning a clean milestone into a bureaucratic maze. If you can't capture what a milestone needs in 3 objectives, the milestone itself is too broad and must be split. The discipline of staying within 1-3 forces you to think at the right altitude: strategic outcomes, not implementation checklists.
+
 **Necessary and sufficient.** For each milestone, your objectives should be collectively sufficient — if every objective is met, the milestone is achieved. They should also be individually necessary — removing any one would leave the milestone incomplete. If an objective could be removed without affecting the milestone, it doesn't belong there.
 
 **Dependency awareness.** Objectives within a milestone often depend on each other. Data models must exist before business logic can process them. Core logic must work before integration tests can validate it. Map these dependencies explicitly — agents picking up objectives need to know what must be finished first.
@@ -152,11 +154,29 @@ Before writing them to the CLI, interrogate your plan:
 
 **The agent test.** Could an agent pick up one of your objectives, read its description and checklist, and understand what "done" means without having to guess? If not, the objective needs more clarity.
 
+### Step 7: Enforce the 1-3 constraint — or escalate
+
+After your challenge round, count the objectives per milestone. If any work milestone has more than 3 objectives, you have a structural problem — the milestone is too broad.
+
+**Do not simply drop objectives to fit.** If you genuinely identified 5 necessary outcomes for a milestone, those outcomes don't disappear by pretending they don't exist. Instead, the milestone must be split.
+
+**The escalation procedure:**
+
+1. Identify which milestone has too many objectives
+2. Determine how to split it into 2 milestones, each with 1-3 objectives, that preserve the original intent
+3. Spawn subagents to perform the restructuring:
+   - One agent to split the milestone using `rex milestone upsert` (creating the new milestone, updating the old one)
+   - One agent to rewire all upstream/downstream dependencies — every milestone that pointed to the old one as upstream or downstream must be checked and updated. The two new milestones must be correctly sequenced relative to each other and to the rest of the graph
+   - After both complete, verify the dependency graph is intact: no orphaned references, no broken chains, no circular dependencies
+4. Re-evaluate the objectives for the now-smaller milestones — they should fit within 1-3 each
+
+This is an exceptional case, not the normal flow. If you find yourself needing to split milestones frequently, the milestones planning was done at too high a level. But it's better to fix the structure than to force-fit too many objectives or silently omit necessary ones.
+
 ---
 
 ## Writing the objectives using the CLI
 
-Once you've planned all objectives, write them using the rex CLI. **Do not write planning.json directly.**
+Once you've planned all objectives (1-3 per work milestone, no exceptions), write them using the rex CLI. **Do not write planning.json directly.**
 
 ### Objective creation
 
@@ -235,9 +255,10 @@ Why objectives were scoped this way, what alternatives were considered, what tra
 ## What done looks like
 
 You're done when:
-1. Every work milestone has objectives that are collectively sufficient and individually necessary
-2. All objectives have been created via the CLI using `rex objective upsert`
-3. All intra-milestone and cross-milestone dependencies are correctly wired
-4. Each objective has a meaningful checklist that defines verifiable success criteria
-5. Any requested output files have been written
-6. Review milestones have been left alone (their objectives were created by the milestones skill)
+1. Every work milestone has 1-3 objectives (no exceptions — if any milestone needed more, it was split first)
+2. Objectives are collectively sufficient and individually necessary for each milestone
+3. All objectives have been created via the CLI using `rex objective upsert`
+4. All intra-milestone and cross-milestone dependencies are correctly wired
+5. Each objective has a meaningful checklist that defines verifiable success criteria
+6. Any requested output files have been written
+7. Review milestones have been left alone (their objectives were created by the milestones skill)

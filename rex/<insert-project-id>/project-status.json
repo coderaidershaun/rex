@@ -547,9 +547,10 @@
         "rex/<insert-project-id>/design/library-review.md",
         "rex/<insert-project-id>/design/module-design.md",
         "rex/<insert-project-id>/design/architecture-design.md",
-        "rex/<insert-project-id>/design/architecture-proposal.md"
+        "rex/<insert-project-id>/design/architecture-proposal.md",
+        "rex/<insert-project-id>/planning/planning.json"
       ],
-      "outputs": ["rex/<insert-project-id>/planning/milestones.md"],
+      "outputs": [],
       "status": "not-started"
     },
     {
@@ -584,9 +585,9 @@
         "rex/<insert-project-id>/design/module-design.md",
         "rex/<insert-project-id>/design/architecture-design.md",
         "rex/<insert-project-id>/design/architecture-proposal.md",
-        "rex/<insert-project-id>/planning/milestones.md"
+        "rex/<insert-project-id>/planning/planning.json"
       ],
-      "outputs": ["rex/<insert-project-id>/planning/objectives.md"],
+      "outputs": [],
       "status": "not-started"
     },
     {
@@ -596,7 +597,7 @@
         "count": 1,
         "effort": "max",
         "model": "opus",
-        "skills": ["rex-planning-objectives"]
+        "skills": ["rex-planning-tasks"]
       },
       "inputs": [
         "rex/<insert-project-id>/design/error-handling.md",
@@ -609,12 +610,9 @@
         "rex/<insert-project-id>/design/module-design.md",
         "rex/<insert-project-id>/design/architecture-design.md",
         "rex/<insert-project-id>/design/architecture-proposal.md",
-        "rex/<insert-project-id>/planning/milestones.md",
-        "rex/<insert-project-id>/planning/objectives.md"
+        "rex/<insert-project-id>/planning/planning.json"
       ],
-      "outputs": [
-        "rex/<insert-project-id>/planning/<insert-objective-id>/tasks.md"
-      ],
+      "outputs": [],
       "status": "not-started"
     }
   ]
