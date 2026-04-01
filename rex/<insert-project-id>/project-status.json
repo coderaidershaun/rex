@@ -614,6 +614,34 @@
       ],
       "outputs": [],
       "status": "not-started"
+    },
+    {
+      "item": "review",
+      "stop-on-finish": true,
+      "agent": {
+        "count": 1,
+        "effort": "max",
+        "model": "opus",
+        "skills": ["rex-planning-review"]
+      },
+      "inputs": [
+        "rex/<insert-project-id>/design/error-handling.md",
+        "rex/<insert-project-id>/design/existing-code-exploration.md",
+        "rex/<insert-project-id>/design/library-review.md",
+        "rex/<insert-project-id>/design/module-design.md",
+        "rex/<insert-project-id>/design/architecture-design.md",
+        "rex/<insert-project-id>/design/existing-code-exploration.md",
+        "rex/<insert-project-id>/design/library-review.md",
+        "rex/<insert-project-id>/design/module-design.md",
+        "rex/<insert-project-id>/design/architecture-design.md",
+        "rex/<insert-project-id>/design/architecture-proposal.md",
+        "rex/<insert-project-id>/planning/milestones.json",
+        "rex/<insert-project-id>/planning/objectives.json",
+        "rex/<insert-project-id>/planning/tasks.json",
+        "rex/<insert-project-id>/planning/planning.json"
+      ],
+      "outputs": [],
+      "status": "not-started"
     }
   ]
 }
