@@ -98,15 +98,48 @@ Removes the task from its parent objective's `tasks` list and cleans up upstream
 
 Same flags as milestones — see [milestones.md](milestones.md#list-modification-flags).
 
+### Get the next task to work on
+
+```bash
+rex task next
+```
+
+Returns the highest-priority eligible task along with its parent objective and milestone as a single JSON object:
+
+```json
+{
+  "task": { "id": "t-token-endpoint", ... },
+  "objective": { "id": "o-password-reset", ... },
+  "milestone": { "id": "m-auth", ... }
+}
+```
+
+**Eligibility rules** — a task is eligible if:
+- It is `in-progress` (resume unfinished work) or `not-started` with all upstream tasks `completed`
+- Its parent objective is not `blocked` and all objective-level upstream deps are `completed`
+- Its parent milestone is not `blocked` and all milestone-level upstream deps are `completed`
+
+**Priority ordering** (highest to lowest):
+1. `in-progress` tasks — always resume unfinished work first
+2. Tasks under in-progress objectives in in-progress milestones — finish current work
+3. Tasks under not-started objectives in in-progress milestones — continue current milestone
+4. Tasks under in-progress objectives in not-started milestones — finish scattered objectives
+5. All other eligible tasks — start new work
+
+Within each tier, tasks are ranked by **transitive downstream impact** (tasks that unblock the most future work win), then by array position (milestones, objectives, tasks) as a tiebreaker.
+
+Exits with an error if no eligible tasks remain (all completed or all blocked by unmet dependencies).
+
 ## Agentic Usage Patterns
 
 ### Discover next work
 
 ```bash
-# Find all unblocked tasks
-rex task list --status not-started
+# Intelligent next-task selection (recommended)
+rex task next
 
-# Find tasks for a specific objective
+# Or manual filtering
+rex task list --status not-started
 rex task list --objective o-password-reset --status not-started
 ```
 
