@@ -5,7 +5,7 @@ use rex_cli::models::planning::{ListMods, PlanningStatus};
 use rex_cli::models::project_status::Status;
 
 #[derive(Parser)]
-#[command(name = "rex-cli", about = "Rex project management CLI", version)]
+#[command(name = "rex", about = "Rex project management CLI", version)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,

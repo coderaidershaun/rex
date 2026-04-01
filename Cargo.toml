@@ -1,6 +1,6 @@
 [package]
 name = "rex-cli"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2024"
 authors = ["Shaun McDonogh"]
 description = "Rust CLI for harness management"
@@ -12,7 +12,7 @@ categories = ["command-line-utilities", "development-tools"]
 exclude = ["rex/projects.json", "rex/<insert-project-id>/", "skills-lock.json", ".claude/settings.local.json"]
 
 [[bin]]
-name = "rex-cli"
+name = "rex"
 path = "src/bin/main.rs"
 
 [lib]

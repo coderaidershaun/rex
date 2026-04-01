@@ -11,7 +11,7 @@ You plan the milestone structure for a project — the major, meaningful checkpo
 
 Think of milestones as chapter titles. Each one marks a phase transition — a moment where the project has meaningfully advanced from one state to another. They should be binary (achieved or not), significant enough to celebrate, and largely independent of how the work gets done.
 
-You'll be told where to write any output files and given input files to read for context. Read them all first. Then think hard — really hard — about the right milestone structure and write the milestones using the `rex-cli milestone upsert` and `rex-cli objective upsert` CLI commands.
+You'll be told where to write any output files and given input files to read for context. Read them all first. Then think hard — really hard — about the right milestone structure and write the milestones using the `rex milestone upsert` and `rex objective upsert` CLI commands.
 
 ---
 
@@ -150,7 +150,7 @@ Once you've planned the full milestone structure, write each milestone and its r
 ### Milestone creation
 
 ```bash
-rex-cli milestone upsert \
+rex milestone upsert \
   --id m-<topic>-<phase> \
   --title "Clear statement of achieved state" \
   --description "What this milestone means — what's true once it's reached" \
@@ -166,7 +166,7 @@ rex-cli milestone upsert \
 ### Review milestone creation
 
 ```bash
-rex-cli milestone upsert \
+rex milestone upsert \
   --id m-review-<topic> \
   --title "Review and QA: <preceding milestone topic>" \
   --description "Review all code and artifacts from <preceding milestone>, identify issues, and fix significant findings" \
@@ -183,7 +183,7 @@ rex-cli milestone upsert \
 Every review milestone gets exactly two objectives:
 
 ```bash
-rex-cli objective upsert \
+rex objective upsert \
   --id o-review-<topic>-audit \
   --milestone m-review-<topic> \
   --title "Review all code from <preceding milestone>" \
@@ -192,7 +192,7 @@ rex-cli objective upsert \
   --add-checklist "c2:All test coverage verified" \
   --add-checklist "c3:Issues documented with severity"
 
-rex-cli objective upsert \
+rex objective upsert \
   --id o-review-<topic>-fix \
   --milestone m-review-<topic> \
   --title "Fix all significant issues found during review" \
@@ -252,8 +252,8 @@ Why milestones were ordered this way, what alternatives were considered, and wha
 ## What done looks like
 
 You're done when:
-1. All milestones have been created via the CLI using `rex-cli milestone upsert`
-2. All review milestones have their two objectives created via `rex-cli objective upsert`
+1. All milestones have been created via the CLI using `rex milestone upsert`
+2. All review milestones have their two objectives created via `rex objective upsert`
 3. All upstream/downstream dependencies are correctly wired
 4. Any requested output files have been written
 5. The milestone structure traces a complete path from project start to project goal
