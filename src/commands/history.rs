@@ -121,6 +121,12 @@ pub fn remove_from_compacted(id: &str) -> Result<(), Box<dyn std::error::Error>>
     Ok(())
 }
 
+pub fn get_recent() -> Result<(), Box<dyn std::error::Error>> {
+    let (_project_dir, history) = load_history()?;
+    println!("{}", serde_json::to_string_pretty(&history.recent)?);
+    Ok(())
+}
+
 pub fn list() -> Result<(), Box<dyn std::error::Error>> {
     let (_project_dir, history) = load_history()?;
     println!("{}", serde_json::to_string_pretty(&history)?);

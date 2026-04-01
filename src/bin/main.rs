@@ -450,6 +450,8 @@ enum HistoryAction {
         /// Entry ID to remove
         id: String,
     },
+    /// Get just the recent entries as JSON
+    GetRecent,
     /// List all history (recent and archived) as JSON
     List,
 }
@@ -595,6 +597,7 @@ fn main() {
             HistoryAction::RemoveFromCompacted { id } => {
                 rex::commands::history::remove_from_compacted(&id)
             }
+            HistoryAction::GetRecent => rex::commands::history::get_recent(),
             HistoryAction::List => rex::commands::history::list(),
         },
     };
