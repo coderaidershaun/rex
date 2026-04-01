@@ -91,6 +91,7 @@ pub struct ProjectStatus {
     pub user_support: Vec<TaskStep>,
     pub onboarding: Vec<TaskStep>,
     pub design: Vec<TaskStep>,
+    pub planning: Vec<TaskStep>,
 }
 
 impl ProjectStatus {
@@ -144,6 +145,7 @@ impl ProjectStatus {
             .collect();
 
         let design = build_design_steps(project_id, selected_design, category);
+        let planning = build_planning_steps(project_id);
 
         Self {
             user_support: vec![TaskStep {
@@ -161,6 +163,7 @@ impl ProjectStatus {
             }],
             onboarding,
             design,
+            planning,
         }
     }
 
@@ -377,4 +380,92 @@ fn design_outputs(id: &str, item: &str) -> Vec<String> {
         "integration-testing" => vec![d("integration-tests.md")],
         _ => vec![d(&format!("{item}.md"))],
     }
+}
+
+fn build_planning_steps(id: &str) -> Vec<TaskStep> {
+    let o = |name: &str| format!("rex/{id}/onboarding/{name}");
+    let d = |name: &str| format!("rex/{id}/design/{name}");
+    let p = |name: &str| format!("rex/{id}/planning/{name}");
+
+    let full_inputs = vec![
+        o("goal.md"),
+        o("scope.md"),
+        o("research.md"),
+        o("resources.md"),
+        o("user-expertise.md"),
+        o("success-measures.md"),
+        o("known-risks.md"),
+        o("uat.md"),
+        o("environment-variables.md"),
+        o("idea-generation.md"),
+        o("user-expertise.md"),
+        o("checklist.json"),
+        d("error-handling.md"),
+        d("existing-code-exploration.md"),
+        d("library-review.md"),
+        d("module-design.md"),
+        d("architecture-design.md"),
+        d("existing-code-exploration.md"),
+        d("library-review.md"),
+        d("module-design.md"),
+        d("architecture-design.md"),
+        d("architecture-proposal.md"),
+        p("planning.json"),
+    ];
+
+    let tasks_inputs = vec![
+        d("error-handling.md"),
+        d("existing-code-exploration.md"),
+        d("library-review.md"),
+        d("module-design.md"),
+        d("architecture-design.md"),
+        d("existing-code-exploration.md"),
+        d("library-review.md"),
+        d("module-design.md"),
+        d("architecture-design.md"),
+        d("architecture-proposal.md"),
+        p("planning.json"),
+    ];
+
+    vec![
+        TaskStep {
+            item: "milestones".into(),
+            stop_on_finish: true,
+            agent: Agent {
+                count: 1,
+                effort: "max".into(),
+                model: "opus".into(),
+                skills: vec!["rex-planning-milestones".into()],
+            },
+            inputs: full_inputs.clone(),
+            outputs: vec![],
+            status: Status::NotStarted,
+        },
+        TaskStep {
+            item: "objectives".into(),
+            stop_on_finish: true,
+            agent: Agent {
+                count: 1,
+                effort: "max".into(),
+                model: "opus".into(),
+                skills: vec!["rex-planning-objectives".into()],
+            },
+            inputs: full_inputs,
+            outputs: vec![],
+            status: Status::NotStarted,
+        },
+        TaskStep {
+            item: "tasks".into(),
+            stop_on_finish: true,
+            agent: Agent {
+                count: 1,
+                effort: "max".into(),
+                model: "opus".into(),
+                skills: vec!["rex-planning-tasks".into()],
+            },
+            inputs: tasks_inputs,
+            outputs: vec![],
+            status: Status::NotStarted,
+        },
+    ]
 }
