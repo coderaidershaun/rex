@@ -42,12 +42,14 @@ This copies all skills, hooks, settings, and documentation into the current dire
 **What gets created:**
 - `<config-dir>/skills/` — all rex and rust skills (40 skill directories)
 - `<config-dir>/hooks/commit-and-push.sh` — auto-commit on agent stop
-- `<config-dir>/settings.json` — hook configuration
+- Hook config — `.claude/settings.json` (Claude Code) or `.cursor/hooks.json` (Cursor), each in its native format
 - `rex/docs/` — all CLI and process documentation
 - `rex/projects.json` — empty project registry
 - `CLAUDE.md` or `AGENTS.md` — points to `rex/docs/README.md`
 
-**Safe to re-run:** existing files are never overwritten. Only missing files/folders are created. If `CLAUDE.md`/`AGENTS.md` already exists, the rex section is appended. If `settings.json` already exists, rex hooks are merged in.
+**Safe to re-run:** existing files are never overwritten. Only missing files/folders are created. If `CLAUDE.md`/`AGENTS.md` already exists, the rex section is appended. If hook config already exists, rex hooks are merged in.
+
+See [init.md](init.md) for full details on configuration format differences between Claude Code and Cursor.
 
 ## Phase Overview
 

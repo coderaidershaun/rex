@@ -8,7 +8,25 @@ use std::path::Path;
 static SKILLS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/.claude/skills");
 static HOOKS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/.claude/hooks");
 static DOCS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/rex/docs");
-static SETTINGS_JSON: &str = include_str!("../../.claude/settings.json");
+
+// Claude Code: hooks live inside settings.json
+static CLAUDE_SETTINGS_JSON: &str = include_str!("../../.claude/settings.json");
+
+// Cursor: hooks live in a separate hooks.json with its own schema
+const CURSOR_HOOKS_JSON: &str = r#"{
+  "version": 1,
+  "hooks": {
+    "stop": [
+      {
+        "type": "command",
+        "command": ".cursor/hooks/commit-and-push.sh",
+        "timeout": 30,
+        "failClosed": false
+      }
+    ]
+  }
+}
+"#;
 
 const ROOT_FILE_CONTENT: &str = "\
 # Rex Harness
@@ -85,12 +103,11 @@ pub fn init(agent_os: Option<AgentOs>) -> Result<(), Box<dyn std::error::Error>>
     let mut created = Vec::new();
     let mut skipped = Vec::new();
 
-    // 2. Copy skills
+    // 2. Copy skills (same SKILL.md format for both Claude Code and Cursor)
     copy_embedded_dir(&SKILLS_DIR, &skills_dir, &mut created, &mut skipped)?;
 
-    // 3. Copy hooks (and make scripts executable)
+    // 3. Copy hook scripts and make them executable
     copy_embedded_dir(&HOOKS_DIR, &hooks_dir, &mut created, &mut skipped)?;
-    // Ensure hook scripts are executable
     for entry in HOOKS_DIR.files() {
         let target = hooks_dir.join(entry.path());
         if target.exists() {
@@ -100,20 +117,13 @@ pub fn init(agent_os: Option<AgentOs>) -> Result<(), Box<dyn std::error::Error>>
         }
     }
 
-    // 4. Copy settings.json (merge hooks if exists)
-    let settings_path = config_dir.join("settings.json");
-    if !settings_path.exists() {
-        fs::create_dir_all(&config_dir)?;
-        fs::write(&settings_path, SETTINGS_JSON)?;
-        created.push(format!("{config_dir_name}/settings.json"));
-    } else {
-        // Merge: splice in the rex Stop hook if not already present
-        let merged = merge_settings(&settings_path, SETTINGS_JSON)?;
-        if let Some(new_content) = merged {
-            fs::write(&settings_path, new_content)?;
-            created.push(format!("{config_dir_name}/settings.json (merged hooks)"));
-        } else {
-            skipped.push(format!("{config_dir_name}/settings.json (hooks already present)"));
+    // 4. Write hook/settings configuration (format differs by agent OS)
+    match agent_os {
+        AgentOs::Claude => {
+            write_claude_settings(&config_dir, config_dir_name, &mut created, &mut skipped)?;
+        }
+        AgentOs::Cursor => {
+            write_cursor_hooks(&config_dir, config_dir_name, &mut created, &mut skipped)?;
         }
     }
 
@@ -138,12 +148,10 @@ pub fn init(agent_os: Option<AgentOs>) -> Result<(), Box<dyn std::error::Error>>
         fs::write(&root_file, ROOT_FILE_CONTENT)?;
         created.push(root_file_name.into());
     } else {
-        // Check if rex reference is already in the file
         let existing = fs::read_to_string(&root_file)?;
         if existing.contains("rex/docs/README.md") {
             skipped.push(format!("{root_file_name} (rex section already present)"));
         } else {
-            // Append rex section
             let mut content = existing;
             if !content.ends_with('\n') {
                 content.push('\n');
@@ -198,9 +206,176 @@ pub fn init(agent_os: Option<AgentOs>) -> Result<(), Box<dyn std::error::Error>>
     Ok(())
 }
 
+// ---------------------------------------------------------------------------
+// Claude Code: hooks inside .claude/settings.json
+// ---------------------------------------------------------------------------
+
+fn write_claude_settings(
+    config_dir: &Path,
+    config_dir_name: &str,
+    created: &mut Vec<String>,
+    skipped: &mut Vec<String>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let settings_path = config_dir.join("settings.json");
+    if !settings_path.exists() {
+        fs::create_dir_all(config_dir)?;
+        fs::write(&settings_path, CLAUDE_SETTINGS_JSON)?;
+        created.push(format!("{config_dir_name}/settings.json"));
+    } else {
+        let merged = merge_claude_settings(&settings_path)?;
+        if let Some(new_content) = merged {
+            fs::write(&settings_path, new_content)?;
+            created.push(format!("{config_dir_name}/settings.json (merged hooks)"));
+        } else {
+            skipped.push(format!(
+                "{config_dir_name}/settings.json (hooks already present)"
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Merge rex hooks into an existing Claude Code settings.json.
+/// Claude Code format nests hooks under event keys with matcher + hooks arrays:
+///
+/// ```json
+/// { "hooks": { "Stop": [{ "matcher": "", "hooks": [{ "type": "command", "command": "..." }] }] } }
+/// ```
+fn merge_claude_settings(
+    existing_path: &Path,
+) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    let existing_str = fs::read_to_string(existing_path)?;
+    if existing_str.contains("commit-and-push") {
+        return Ok(None);
+    }
+
+    let mut existing: serde_json::Value = serde_json::from_str(&existing_str)?;
+    let rex: serde_json::Value = serde_json::from_str(CLAUDE_SETTINGS_JSON)?;
+
+    let existing_obj = existing
+        .as_object_mut()
+        .ok_or("settings.json is not an object")?;
+
+    if let Some(rex_hooks) = rex.get("hooks") {
+        if let Some(existing_hooks) = existing_obj.get_mut("hooks") {
+            let existing_hooks_obj = existing_hooks
+                .as_object_mut()
+                .ok_or("hooks is not an object")?;
+            if let Some(rex_hooks_obj) = rex_hooks.as_object() {
+                for (event, handlers) in rex_hooks_obj {
+                    if !existing_hooks_obj.contains_key(event) {
+                        existing_hooks_obj.insert(event.clone(), handlers.clone());
+                    } else if let (Some(existing_arr), Some(new_arr)) = (
+                        existing_hooks_obj
+                            .get_mut(event)
+                            .and_then(|v| v.as_array_mut()),
+                        handlers.as_array(),
+                    ) {
+                        for handler in new_arr {
+                            existing_arr.push(handler.clone());
+                        }
+                    }
+                }
+            }
+        } else {
+            existing_obj.insert("hooks".into(), rex_hooks.clone());
+        }
+    }
+
+    let result = serde_json::to_string_pretty(&existing)? + "\n";
+    Ok(Some(result))
+}
+
+// ---------------------------------------------------------------------------
+// Cursor: hooks in a separate .cursor/hooks.json
+// ---------------------------------------------------------------------------
+
+fn write_cursor_hooks(
+    config_dir: &Path,
+    config_dir_name: &str,
+    created: &mut Vec<String>,
+    skipped: &mut Vec<String>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let hooks_path = config_dir.join("hooks.json");
+    if !hooks_path.exists() {
+        fs::create_dir_all(config_dir)?;
+        fs::write(&hooks_path, CURSOR_HOOKS_JSON)?;
+        created.push(format!("{config_dir_name}/hooks.json"));
+    } else {
+        let merged = merge_cursor_hooks(&hooks_path)?;
+        if let Some(new_content) = merged {
+            fs::write(&hooks_path, new_content)?;
+            created.push(format!("{config_dir_name}/hooks.json (merged hooks)"));
+        } else {
+            skipped.push(format!(
+                "{config_dir_name}/hooks.json (hooks already present)"
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Merge rex hooks into an existing Cursor hooks.json.
+/// Cursor format uses flat hook objects under lowercase event keys:
+///
+/// ```json
+/// { "version": 1, "hooks": { "stop": [{ "type": "command", "command": "...", "timeout": 30 }] } }
+/// ```
+fn merge_cursor_hooks(
+    existing_path: &Path,
+) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    let existing_str = fs::read_to_string(existing_path)?;
+    if existing_str.contains("commit-and-push") {
+        return Ok(None);
+    }
+
+    let mut existing: serde_json::Value = serde_json::from_str(&existing_str)?;
+    let rex: serde_json::Value = serde_json::from_str(CURSOR_HOOKS_JSON)?;
+
+    let existing_obj = existing
+        .as_object_mut()
+        .ok_or("hooks.json is not an object")?;
+
+    // Ensure version field exists
+    existing_obj
+        .entry("version")
+        .or_insert(serde_json::Value::Number(1.into()));
+
+    if let Some(rex_hooks) = rex.get("hooks") {
+        if let Some(existing_hooks) = existing_obj.get_mut("hooks") {
+            let existing_hooks_obj = existing_hooks
+                .as_object_mut()
+                .ok_or("hooks is not an object")?;
+            if let Some(rex_hooks_obj) = rex_hooks.as_object() {
+                for (event, handlers) in rex_hooks_obj {
+                    if !existing_hooks_obj.contains_key(event) {
+                        existing_hooks_obj.insert(event.clone(), handlers.clone());
+                    } else if let (Some(existing_arr), Some(new_arr)) = (
+                        existing_hooks_obj
+                            .get_mut(event)
+                            .and_then(|v| v.as_array_mut()),
+                        handlers.as_array(),
+                    ) {
+                        for handler in new_arr {
+                            existing_arr.push(handler.clone());
+                        }
+                    }
+                }
+            }
+        } else {
+            existing_obj.insert("hooks".into(), rex_hooks.clone());
+        }
+    }
+
+    let result = serde_json::to_string_pretty(&existing)? + "\n";
+    Ok(Some(result))
+}
+
+// ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
+
 /// Recursively copy an embedded directory into a target path, tracking created/skipped files.
-/// `include_dir` stores paths relative to the embedded root, so `target.join(entry.path())`
-/// gives the correct destination at any depth.
 fn copy_embedded_dir(
     embedded: &Dir,
     target: &Path,
@@ -248,56 +423,4 @@ fn relative_display(path: &Path) -> String {
         }
     }
     path.display().to_string()
-}
-
-/// Merge rex hooks into an existing settings.json.
-/// Returns Some(new_content) if changes were made, None if hooks already present.
-fn merge_settings(
-    existing_path: &Path,
-    rex_settings: &str,
-) -> Result<Option<String>, Box<dyn std::error::Error>> {
-    let existing_str = fs::read_to_string(existing_path)?;
-    let mut existing: serde_json::Value = serde_json::from_str(&existing_str)?;
-    let rex: serde_json::Value = serde_json::from_str(rex_settings)?;
-
-    // Check if commit-and-push hook is already present
-    if existing_str.contains("commit-and-push") {
-        return Ok(None);
-    }
-
-    // Get or create the hooks object
-    let existing_obj = existing
-        .as_object_mut()
-        .ok_or("settings.json is not an object")?;
-
-    if let Some(rex_hooks) = rex.get("hooks") {
-        if let Some(existing_hooks) = existing_obj.get_mut("hooks") {
-            // Merge each hook event (Stop, etc.)
-            let existing_hooks_obj = existing_hooks
-                .as_object_mut()
-                .ok_or("hooks is not an object")?;
-            if let Some(rex_hooks_obj) = rex_hooks.as_object() {
-                for (event, handlers) in rex_hooks_obj {
-                    if !existing_hooks_obj.contains_key(event) {
-                        existing_hooks_obj.insert(event.clone(), handlers.clone());
-                    } else {
-                        // Event exists — append rex handlers to the array
-                        if let (Some(existing_arr), Some(new_arr)) = (
-                            existing_hooks_obj.get_mut(event).and_then(|v| v.as_array_mut()),
-                            handlers.as_array(),
-                        ) {
-                            for handler in new_arr {
-                                existing_arr.push(handler.clone());
-                            }
-                        }
-                    }
-                }
-            }
-        } else {
-            existing_obj.insert("hooks".into(), rex_hooks.clone());
-        }
-    }
-
-    let result = serde_json::to_string_pretty(&existing)? + "\n";
-    Ok(Some(result))
 }
