@@ -1,18 +1,35 @@
 {
   "design": [
     {
-      "item": "rex-design-rust-library-review",
+      "item": "existing-code-exploration",
+      "agent-count": 3,
+      "stop-on-finish": true,
+      "agent": {
+        "effort": "high",
+        "model": "opus",
+        "skills": ["rex-design-rust-existing-code-exploration"]
+      },
+      "inputs": [],
+      "output": "rex/<insert-project-id>/design/existing-code-exploration.md",
+      "status": "not-started"
+    },
+    {
+      "item": "library-review",
+      "agent-count": 1,
+      "stop-on-finish": true,
       "agent": {
         "effort": "high",
         "model": "opus",
         "skills": ["rex-design-rust-library-review"]
       },
       "inputs": [],
-      "output": "rex/<insert-project-id>/design/error-handling.md",
+      "output": "rex/<insert-project-id>/design/library-review.md",
       "status": "not-started"
     },
     {
       "item": "error-handling",
+      "agent-count": 1,
+      "stop-on-finish": true,
       "agent": {
         "effort": "high",
         "model": "sonnet",
