@@ -66,9 +66,26 @@ If the user has their own ideas for skills, explore those too. If they think a p
 
 ---
 
-## Creating the skills
+## Finding existing skills first
 
-Once the user has confirmed which skills to create and provided their input, use `/skill-creator` to create each one. Pass along everything the user said about what the skill should cover — their domain knowledge, their preferences, their specific guidance.
+Before creating any custom skills, check whether the open agent skills ecosystem already has what's needed. Use `/find-skills` to search for existing skills that match each identified need.
+
+For each skill gap you and the user have identified:
+
+1. **Search first** — use `/find-skills` which searches via `npx skills find [query]`. Try relevant keywords for the domain or task.
+2. **Evaluate quality** — prefer skills with 1K+ installs from reputable sources (`vercel-labs`, `anthropics`, `microsoft`, etc.). Be skeptical of low-install or unknown-author skills.
+3. **Recommend installation** if a quality existing skill covers the need. Install with `npx skills add <owner/repo@skill> -g -y`.
+4. **Fall back to custom creation** only when no existing skill covers the need — typically for domain-specific or project-specific specialist thinking that's too niche for the ecosystem.
+
+Record which existing skills were found and installed in the output document alongside any custom skills created.
+
+---
+
+## Creating custom skills
+
+Once the user has confirmed which skills need to be **custom-built** (i.e., no suitable existing skill was found), use `/skill-creator` to create each one. Pass along everything the user said about what the skill should cover — their domain knowledge, their preferences, their specific guidance.
+
+**CRITICAL: Skills must be created within the project's root directory** — inside `<project-directory>/.claude/skills/`, NOT inside the rex harness's own `.claude/skills/` directory. The rex harness skills belong to the rex framework itself. Project-specific skills belong in the project. When invoking `/skill-creator`, ensure the skill is written to the correct location.
 
 Create them one at a time. After each one, confirm with the user before moving to the next.
 
