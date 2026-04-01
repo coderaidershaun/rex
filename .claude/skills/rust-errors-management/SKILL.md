@@ -1,5 +1,5 @@
 ---
-name: rust:errors-management
+name: rust-errors-management
 description: Architect and implement robust Rust error handling using thiserror, dedicated error types, and proper propagation. Use this skill when creating or restructuring error types, when reviewing code for unwrap/expect misuse, when the user says "fix the errors", "add error handling", "clean up unwraps", "make errors useful", "I can't tell where this error came from", or when writing new modules that need to integrate with the project's error system. Also trigger when adding new CLI commands, new modules, or any code that introduces new failure modes that need proper error variants. If you see scattered unwraps, bare panics, or error messages that don't carry context about what went wrong and where — this skill applies.
 disable-model-invocation: false
 user-invocable: true

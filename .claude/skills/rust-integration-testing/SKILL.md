@@ -1,5 +1,5 @@
 ---
-name: rust:integration-testing
+name: rust-integration-testing
 description: Write high-stakes Rust integration tests that catch real-world production failures — using real data, real connections, and real failure modes. Use this skill when verifying that a system works end-to-end in production conditions, when the user says "integration test", "test against real data", "make sure this works in production", "test the websocket", "test the API connection", or when working on code that interacts with external systems (APIs, databases, websockets, file systems, networks). Also trigger when the user mentions "test for real", "production test", "end-to-end test", or when an agent needs to verify that a feature works beyond unit-level correctness. This skill is the last line of defense before shipping — it must be used with maximum thinking depth and care. Do NOT use this for synthetic/mock-based testing (that belongs to rust:unit-testing).
 disable-model-invocation: false
 user-invocable: true

@@ -1,5 +1,5 @@
 ---
-name: rust:planning-and-architecture
+name: rust-planning-and-architecture
 description: Senior Rust systems architect for performance-critical design decisions, data structure selection, concurrency strategy, and library evaluation. Use this skill when planning Rust architecture from scratch, choosing between data structures or crates for performance, designing concurrent or parallel systems, evaluating whether to pull in a heavy dependency (like polars) vs using lower-level building blocks (arrow, parquet), deciding on channel types (MPSC vs SPSC vs crossbeam), choosing lock-free vs wait-free vs mutex-based designs, or weighing SoA vs AoS memory layouts. Also trigger when the user asks "what's the best way to architect this", "how should I structure this for performance", "should I use X or Y crate", "do I need polars or can I just use arrow", or any question about Rust system design where the answer depends on tradeoffs rather than syntax. This skill is about logical flow, performance, and making the right architectural call — not about code style or ergonomics (those belong to the rust:ergonomic-refactoring skill).
 disable-model-invocation: false
 user-invocable: true

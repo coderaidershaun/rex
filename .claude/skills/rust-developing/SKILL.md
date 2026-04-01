@@ -1,5 +1,5 @@
 ---
-name: rust:developing
+name: rust-developing
 description: Execute Rust implementation from a plan — write the core logic, data transformations, state machines, algorithms, and business rules that make the system work. Use this skill when the architecture has been decided and it's time to write the actual code, when a plan or design exists and needs to be turned into working Rust, when the user says "implement this", "build it", "write the code", "code this up", "make it work", or when the rust:planning-and-architecture skill has produced a plan that needs execution. Also trigger when the user has a clear idea of what they want built and just needs someone to write excellent logic — not plan it, not test it, not refactor it, but write it from scratch or extend existing code with new functionality. This is the implementation workhorse — the skill that turns designs into running code.
 disable-model-invocation: false
 user-invocable: true

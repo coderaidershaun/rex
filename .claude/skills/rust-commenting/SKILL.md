@@ -1,5 +1,5 @@
 ---
-name: rust:commenting
+name: rust-commenting
 description: Add consistent, minimal comments to Rust source files. Use this skill whenever the user asks to comment, document, or annotate Rust code — including requests like "add comments", "document this module", "annotate these structs", or any variation involving Rust files and documentation/comments. Also trigger when the user asks to clean up or standardize existing Rust comments.
 disable-model-invocation: false
 user-invocable: true

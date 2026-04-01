@@ -238,7 +238,7 @@ pub fn create() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create rex/<project-id>/ directory, subdirectories, and project-status.json
     let project_dir = format!("rex/{id}");
-    for sub in &["onboarding", "user-support", "planning", "execution", "uat"] {
+    for sub in &["onboarding", "user-support", "planning", "design", "execution", "uat"] {
         fs::create_dir_all(format!("{project_dir}/{sub}"))?;
     }
 

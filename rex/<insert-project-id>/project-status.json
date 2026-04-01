@@ -156,5 +156,18 @@
       "output": "onboarding/team-building.md",
       "status": "not-started"
     }
+  ],
+  "design": [
+    {
+      "item": "error-handling",
+      "agent": {
+        "effort": "high",
+        "model": "sonnet",
+        "skills": []
+      },
+      "inputs": [],
+      "output": "onboarding/goal.md",
+      "status": "not-started"
+    }
   ]
 }

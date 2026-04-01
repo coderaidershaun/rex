@@ -1,5 +1,5 @@
 ---
-name: rust:team-coordinator
+name: rust-team-coordinator
 description: Smart coordinator for all Rust development work — triages tasks and either dispatches a single specialist agent or orchestrates the full team through a disciplined pipeline (exploration, TDD, architecture, implementation, testing, polish). Use this skill for ANY Rust development task, whether simple or complex. For comments, ergonomics, error handling, or trivial code it dispatches directly to the right specialist. For new features, significant refactors, new modules, or anything architecturally non-trivial it runs the full multi-agent pipeline with TDD. Also trigger when the user says "build this", "implement this feature", "coordinate the rust team", "do this properly", or any Rust development request. This is the single entry point for all Rust work — it figures out what the task actually needs and deploys accordingly.
 disable-model-invocation: false
 user-invocable: true

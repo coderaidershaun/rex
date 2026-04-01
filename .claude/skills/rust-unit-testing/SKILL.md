@@ -1,5 +1,5 @@
 ---
-name: rust:unit-testing
+name: rust-unit-testing
 description: Write minimal, targeted Rust unit tests to verify code correctness — then clean up after. Use this skill when verifying Rust code works correctly, after writing complex logic (orderbook matching, state machines, parsers, financial calculations), when the user says "test this", "make sure this works", "verify the logic", "write a quick test", or when working on code where subtle bugs would be costly. Also trigger after implementing non-trivial algorithms or data structures where a quick sanity check prevents hours of debugging later.
 disable-model-invocation: false
 user-invocable: true

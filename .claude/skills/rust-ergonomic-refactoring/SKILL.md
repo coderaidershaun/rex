@@ -1,5 +1,5 @@
 ---
-name: rust:ergonomic-refactoring
+name: rust-ergonomic-refactoring
 description: Refactor Rust code for better ergonomics, readability, and idiomatic style without sacrificing performance. Use this skill whenever the user asks to clean up Rust code, improve readability, make Rust code more idiomatic, refactor for ergonomics, simplify Rust logic, or asks about `#[inline]` usage. Also trigger when Rust code looks clunky, overly verbose, or uses anti-patterns — even if the user just says "clean this up" or "make this better" in the context of Rust files. Covers iterator chains, error handling, type conversions, builder patterns, smart use of `impl`, trait design, and performance-aware style choices.
 disable-model-invocation: false
 user-invocable: true

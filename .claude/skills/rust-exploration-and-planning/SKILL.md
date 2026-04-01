@@ -1,5 +1,5 @@
 ---
-name: rust:exploration-and-planning
+name: rust-exploration-and-planning
 description: Systematically explore a Rust codebase to understand its architecture, find reusable structs/traits/functions, and plan where new code should be written — without duplicating what already exists. Use this skill when given an implementation task in a large or unfamiliar Rust codebase and you need to understand what's already there before writing anything. Also trigger when the user asks "where should this go", "is there already a struct for this", "how does this module work", "map out the architecture", "find what I can reuse", "what exists already for X", "plan the implementation", or anything about understanding code structure before writing. This skill is read-only — it produces recommendations and architectural maps, not code changes. For actual architecture decisions (data structures, concurrency, performance), use rust:planning-and-architecture. For code changes, hand off to the appropriate writing skill.
 disable-model-invocation: false
 user-invocable: true

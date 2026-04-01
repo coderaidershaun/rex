@@ -1,0 +1,15 @@
+{
+  "planning": [
+    {
+      "item": "error-handling",
+      "agent": {
+        "effort": "high",
+        "model": "sonnet",
+        "skills": ["rust-onboarding-goal"]
+      },
+      "inputs": [],
+      "output": "rex/some-brief-name/onboarding/goal.md",
+      "status": "not-started"
+    }
+  ]
+}
