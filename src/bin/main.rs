@@ -38,6 +38,11 @@ enum Commands {
         #[command(subcommand)]
         action: TaskAction,
     },
+    /// Manage session history (recent and archived work)
+    History {
+        #[command(subcommand)]
+        action: HistoryAction,
+    },
 }
 
 // ---------------------------------------------------------------------------
@@ -388,6 +393,68 @@ enum TaskAction {
 }
 
 // ---------------------------------------------------------------------------
+// History subcommands
+// ---------------------------------------------------------------------------
+
+#[derive(Subcommand)]
+enum HistoryAction {
+    /// Insert a new entry into the recent section
+    InsertRecent {
+        /// Unique kebab-case identifier for this entry
+        #[arg(long)]
+        id: String,
+        /// ISO-8601 timestamp (e.g. 2026-04-01T14:30:00Z)
+        #[arg(long)]
+        timestamp: String,
+        /// Brief summary of what was done
+        #[arg(long)]
+        summary: String,
+        /// Entity IDs (milestones/objectives/tasks) affected. Repeatable.
+        #[arg(long = "entity")]
+        entities: Vec<String>,
+        /// Files created or modified. Repeatable.
+        #[arg(long = "file")]
+        files: Vec<String>,
+        /// Agent session identifier
+        #[arg(long)]
+        session: Option<String>,
+    },
+    /// Remove an entry from the recent section
+    RemoveFromRecent {
+        /// Entry ID to remove
+        id: String,
+    },
+    /// Insert a compacted entry into the archived section
+    InsertCompacted {
+        /// Unique kebab-case identifier for this entry
+        #[arg(long)]
+        id: String,
+        /// ISO-8601 timestamp (e.g. 2026-04-01T14:30:00Z)
+        #[arg(long)]
+        timestamp: String,
+        /// Compacted summary of the work
+        #[arg(long)]
+        summary: String,
+        /// Entity IDs (milestones/objectives/tasks) affected. Repeatable.
+        #[arg(long = "entity")]
+        entities: Vec<String>,
+        /// Files created or modified. Repeatable.
+        #[arg(long = "file")]
+        files: Vec<String>,
+        /// Agent session identifier
+        #[arg(long)]
+        session: Option<String>,
+    },
+    /// Remove an entry from the archived section
+    RemoveFromCompacted {
+        /// Entry ID to remove
+        id: String,
+    },
+    /// List all history (recent and archived) as JSON
+    List,
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -498,6 +565,37 @@ fn main() {
                 rex::commands::task::list(objective, status)
             }
             TaskAction::Remove { id } => rex::commands::task::remove(&id),
+        },
+
+        // -- History --------------------------------------------------------
+        Commands::History { action } => match action {
+            HistoryAction::InsertRecent {
+                id,
+                timestamp,
+                summary,
+                entities,
+                files,
+                session,
+            } => rex::commands::history::insert_recent(
+                &id, &timestamp, &summary, entities, files, session,
+            ),
+            HistoryAction::RemoveFromRecent { id } => {
+                rex::commands::history::remove_from_recent(&id)
+            }
+            HistoryAction::InsertCompacted {
+                id,
+                timestamp,
+                summary,
+                entities,
+                files,
+                session,
+            } => rex::commands::history::insert_compacted(
+                &id, &timestamp, &summary, entities, files, session,
+            ),
+            HistoryAction::RemoveFromCompacted { id } => {
+                rex::commands::history::remove_from_compacted(&id)
+            }
+            HistoryAction::List => rex::commands::history::list(),
         },
     };
 
