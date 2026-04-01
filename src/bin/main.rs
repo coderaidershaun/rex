@@ -13,6 +13,15 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Initialize the rex harness in the current directory
+    Init {
+        /// Use Claude Code (skip interactive prompt)
+        #[arg(long)]
+        claude: bool,
+        /// Use Cursor (skip interactive prompt)
+        #[arg(long)]
+        cursor: bool,
+    },
     /// Manage projects
     Project {
         #[command(subcommand)]
@@ -466,6 +475,18 @@ fn main() {
     let cli = Cli::parse();
 
     let result = match cli.command {
+        // -- Init -----------------------------------------------------------
+        Commands::Init { claude, cursor } => {
+            let agent_os = if claude {
+                Some(rex::commands::init::AgentOs::Claude)
+            } else if cursor {
+                Some(rex::commands::init::AgentOs::Cursor)
+            } else {
+                None
+            };
+            rex::commands::init::init(agent_os)
+        }
+
         // -- Project --------------------------------------------------------
         Commands::Project { action } => match action {
             ProjectAction::Create => rex::commands::project::create(),

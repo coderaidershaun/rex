@@ -24,6 +24,31 @@ User creates project
 
 All phases live in a single `project-status.json` file. The operator calls `rex project next-item` to get the next incomplete item across all phases. For phases 1-3, the item itself describes the work. For phase 4, the single execution item tells the operator to switch to `rex task next` and work through the planning tree.
 
+## Initialization
+
+Before creating projects, initialize the rex harness in your repository:
+
+```bash
+rex init [--claude | --cursor]
+```
+
+This copies all skills, hooks, settings, and documentation into the current directory. Prompts for the agent OS (Claude Code or Cursor) to determine the config directory:
+
+| Agent OS | Config dir | Root file |
+|----------|-----------|-----------|
+| Claude Code | `.claude/` | `CLAUDE.md` |
+| Cursor | `.cursor/` | `AGENTS.md` |
+
+**What gets created:**
+- `<config-dir>/skills/` — all rex and rust skills (40 skill directories)
+- `<config-dir>/hooks/commit-and-push.sh` — auto-commit on agent stop
+- `<config-dir>/settings.json` — hook configuration
+- `rex/docs/` — all CLI and process documentation
+- `rex/projects.json` — empty project registry
+- `CLAUDE.md` or `AGENTS.md` — points to `rex/docs/README.md`
+
+**Safe to re-run:** existing files are never overwritten. Only missing files/folders are created. If `CLAUDE.md`/`AGENTS.md` already exists, the rex section is appended. If `settings.json` already exists, rex hooks are merged in.
+
 ## Phase Overview
 
 ### Phase 0: Project Creation
@@ -234,6 +259,14 @@ Each work item in `project-status.json` specifies how its agent(s) should be dis
 | `stop-on-finish` | Whether the operator stops after this item completes |
 
 ## CLI Command Reference
+
+### Initialization
+
+| Command | Purpose |
+|---------|---------|
+| `rex init` | Initialize the rex harness in the current directory (interactive) |
+| `rex init --claude` | Initialize for Claude Code (non-interactive) |
+| `rex init --cursor` | Initialize for Cursor (non-interactive) |
 
 ### Project Management
 
