@@ -53,6 +53,19 @@
       "status": "not-started"
     },
     {
+      "item": "integration-testing",
+      "agent-count": 1,
+      "stop-on-finish": true,
+      "agent": {
+        "effort": "max",
+        "model": "opus",
+        "skills": ["rex-design-rust-integration-tests"]
+      },
+      "inputs": [],
+      "output": "rex/<insert-project-id>/design/integration-tests.md",
+      "status": "not-started"
+    },
+    {
       "item": "error-handling",
       "agent-count": 1,
       "stop-on-finish": true,
