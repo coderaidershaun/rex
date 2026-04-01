@@ -129,7 +129,7 @@ impl ProjectStatus {
 
                 TaskStep {
                     item: item.to_string(),
-                    stop_on_finish: false,
+                    stop_on_finish: item == "checklist",
                     agent: Agent {
                         count: 1,
                         effort: effort.into(),
