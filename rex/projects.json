@@ -1,4 +1,1 @@
-{
-  "active": null,
-  "inactive": []
-}
+{"active":{"id":"test-project","category":"binary","complexity":"low","title":"Test","subtitle":"Test","description":"Test","directory":"/tmp/rex-test","locked":false},"inactive":[]}

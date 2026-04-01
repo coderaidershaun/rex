@@ -390,6 +390,8 @@ enum TaskAction {
         /// Task ID
         id: String,
     },
+    /// Get the next task to work on based on dependency ordering and priority
+    Next,
 }
 
 // ---------------------------------------------------------------------------
@@ -567,6 +569,7 @@ fn main() {
                 rex::commands::task::list(objective, status)
             }
             TaskAction::Remove { id } => rex::commands::task::remove(&id),
+            TaskAction::Next => rex::commands::task::next(),
         },
 
         // -- History --------------------------------------------------------

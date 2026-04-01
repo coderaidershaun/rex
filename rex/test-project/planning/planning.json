@@ -1,0 +1,118 @@
+{
+  "milestones": [
+    {
+      "id": "m-infra",
+      "title": "Infrastructure ready",
+      "description": "Core infra",
+      "status": "not-started",
+      "objectives": [
+        "o-db"
+      ],
+      "downstream": [
+        "m-auth"
+      ]
+    },
+    {
+      "id": "m-auth",
+      "title": "Auth operational",
+      "description": "Auth flows",
+      "status": "not-started",
+      "objectives": [
+        "o-reset",
+        "o-oauth"
+      ],
+      "upstream": [
+        "m-infra"
+      ]
+    }
+  ],
+  "objectives": [
+    {
+      "id": "o-db",
+      "milestone_id": "m-infra",
+      "title": "Database setup",
+      "description": "Provision DB",
+      "status": "not-started",
+      "tasks": [
+        "t-schema",
+        "t-migrate"
+      ]
+    },
+    {
+      "id": "o-reset",
+      "milestone_id": "m-auth",
+      "title": "Password reset",
+      "description": "Reset flow",
+      "status": "not-started",
+      "tasks": [
+        "t-token",
+        "t-email"
+      ],
+      "downstream": [
+        "o-oauth"
+      ]
+    },
+    {
+      "id": "o-oauth",
+      "milestone_id": "m-auth",
+      "title": "OAuth",
+      "description": "OAuth flow",
+      "status": "not-started",
+      "tasks": [
+        "t-oauth-config"
+      ],
+      "upstream": [
+        "o-reset"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "t-schema",
+      "objective_id": "o-db",
+      "title": "Create DB schema",
+      "description": "DDL",
+      "status": "not-started",
+      "downstream": [
+        "t-migrate"
+      ]
+    },
+    {
+      "id": "t-migrate",
+      "objective_id": "o-db",
+      "title": "Run migrations",
+      "description": "Migrate",
+      "status": "not-started",
+      "upstream": [
+        "t-schema"
+      ]
+    },
+    {
+      "id": "t-token",
+      "objective_id": "o-reset",
+      "title": "Token endpoint",
+      "description": "POST /reset-token",
+      "status": "not-started",
+      "downstream": [
+        "t-email"
+      ]
+    },
+    {
+      "id": "t-email",
+      "objective_id": "o-reset",
+      "title": "Email template",
+      "description": "Reset email",
+      "status": "not-started",
+      "upstream": [
+        "t-token"
+      ]
+    },
+    {
+      "id": "t-oauth-config",
+      "objective_id": "o-oauth",
+      "title": "OAuth config",
+      "description": "Configure providers",
+      "status": "not-started"
+    }
+  ]
+}
