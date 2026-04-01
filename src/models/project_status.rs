@@ -473,9 +473,9 @@ fn build_execution_steps() -> Vec<TaskStep> {
         stop_on_finish: false,
         agent: Agent {
             count: 1,
-            effort: "max".into(),
+            effort: "high".into(),
             model: "opus".into(),
-            skills: vec!["rust-team-coordinator".into()],
+            skills: vec!["Assign agents with model, effort level and skills as defined in the task".into()],
         },
         inputs: vec![],
         outputs: vec![],
