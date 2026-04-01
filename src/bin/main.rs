@@ -49,6 +49,11 @@ enum Commands {
         #[command(subcommand)]
         action: TaskAction,
     },
+    /// Initialize a Cargo workspace monorepo with rex harness
+    Mono {
+        #[command(subcommand)]
+        action: MonoAction,
+    },
     /// Manage session history (recent and archived work)
     History {
         #[command(subcommand)]
@@ -434,6 +439,26 @@ enum TaskAction {
 }
 
 // ---------------------------------------------------------------------------
+// Mono subcommands
+// ---------------------------------------------------------------------------
+
+#[derive(Subcommand)]
+enum MonoAction {
+    /// Create a new Cargo workspace monorepo with rex harness and git
+    Init {
+        /// Name of the monorepo directory to create
+        #[arg(long)]
+        name: String,
+        /// Use Claude Code (skip interactive prompt)
+        #[arg(long)]
+        claude: bool,
+        /// Use Cursor (skip interactive prompt)
+        #[arg(long)]
+        cursor: bool,
+    },
+}
+
+// ---------------------------------------------------------------------------
 // History subcommands
 // ---------------------------------------------------------------------------
 
@@ -637,6 +662,20 @@ fn main() {
             }
             TaskAction::Remove { id } => rex_cli::commands::task::remove(&id),
             TaskAction::Next => rex_cli::commands::task::next(),
+        },
+
+        // -- Mono -----------------------------------------------------------
+        Commands::Mono { action } => match action {
+            MonoAction::Init { name, claude, cursor } => {
+                let agent_os = if claude {
+                    Some(rex_cli::commands::init::AgentOs::Claude)
+                } else if cursor {
+                    Some(rex_cli::commands::init::AgentOs::Cursor)
+                } else {
+                    None
+                };
+                rex_cli::commands::mono::init(&name, agent_os)
+            }
         },
 
         // -- History --------------------------------------------------------

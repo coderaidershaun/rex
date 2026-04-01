@@ -2,6 +2,7 @@ pub mod checklist;
 pub mod history;
 pub mod init;
 pub mod milestone;
+pub mod mono;
 pub mod objective;
 pub mod project;
 pub mod task;
