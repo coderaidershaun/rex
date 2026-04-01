@@ -1,3 +1,4 @@
+use crate::models::project_status::Agent;
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -95,6 +96,8 @@ pub struct Task {
     pub description: String,
     #[serde(default = "default_not_started")]
     pub status: PlanningStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent: Option<Agent>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub references: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

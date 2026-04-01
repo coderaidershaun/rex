@@ -85,6 +85,12 @@ This returns the next eligible task along with its parent objective and mileston
     "title": "Implement the token-generation endpoint",
     "description": "POST /auth/reset-token — generates a secure token...",
     "status": "not-started",
+    "agent": {
+      "count": 1,
+      "effort": "max",
+      "model": "opus",
+      "skills": ["rust-team-coordinator"]
+    },
     "references": ["docs/auth-spec.md#token-generation"],
     "outputs": ["src/auth/reset_token.rs"],
     "checklist": [...],
@@ -247,7 +253,17 @@ ultrathink. Think very deeply. Take your time and consider all angles.
 
 ### Execution phase
 
-For execution, the agent prompt is built from the **task** (from `rex task next`), not the execution item. The execution item's `agent` config still controls the model, effort, and skills — but the task provides the actual work, inputs, and outputs.
+For execution, the agent prompt is built from the **task** (from `rex task next`), not the execution item. The task provides the actual work, inputs, and outputs — and may also carry its own agent config.
+
+#### Resolving agent config (task-level override)
+
+Tasks can have an optional `agent` field with `model`, `effort`, `skills`, and `count`. When present, the **task's agent config takes precedence** over the execution item's agent config. This allows different tasks to use different skills, models, and effort levels.
+
+**Resolution logic:**
+- If the task has an `agent` field → use the task's `agent.model`, `agent.effort`, `agent.skills`, and `agent.count`
+- If the task has **no** `agent` field → fall back to the execution item's `agent` config (the previous default behavior)
+
+This is the first thing to check after `rex task next` returns a task.
 
 #### Building the execution agent prompt
 
@@ -258,10 +274,10 @@ The prompt must include:
 3. **The milestone context** — pass the full milestone object so the agent understands the high-level goal it's contributing to.
 4. **The objective context** — pass the full objective object so the agent understands the strategic outcome this task serves.
 5. **The task details** — pass the full task object: title, description, checklist items, references, outputs, upstream/downstream dependencies.
-6. **The skill to use** — from `agent.skills` on the execution item.
+6. **The skill to use** — from the resolved agent config (task's `agent.skills` if present, otherwise execution item's `agent.skills`).
 7. **Input files** — the task's `references` array contains file paths and entity IDs the agent should read. Pass all file paths as inputs.
 8. **Output files** — the task's `outputs` array lists files the agent must write to.
-9. **Effort level** — from `agent.effort` on the execution item.
+9. **Effort level** — from the resolved agent config (task's `agent.effort` if present, otherwise execution item's `agent.effort`).
 
 #### Example agent prompt (execution phase)
 
@@ -541,7 +557,7 @@ rex objective get <id>
 rex objective list [--milestone <id>] [--status <status>]
 rex objective remove <id>
 
-rex task upsert --id <id> [--objective --title --description --status] [--add-reference ...] [--add-upstream ...]
+rex task upsert --id <id> [--objective --title --description --status] [--agent-model --agent-effort --agent-skill ... --agent-count] [--add-reference ...] [--add-upstream ...]
 rex task get <id>
 rex task list [--objective <id>] [--status <status>]
 rex task remove <id>
@@ -586,5 +602,6 @@ rex checklist set-context "<text>"
 - **Respect the lock.** If the project is locked, stop immediately. No exceptions, no "let me just check one thing."
 - **Respect agent responses.** If an agent says not to mark complete, don't mark complete.
 - **Pass full context.** Agents should receive the project object and recent history so they have everything they need.
-- **Execution uses `rex task next`, not the item itself.** During execution, the planning tree drives what gets worked on. The execution item's `agent` config provides the model/effort/skills, but the task provides the work, inputs, and outputs.
+- **Execution uses `rex task next`, not the item itself.** During execution, the planning tree drives what gets worked on. If the task has its own `agent` field, use it. Otherwise, fall back to the execution item's `agent` config. The task always provides the work, inputs, and outputs.
+- **Task-level agent overrides execution-level agent.** When a task returned by `rex task next` includes an `agent` object, use the task's `agent.model`, `agent.effort`, `agent.skills`, and `agent.count` instead of the execution item's. This is how per-task skill and model assignment works.
 - **Mark tasks complete via CLI.** Always run `rex task upsert --id <id> --status completed` when a task is done. Only mark the execution item complete when all tasks are finished.

@@ -2,6 +2,7 @@ use crate::models::planning::{
     apply_all_list_mods, ListMods, PlanningStatus, PlanningStore, Task,
 };
 use crate::models::project::ProjectRegistry;
+use crate::models::project_status::Agent;
 use console::style;
 use std::collections::{HashSet, VecDeque};
 use std::path::Path;
@@ -14,12 +15,51 @@ fn load_store() -> Result<(String, PlanningStore), Box<dyn std::error::Error>> {
     Ok((project_dir, store))
 }
 
+/// Build an `Agent` from optional CLI fields. Returns `None` if no agent
+/// fields were provided. When updating, merges with the existing agent.
+fn build_agent(
+    existing: Option<&Agent>,
+    model: Option<String>,
+    effort: Option<String>,
+    skills: Vec<String>,
+    count: Option<u32>,
+) -> Option<Agent> {
+    let has_input = model.is_some() || effort.is_some() || !skills.is_empty() || count.is_some();
+
+    if !has_input {
+        return existing.cloned();
+    }
+
+    match existing {
+        Some(prev) => Some(Agent {
+            count: count.unwrap_or(prev.count),
+            effort: effort.unwrap_or_else(|| prev.effort.clone()),
+            model: model.unwrap_or_else(|| prev.model.clone()),
+            skills: if skills.is_empty() {
+                prev.skills.clone()
+            } else {
+                skills
+            },
+        }),
+        None => Some(Agent {
+            count: count.unwrap_or(1),
+            effort: effort.unwrap_or_else(|| "high".to_string()),
+            model: model.unwrap_or_else(|| "sonnet".to_string()),
+            skills,
+        }),
+    }
+}
+
 pub fn upsert(
     id: &str,
     objective: Option<String>,
     title: Option<String>,
     description: Option<String>,
     status: Option<PlanningStatus>,
+    agent_model: Option<String>,
+    agent_effort: Option<String>,
+    agent_skills: Vec<String>,
+    agent_count: Option<u32>,
     mods: ListMods,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (project_dir, mut store) = load_store()?;
@@ -38,12 +78,15 @@ pub fn upsert(
             return Err(format!("Objective \"{objective_id}\" not found.").into());
         }
 
+        let agent = build_agent(None, agent_model, agent_effort, agent_skills, agent_count);
+
         let mut task = Task {
             id: id.to_string(),
             objective_id: objective_id.clone(),
             title,
             description,
             status: status.unwrap_or(PlanningStatus::NotStarted),
+            agent,
             references: Vec::new(),
             outputs: Vec::new(),
             checklist: Vec::new(),
@@ -104,6 +147,14 @@ pub fn upsert(
         if let Some(s) = status {
             task.status = s;
         }
+
+        task.agent = build_agent(
+            task.agent.as_ref(),
+            agent_model,
+            agent_effort,
+            agent_skills,
+            agent_count,
+        );
 
         apply_all_list_mods(
             &mut task.references,

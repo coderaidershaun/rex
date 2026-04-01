@@ -183,6 +183,9 @@ rex task upsert \
   --objective o-<parent-objective-id> \
   --title "Clear, actionable description of the work" \
   --description "What to build, where it goes, what it integrates with. Include enough context for an agent to start cold." \
+  --agent-model <opus|sonnet> \
+  --agent-effort <high|max> \
+  --agent-skill <skill-name> \
   --add-reference design/architecture.md \
   --add-reference design/modules.md \
   --add-output src/module/file.rs \
@@ -230,6 +233,81 @@ rex task upsert \
 - **References** — Point to the specific design documents an agent needs to execute this task. Don't just reference the top-level architecture doc — point to the specific section or module plan. An agent should be able to read the references and know exactly what structs to create, what function signatures to use, and where the code goes.
 - **Outputs** — List the specific files this task produces. This helps downstream tasks know exactly what to expect and where to find it.
 
+### Agent assignment
+
+Every task must be assigned an agent configuration — the skill, model, and effort level that determines which specialist handles it and how hard they think. This is set via `--agent-model`, `--agent-effort`, and `--agent-skill` flags on `rex task upsert`.
+
+**This is mandatory.** Every task you create must have an agent assigned. Without it, the task falls back to a generic default during execution, which wastes resources on simple tasks and under-powers complex ones.
+
+#### Built-in Rust skills reference
+
+Use these `rust-*` skills for standard Rust development work. **Only assign non-`rex-*` skills** — the `rex-*` skills are for the rex framework's own phases.
+
+| Task type | Skill | Model | Effort | When to use |
+|-----------|-------|-------|--------|-------------|
+| Complex implementation (new modules, core logic, state machines, multi-file features) | `rust-team-coordinator` | opus | max | The default for any substantial implementation work. It triages internally and orchestrates exploration → architecture → implementation → testing → polish. |
+| Planning & architecture decisions | `rust-planning-and-architecture` | opus | max | Tasks that require choosing between approaches, designing data structures, evaluating concurrency strategies, or making significant structural decisions. |
+| Integration testing | `rust-integration-testing` | opus | max | Writing integration tests that exercise real data flows, real connections, and real failure modes. |
+| Ergonomic refactoring | `rust-ergonomic-refactoring` | opus | max | Cleaning up code for idiomatic style, readability, and ergonomics — especially when touching multiple files or modules. |
+| Unit testing | `rust-unit-testing` | sonnet | high | Writing focused unit tests for specific functions, methods, or modules. |
+| Comments & documentation | `rust-commenting` | sonnet | high | Adding or updating comments on existing code. |
+| Error handling | `rust-errors-management` | sonnet | high | Defining error types, replacing unwraps, setting up thiserror-based error propagation. |
+| Simple/straightforward implementation | `rust-developing` | sonnet | high | Small, well-defined tasks where the design is already decided — a single function, a derive macro addition, a config struct, wiring glue code. No design decisions needed. |
+| Code exploration | `rust-exploration-and-planning` | sonnet | high | Understanding an existing codebase area before working on it. Typically an upstream of an implementation task. |
+
+#### Custom project skills
+
+During onboarding, custom skills may have been created for project-specific specialist work (e.g., a domain-specific skill for financial calculations, protocol parsing, etc.). Check the onboarding `skill-building.md` output for any custom skills that were created. Assign these to tasks that match their domain. Use the model and effort level appropriate to the task's complexity — typically sonnet/high for straightforward domain work, opus/max for complex domain logic.
+
+#### How to decide
+
+1. **Is the task complex, multi-file, or architecturally significant?** → `rust-team-coordinator` on opus/max. When in doubt, use this — it triages internally and won't over-engineer simple work.
+2. **Is it a focused specialist task?** (just tests, just comments, just error types) → Use the matching specialist skill on sonnet/high.
+3. **Does it require deep design thinking?** (architecture, integration tests, refactoring across modules) → Use the matching specialist skill on opus/max.
+4. **Does it match a custom project skill?** → Use that skill with appropriate model/effort.
+
+#### Example with agent flags
+
+```bash
+# Complex implementation — rust-team-coordinator on opus/max
+rex task upsert \
+  --id t-matching-impl \
+  --objective o-core-matching \
+  --title "Implement the OrderBook with insert, cancel, and match methods" \
+  --description "..." \
+  --agent-model opus \
+  --agent-effort max \
+  --agent-skill rust-team-coordinator \
+  --add-reference design/architecture.md \
+  --add-output src/matching/orderbook.rs
+
+# Simple commenting task — rust-commenting on sonnet/high
+rex task upsert \
+  --id t-matching-comments \
+  --objective o-core-matching \
+  --title "Add comments to the matching engine module" \
+  --description "..." \
+  --agent-model sonnet \
+  --agent-effort high \
+  --agent-skill rust-commenting \
+  --add-reference src/matching/orderbook.rs \
+  --add-output src/matching/orderbook.rs \
+  --add-upstream t-matching-impl
+
+# Integration tests — rust-integration-testing on opus/max
+rex task upsert \
+  --id t-api-integration-tests \
+  --objective o-api-layer \
+  --title "Write integration tests for order submission through the REST API" \
+  --description "..." \
+  --agent-model opus \
+  --agent-effort max \
+  --agent-skill rust-integration-testing \
+  --add-reference design/integration-tests.md \
+  --add-output tests/integration/order_api_test.rs \
+  --add-upstream t-api-routes
+```
+
 ---
 
 ## Writing output files
@@ -250,6 +328,7 @@ Brief description of the task structure and dependency strategy.
 
 #### 1. [Task Title] (`t-id`)
 **Description:** What this task involves
+**Agent:** skill-name / model / effort
 **Upstream:** t-dependency-1, t-dependency-2 (or "none — root task")
 **Downstream:** t-dependent-1
 **Outputs:** src/module/file.rs
@@ -282,5 +361,6 @@ You're done when:
 4. Each task has a meaningful checklist with concrete, verifiable completion criteria
 5. Each task's references point to the specific design documents an agent needs for cold-start execution
 6. Each task's outputs list the specific files it will produce
-7. The dependency graph has been verified: no orphans, no broken chains, no missing upstreams
-8. Any requested output files have been written
+7. Every task has an agent assigned via `--agent-model`, `--agent-effort`, and `--agent-skill` — no task left without an agent config
+8. The dependency graph has been verified: no orphans, no broken chains, no missing upstreams
+9. Any requested output files have been written

@@ -391,6 +391,18 @@ enum TaskAction {
         /// Status
         #[arg(long, value_enum)]
         status: Option<PlanningStatus>,
+        /// Agent model (e.g. opus, sonnet, haiku)
+        #[arg(long)]
+        agent_model: Option<String>,
+        /// Agent effort level (e.g. medium, high, max, ultrathink)
+        #[arg(long)]
+        agent_effort: Option<String>,
+        /// Agent skill(s) to invoke. Repeatable.
+        #[arg(long = "agent-skill")]
+        agent_skills: Vec<String>,
+        /// Agent count (number of agents to spawn)
+        #[arg(long)]
+        agent_count: Option<u32>,
         #[command(flatten)]
         mods: ListModArgs,
     },
@@ -601,9 +613,17 @@ fn main() {
                 title,
                 description,
                 status,
+                agent_model,
+                agent_effort,
+                agent_skills,
+                agent_count,
                 mods,
             } => {
-                rex_cli::commands::task::upsert(&id, objective, title, description, status, mods.into())
+                rex_cli::commands::task::upsert(
+                    &id, objective, title, description, status,
+                    agent_model, agent_effort, agent_skills, agent_count,
+                    mods.into(),
+                )
             }
             TaskAction::Get { id } => rex_cli::commands::task::get(&id),
             TaskAction::List { objective, status } => {
