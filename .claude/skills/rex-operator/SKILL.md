@@ -163,35 +163,49 @@ From the work item JSON, extract:
 
 The prompt you give each agent must include:
 
-1. **The project context** — pass the full project object (from step 1) so the agent knows what project it's working on, the directory, the category, etc.
-2. **Recent history** — pass the recent history (from step 5) so the agent knows what's been done.
-3. **The skill to use** — tell the agent to invoke the skill specified in `agent.skills`. For example: "Use the skill: rex-onboarding-goal"
+1. **The full project object as JSON** — paste the complete project object (from step 1) so the agent has all metadata: id, category, complexity, title, subtitle, description, directory, locked status. This is critical — onboarding skills use this metadata to avoid re-asking the user things that are already known.
+2. **Recent history** — paste the recent history JSON (from step 5) so the agent knows what's been done.
+3. **The skill to invoke** — tell the agent to invoke the specific skill using the Skill tool. Be explicit: "You MUST invoke the skill `/rex-onboarding-goal` using the Skill tool. Do not try to follow the skill's instructions from memory — actually call it."
 4. **Input files** — list every file in `inputs` and instruct the agent to read them before starting work.
 5. **Output files** — list every file in `outputs` and instruct the agent to write its results there.
-6. **Effort level** — include the effort level instruction. Map the effort field to a clear instruction:
+6. **Effort level** — include the effort level as a literal instruction at the end of the prompt. Map the effort field:
    - `"medium"` → "Apply moderate reasoning depth."
    - `"high"` → "Think carefully and thoroughly."
-   - `"max"` → "Think very deeply. Take your time and consider all angles."
-   - `"ultrathink"` → "Think extremely deeply. This is a critical task — exhaust every consideration before concluding."
+   - `"max"` → "Think very deeply. Take your time and consider all angles. ultrathink"
+   - `"ultrathink"` → "ultrathink. Think extremely deeply. This is a critical task — exhaust every consideration before concluding."
+
+   **Important:** For `"max"` and `"ultrathink"` effort levels, the literal word `ultrathink` must appear in the prompt — it triggers deep reasoning mode.
 
 #### Example agent prompt (standard phase)
 
 ```
-You are working on the rex project "<project-title>" (id: <project-id>).
-Project directory: <directory>
-Category: <category> | Complexity: <complexity>
-Description: <description>
+You are working on the rex project "Hello World Library" (id: some-brief-name).
 
-Recent project history:
-<paste recent history JSON>
+## Project (full metadata)
+{
+  "id": "some-brief-name",
+  "category": "library",
+  "complexity": "medium",
+  "title": "Hello World Library",
+  "subtitle": "A minimal Rust hello world library",
+  "description": "A simple Rust library crate that exposes a hello world function",
+  "directory": "/Users/someone/Code/my-project",
+  "locked": false
+}
 
-Your task: Use the skill "rex-onboarding-goal" to complete the "goal" onboarding item.
+## Recent History
+<paste recent history JSON or "No recent history.">
+
+## Your Task
+You MUST invoke the skill `/rex-onboarding-goal` using the Skill tool. Do not follow the skill from memory — actually call it via the Skill tool.
+
+Complete the "goal" onboarding item.
 
 Before you begin, read these input files:
 (none for this item)
 
 Write your output to:
-- rex/<project-id>/onboarding/goal.md
+- rex/some-brief-name/onboarding/goal.md
 
 Think carefully and thoroughly.
 ```
@@ -217,13 +231,22 @@ The prompt must include:
 #### Example agent prompt (execution phase)
 
 ```
-You are working on the rex project "<project-title>" (id: <project-id>).
-Project directory: <directory>
-Category: <category> | Complexity: <complexity>
-Description: <description>
+You are working on the rex project "My Auth System" (id: auth-system).
 
-Recent project history:
-<paste recent history JSON>
+## Project (full metadata)
+{
+  "id": "auth-system",
+  "category": "binary",
+  "complexity": "high",
+  "title": "My Auth System",
+  "subtitle": "JWT-based authentication service",
+  "description": "A Rust binary that provides authentication endpoints with JWT sessions",
+  "directory": "/Users/someone/Code/auth-system",
+  "locked": false
+}
+
+## Recent History
+<paste recent history JSON or "No recent history.">
 
 ## Milestone
 <paste full milestone JSON>
@@ -234,7 +257,7 @@ Recent project history:
 ## Your Task
 <paste full task JSON>
 
-Use the skill "rust-team-coordinator" to implement this task.
+You MUST invoke the skill `/rust-team-coordinator` using the Skill tool. Do not follow the skill from memory — actually call it via the Skill tool.
 
 Before you begin, read these reference/input files:
 - docs/auth-spec.md#token-generation
@@ -243,7 +266,7 @@ Write your output to:
 - src/auth/reset_token.rs
 - tests/auth/reset_token_test.rs
 
-Think very deeply. Take your time and consider all angles.
+ultrathink. Think very deeply. Take your time and consider all angles.
 ```
 
 ---
@@ -252,11 +275,16 @@ Think very deeply. Take your time and consider all angles.
 
 ### Single agent (count = 1)
 
-Spawn one agent using the Agent tool:
-- Set `model` to the value from `agent.model`
-- Set `prompt` to the prepared prompt from step 6
-- Set the `description` to something like "rex: <item-name>" (or "rex: <task-id>" for execution phase)
-- **Do NOT set `run_in_background: true`** — the operator must block and wait for the agent to complete
+Spawn one agent using the Agent tool with these **exact parameters**:
+
+| Parameter | Value |
+|-----------|-------|
+| `prompt` | The full prompt from Step 6 |
+| `model` | Map directly from `agent.model`: `"opus"` → `"opus"`, `"sonnet"` → `"sonnet"`, `"haiku"` → `"haiku"` |
+| `description` | `"rex: <item-name>"` (or `"rex: <task-id>"` for execution phase) |
+| `run_in_background` | **Do NOT set this.** The operator must block and wait. |
+
+**You must set the `model` parameter on the Agent tool call itself** — not just mention the model in the prompt text. This is how the agent gets the right model.
 
 ### Multiple agents (count > 1)
 
