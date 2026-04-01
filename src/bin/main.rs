@@ -1,6 +1,7 @@
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 use console::style;
 use rex::models::checklist::{ChecklistCategory, Phase};
+use rex::models::planning::{ListMods, PlanningStatus};
 use rex::models::project_status::Status;
 
 #[derive(Parser)]
@@ -22,7 +23,100 @@ enum Commands {
         #[command(subcommand)]
         action: ChecklistAction,
     },
+    /// Manage milestones (major checkpoints in the project journey)
+    Milestone {
+        #[command(subcommand)]
+        action: MilestoneAction,
+    },
+    /// Manage objectives (strategic outcomes beneath milestones)
+    Objective {
+        #[command(subcommand)]
+        action: ObjectiveAction,
+    },
+    /// Manage tasks (atomic units of work beneath objectives)
+    Task {
+        #[command(subcommand)]
+        action: TaskAction,
+    },
 }
+
+// ---------------------------------------------------------------------------
+// Shared args for list-field modifications (used by milestone/objective/task)
+// ---------------------------------------------------------------------------
+
+#[derive(Args)]
+struct ListModArgs {
+    /// Add a reference (file path, URL, or entity ID). Repeatable.
+    #[arg(long = "add-reference")]
+    add_references: Vec<String>,
+
+    /// Remove a reference. Repeatable.
+    #[arg(long = "remove-reference")]
+    remove_references: Vec<String>,
+
+    /// Add an output path. Repeatable.
+    #[arg(long = "add-output")]
+    add_outputs: Vec<String>,
+
+    /// Remove an output path. Repeatable.
+    #[arg(long = "remove-output")]
+    remove_outputs: Vec<String>,
+
+    /// Add an upstream dependency (same-type entity ID). Repeatable.
+    #[arg(long = "add-upstream")]
+    add_upstream: Vec<String>,
+
+    /// Remove an upstream dependency. Repeatable.
+    #[arg(long = "remove-upstream")]
+    remove_upstream: Vec<String>,
+
+    /// Add a downstream dependency (same-type entity ID). Repeatable.
+    #[arg(long = "add-downstream")]
+    add_downstream: Vec<String>,
+
+    /// Remove a downstream dependency. Repeatable.
+    #[arg(long = "remove-downstream")]
+    remove_downstream: Vec<String>,
+
+    /// Add a checklist item in "id:text" format. Repeatable.
+    #[arg(long = "add-checklist", value_name = "ID:TEXT")]
+    add_checklist: Vec<String>,
+
+    /// Remove a checklist item by ID. Repeatable.
+    #[arg(long = "remove-checklist")]
+    remove_checklist: Vec<String>,
+
+    /// Mark a checklist item as done by ID. Repeatable.
+    #[arg(long)]
+    check: Vec<String>,
+
+    /// Mark a checklist item as not done by ID. Repeatable.
+    #[arg(long)]
+    uncheck: Vec<String>,
+}
+
+impl From<ListModArgs> for ListMods {
+    fn from(a: ListModArgs) -> Self {
+        Self {
+            add_references: a.add_references,
+            remove_references: a.remove_references,
+            add_outputs: a.add_outputs,
+            remove_outputs: a.remove_outputs,
+            add_upstream: a.add_upstream,
+            remove_upstream: a.remove_upstream,
+            add_downstream: a.add_downstream,
+            remove_downstream: a.remove_downstream,
+            add_checklist: a.add_checklist,
+            remove_checklist: a.remove_checklist,
+            check: a.check,
+            uncheck: a.uncheck,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Project subcommands (unchanged)
+// ---------------------------------------------------------------------------
 
 #[derive(Subcommand)]
 enum ProjectAction {
@@ -71,6 +165,10 @@ enum ProjectAction {
     /// Get the next actionable item from the project status
     NextItem,
 }
+
+// ---------------------------------------------------------------------------
+// Checklist subcommands (unchanged)
+// ---------------------------------------------------------------------------
 
 #[derive(Subcommand)]
 enum ChecklistAction {
@@ -154,10 +252,150 @@ enum ChecklistAction {
     },
 }
 
+// ---------------------------------------------------------------------------
+// Milestone subcommands
+// ---------------------------------------------------------------------------
+
+#[derive(Subcommand)]
+enum MilestoneAction {
+    /// Create or update a milestone. On create, --title and --description are required.
+    Upsert {
+        /// Unique kebab-case identifier
+        #[arg(long)]
+        id: String,
+        /// Milestone title
+        #[arg(long)]
+        title: Option<String>,
+        /// Milestone description
+        #[arg(long)]
+        description: Option<String>,
+        /// Status
+        #[arg(long, value_enum)]
+        status: Option<PlanningStatus>,
+        #[command(flatten)]
+        mods: ListModArgs,
+    },
+    /// Get a milestone by ID (JSON output)
+    Get {
+        /// Milestone ID
+        id: String,
+    },
+    /// List milestones with optional status filter (JSON output)
+    List {
+        /// Filter by status
+        #[arg(long, value_enum)]
+        status: Option<PlanningStatus>,
+    },
+    /// Remove a milestone by ID
+    Remove {
+        /// Milestone ID
+        id: String,
+    },
+}
+
+// ---------------------------------------------------------------------------
+// Objective subcommands
+// ---------------------------------------------------------------------------
+
+#[derive(Subcommand)]
+enum ObjectiveAction {
+    /// Create or update an objective. On create, --milestone, --title, and --description are required.
+    Upsert {
+        /// Unique kebab-case identifier
+        #[arg(long)]
+        id: String,
+        /// Parent milestone ID (required on create, optional on update to re-parent)
+        #[arg(long)]
+        milestone: Option<String>,
+        /// Objective title
+        #[arg(long)]
+        title: Option<String>,
+        /// Objective description
+        #[arg(long)]
+        description: Option<String>,
+        /// Status
+        #[arg(long, value_enum)]
+        status: Option<PlanningStatus>,
+        #[command(flatten)]
+        mods: ListModArgs,
+    },
+    /// Get an objective by ID (JSON output)
+    Get {
+        /// Objective ID
+        id: String,
+    },
+    /// List objectives with optional filters (JSON output)
+    List {
+        /// Filter by parent milestone ID
+        #[arg(long)]
+        milestone: Option<String>,
+        /// Filter by status
+        #[arg(long, value_enum)]
+        status: Option<PlanningStatus>,
+    },
+    /// Remove an objective by ID
+    Remove {
+        /// Objective ID
+        id: String,
+    },
+}
+
+// ---------------------------------------------------------------------------
+// Task subcommands
+// ---------------------------------------------------------------------------
+
+#[derive(Subcommand)]
+enum TaskAction {
+    /// Create or update a task. On create, --objective, --title, and --description are required.
+    Upsert {
+        /// Unique kebab-case identifier
+        #[arg(long)]
+        id: String,
+        /// Parent objective ID (required on create, optional on update to re-parent)
+        #[arg(long)]
+        objective: Option<String>,
+        /// Task title
+        #[arg(long)]
+        title: Option<String>,
+        /// Task description
+        #[arg(long)]
+        description: Option<String>,
+        /// Status
+        #[arg(long, value_enum)]
+        status: Option<PlanningStatus>,
+        #[command(flatten)]
+        mods: ListModArgs,
+    },
+    /// Get a task by ID (JSON output)
+    Get {
+        /// Task ID
+        id: String,
+    },
+    /// List tasks with optional filters (JSON output)
+    List {
+        /// Filter by parent objective ID
+        #[arg(long)]
+        objective: Option<String>,
+        /// Filter by status
+        #[arg(long, value_enum)]
+        status: Option<PlanningStatus>,
+    },
+    /// Remove a task by ID
+    Remove {
+        /// Task ID
+        id: String,
+    },
+}
+
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
+
 fn main() {
     let cli = Cli::parse();
 
     let result = match cli.command {
+        // -- Project --------------------------------------------------------
         Commands::Project { action } => match action {
             ProjectAction::Create => rex::commands::project::create(),
             ProjectAction::GetActive => rex::commands::project::get_active(),
@@ -169,9 +407,7 @@ fn main() {
             ProjectAction::UpdateStatus { item, status } => {
                 rex::commands::project::update_status(&item, status)
             }
-            ProjectAction::UpdateTitle { title } => {
-                rex::commands::project::update_title(&title)
-            }
+            ProjectAction::UpdateTitle { title } => rex::commands::project::update_title(&title),
             ProjectAction::UpdateSubtitle { subtitle } => {
                 rex::commands::project::update_subtitle(&subtitle)
             }
@@ -180,6 +416,8 @@ fn main() {
             }
             ProjectAction::NextItem => rex::commands::project::next_item(),
         },
+
+        // -- Checklist ------------------------------------------------------
         Commands::Checklist { action } => match action {
             ChecklistAction::Init { date } => rex::commands::checklist::init(date),
             ChecklistAction::Add {
@@ -208,6 +446,58 @@ fn main() {
             ChecklistAction::SetContext { context } => {
                 rex::commands::checklist::set_context(&context)
             }
+        },
+
+        // -- Milestone ------------------------------------------------------
+        Commands::Milestone { action } => match action {
+            MilestoneAction::Upsert {
+                id,
+                title,
+                description,
+                status,
+                mods,
+            } => rex::commands::milestone::upsert(&id, title, description, status, mods.into()),
+            MilestoneAction::Get { id } => rex::commands::milestone::get(&id),
+            MilestoneAction::List { status } => rex::commands::milestone::list(status),
+            MilestoneAction::Remove { id } => rex::commands::milestone::remove(&id),
+        },
+
+        // -- Objective ------------------------------------------------------
+        Commands::Objective { action } => match action {
+            ObjectiveAction::Upsert {
+                id,
+                milestone,
+                title,
+                description,
+                status,
+                mods,
+            } => rex::commands::objective::upsert(
+                &id, milestone, title, description, status, mods.into(),
+            ),
+            ObjectiveAction::Get { id } => rex::commands::objective::get(&id),
+            ObjectiveAction::List { milestone, status } => {
+                rex::commands::objective::list(milestone, status)
+            }
+            ObjectiveAction::Remove { id } => rex::commands::objective::remove(&id),
+        },
+
+        // -- Task -----------------------------------------------------------
+        Commands::Task { action } => match action {
+            TaskAction::Upsert {
+                id,
+                objective,
+                title,
+                description,
+                status,
+                mods,
+            } => {
+                rex::commands::task::upsert(&id, objective, title, description, status, mods.into())
+            }
+            TaskAction::Get { id } => rex::commands::task::get(&id),
+            TaskAction::List { objective, status } => {
+                rex::commands::task::list(objective, status)
+            }
+            TaskAction::Remove { id } => rex::commands::task::remove(&id),
         },
     };
 

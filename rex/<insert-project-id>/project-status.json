@@ -9,8 +9,8 @@
         "model": "opus",
         "skills": ["rex-user-input"]
       },
-      "inputs": ["rex/some-brief-name/user-support/requested.md"],
-      "outputs": ["rex/some-brief-name/user-support/provided.md"],
+      "inputs": ["rex/<insert-project-id>/user-support/requested.md"],
+      "outputs": ["rex/<insert-project-id>/user-support/provided.md"],
       "status": "completed"
     }
   ],
@@ -25,7 +25,7 @@
         "skills": ["rex-onboarding-goal"]
       },
       "inputs": [],
-      "outputs": ["rex/some-brief-name/onboarding/goal.md"],
+      "outputs": ["rex/<insert-project-id>/onboarding/goal.md"],
       "status": "not-started"
     },
     {
@@ -37,8 +37,8 @@
         "model": "opus",
         "skills": ["rex-onboarding-scope"]
       },
-      "inputs": ["rex/some-brief-name/onboarding/goal.md"],
-      "outputs": ["rex/some-brief-name/onboarding/scope.md"],
+      "inputs": ["rex/<insert-project-id>/onboarding/goal.md"],
+      "outputs": ["rex/<insert-project-id>/onboarding/scope.md"],
       "status": "not-started"
     },
     {
@@ -51,10 +51,10 @@
         "skills": ["rex-onboarding-existing-code"]
       },
       "inputs": [
-        "rex/some-brief-name/onboarding/goal.md",
-        "rex/some-brief-name/onboarding/scope.md"
+        "rex/<insert-project-id>/onboarding/goal.md",
+        "rex/<insert-project-id>/onboarding/scope.md"
       ],
-      "outputs": ["rex/some-brief-name/onboarding/existing-code.md"],
+      "outputs": ["rex/<insert-project-id>/onboarding/existing-code.md"],
       "status": "not-started"
     },
     {
@@ -67,11 +67,11 @@
         "skills": ["rex-onboarding-libraries-and-sdks"]
       },
       "inputs": [
-        "rex/some-brief-name/onboarding/goal.md",
-        "rex/some-brief-name/onboarding/scope.md",
-        "rex/some-brief-name/onboarding/existing-code.md"
+        "rex/<insert-project-id>/onboarding/goal.md",
+        "rex/<insert-project-id>/onboarding/scope.md",
+        "rex/<insert-project-id>/onboarding/existing-code.md"
       ],
-      "outputs": ["rex/some-brief-name/onboarding/libraries-and-sdks.md"],
+      "outputs": ["rex/<insert-project-id>/onboarding/libraries-and-sdks.md"],
       "status": "not-started"
     },
     {
@@ -84,12 +84,12 @@
         "skills": ["rex-onboarding-research"]
       },
       "inputs": [
-        "rex/some-brief-name/onboarding/goal.md",
-        "rex/some-brief-name/onboarding/scope.md",
-        "rex/some-brief-name/onboarding/existing-code.md",
-        "rex/some-brief-name/onboarding/libraries-and-sdks.md"
+        "rex/<insert-project-id>/onboarding/goal.md",
+        "rex/<insert-project-id>/onboarding/scope.md",
+        "rex/<insert-project-id>/onboarding/existing-code.md",
+        "rex/<insert-project-id>/onboarding/libraries-and-sdks.md"
       ],
-      "outputs": ["rex/some-brief-name/onboarding/research.md"],
+      "outputs": ["rex/<insert-project-id>/onboarding/research.md"],
       "status": "not-started"
     },
     {
@@ -102,13 +102,13 @@
         "skills": ["rex-onboarding-resources"]
       },
       "inputs": [
-        "rex/some-brief-name/onboarding/goal.md",
-        "rex/some-brief-name/onboarding/scope.md",
-        "rex/some-brief-name/onboarding/existing-code.md",
-        "rex/some-brief-name/onboarding/libraries-and-sdks.md",
-        "rex/some-brief-name/onboarding/research.md"
+        "rex/<insert-project-id>/onboarding/goal.md",
+        "rex/<insert-project-id>/onboarding/scope.md",
+        "rex/<insert-project-id>/onboarding/existing-code.md",
+        "rex/<insert-project-id>/onboarding/libraries-and-sdks.md",
+        "rex/<insert-project-id>/onboarding/research.md"
       ],
-      "outputs": ["rex/some-brief-name/onboarding/resources.md"],
+      "outputs": ["rex/<insert-project-id>/onboarding/resources.md"],
       "status": "not-started"
     },
     {
@@ -121,14 +121,14 @@
         "skills": ["rex-onboarding-user-expertise"]
       },
       "inputs": [
-        "rex/some-brief-name/onboarding/goal.md",
-        "rex/some-brief-name/onboarding/scope.md",
-        "rex/some-brief-name/onboarding/existing-code.md",
-        "rex/some-brief-name/onboarding/libraries-and-sdks.md",
-        "rex/some-brief-name/onboarding/research.md",
-        "rex/some-brief-name/onboarding/resources.md"
+        "rex/<insert-project-id>/onboarding/goal.md",
+        "rex/<insert-project-id>/onboarding/scope.md",
+        "rex/<insert-project-id>/onboarding/existing-code.md",
+        "rex/<insert-project-id>/onboarding/libraries-and-sdks.md",
+        "rex/<insert-project-id>/onboarding/research.md",
+        "rex/<insert-project-id>/onboarding/resources.md"
       ],
-      "outputs": ["rex/some-brief-name/onboarding/user-expertise.md"],
+      "outputs": ["rex/<insert-project-id>/onboarding/user-expertise.md"],
       "status": "not-started"
     },
     {
@@ -141,15 +141,15 @@
         "skills": ["rex-onboarding-success-measures"]
       },
       "inputs": [
-        "rex/some-brief-name/onboarding/goal.md",
-        "rex/some-brief-name/onboarding/scope.md",
-        "rex/some-brief-name/onboarding/existing-code.md",
-        "rex/some-brief-name/onboarding/libraries-and-sdks.md",
-        "rex/some-brief-name/onboarding/research.md",
-        "rex/some-brief-name/onboarding/resources.md",
-        "rex/some-brief-name/onboarding/user-expertise.md"
+        "rex/<insert-project-id>/onboarding/goal.md",
+        "rex/<insert-project-id>/onboarding/scope.md",
+        "rex/<insert-project-id>/onboarding/existing-code.md",
+        "rex/<insert-project-id>/onboarding/libraries-and-sdks.md",
+        "rex/<insert-project-id>/onboarding/research.md",
+        "rex/<insert-project-id>/onboarding/resources.md",
+        "rex/<insert-project-id>/onboarding/user-expertise.md"
       ],
-      "outputs": ["rex/some-brief-name/onboarding/success-measures.md"],
+      "outputs": ["rex/<insert-project-id>/onboarding/success-measures.md"],
       "status": "not-started"
     },
     {
@@ -162,16 +162,16 @@
         "skills": ["rex-onboarding-known-risks"]
       },
       "inputs": [
-        "rex/some-brief-name/onboarding/goal.md",
-        "rex/some-brief-name/onboarding/scope.md",
-        "rex/some-brief-name/onboarding/existing-code.md",
-        "rex/some-brief-name/onboarding/libraries-and-sdks.md",
-        "rex/some-brief-name/onboarding/research.md",
-        "rex/some-brief-name/onboarding/resources.md",
-        "rex/some-brief-name/onboarding/user-expertise.md",
-        "rex/some-brief-name/onboarding/success-measures.md"
+        "rex/<insert-project-id>/onboarding/goal.md",
+        "rex/<insert-project-id>/onboarding/scope.md",
+        "rex/<insert-project-id>/onboarding/existing-code.md",
+        "rex/<insert-project-id>/onboarding/libraries-and-sdks.md",
+        "rex/<insert-project-id>/onboarding/research.md",
+        "rex/<insert-project-id>/onboarding/resources.md",
+        "rex/<insert-project-id>/onboarding/user-expertise.md",
+        "rex/<insert-project-id>/onboarding/success-measures.md"
       ],
-      "outputs": ["rex/some-brief-name/onboarding/known-risks.md"],
+      "outputs": ["rex/<insert-project-id>/onboarding/known-risks.md"],
       "status": "not-started"
     },
     {
@@ -184,17 +184,17 @@
         "skills": ["rex-onboarding-uat"]
       },
       "inputs": [
-        "rex/some-brief-name/onboarding/goal.md",
-        "rex/some-brief-name/onboarding/scope.md",
-        "rex/some-brief-name/onboarding/existing-code.md",
-        "rex/some-brief-name/onboarding/libraries-and-sdks.md",
-        "rex/some-brief-name/onboarding/research.md",
-        "rex/some-brief-name/onboarding/resources.md",
-        "rex/some-brief-name/onboarding/user-expertise.md",
-        "rex/some-brief-name/onboarding/success-measures.md",
-        "rex/some-brief-name/onboarding/known-risks.md"
+        "rex/<insert-project-id>/onboarding/goal.md",
+        "rex/<insert-project-id>/onboarding/scope.md",
+        "rex/<insert-project-id>/onboarding/existing-code.md",
+        "rex/<insert-project-id>/onboarding/libraries-and-sdks.md",
+        "rex/<insert-project-id>/onboarding/research.md",
+        "rex/<insert-project-id>/onboarding/resources.md",
+        "rex/<insert-project-id>/onboarding/user-expertise.md",
+        "rex/<insert-project-id>/onboarding/success-measures.md",
+        "rex/<insert-project-id>/onboarding/known-risks.md"
       ],
-      "outputs": ["rex/some-brief-name/onboarding/uat.md"],
+      "outputs": ["rex/<insert-project-id>/onboarding/uat.md"],
       "status": "not-started"
     },
     {
@@ -207,18 +207,20 @@
         "skills": ["rex-onboarding-environment-variables"]
       },
       "inputs": [
-        "rex/some-brief-name/onboarding/goal.md",
-        "rex/some-brief-name/onboarding/scope.md",
-        "rex/some-brief-name/onboarding/existing-code.md",
-        "rex/some-brief-name/onboarding/libraries-and-sdks.md",
-        "rex/some-brief-name/onboarding/research.md",
-        "rex/some-brief-name/onboarding/resources.md",
-        "rex/some-brief-name/onboarding/user-expertise.md",
-        "rex/some-brief-name/onboarding/success-measures.md",
-        "rex/some-brief-name/onboarding/known-risks.md",
-        "rex/some-brief-name/onboarding/uat.md"
+        "rex/<insert-project-id>/onboarding/goal.md",
+        "rex/<insert-project-id>/onboarding/scope.md",
+        "rex/<insert-project-id>/onboarding/existing-code.md",
+        "rex/<insert-project-id>/onboarding/libraries-and-sdks.md",
+        "rex/<insert-project-id>/onboarding/research.md",
+        "rex/<insert-project-id>/onboarding/resources.md",
+        "rex/<insert-project-id>/onboarding/user-expertise.md",
+        "rex/<insert-project-id>/onboarding/success-measures.md",
+        "rex/<insert-project-id>/onboarding/known-risks.md",
+        "rex/<insert-project-id>/onboarding/uat.md"
       ],
-      "outputs": ["rex/some-brief-name/onboarding/environment-variables.md"],
+      "outputs": [
+        "rex/<insert-project-id>/onboarding/environment-variables.md"
+      ],
       "status": "not-started"
     },
     {
@@ -231,19 +233,19 @@
         "skills": ["rex-onboarding-idea-generation"]
       },
       "inputs": [
-        "rex/some-brief-name/onboarding/goal.md",
-        "rex/some-brief-name/onboarding/scope.md",
-        "rex/some-brief-name/onboarding/existing-code.md",
-        "rex/some-brief-name/onboarding/libraries-and-sdks.md",
-        "rex/some-brief-name/onboarding/research.md",
-        "rex/some-brief-name/onboarding/resources.md",
-        "rex/some-brief-name/onboarding/user-expertise.md",
-        "rex/some-brief-name/onboarding/success-measures.md",
-        "rex/some-brief-name/onboarding/known-risks.md",
-        "rex/some-brief-name/onboarding/uat.md",
-        "rex/some-brief-name/onboarding/environment-variables.md"
+        "rex/<insert-project-id>/onboarding/goal.md",
+        "rex/<insert-project-id>/onboarding/scope.md",
+        "rex/<insert-project-id>/onboarding/existing-code.md",
+        "rex/<insert-project-id>/onboarding/libraries-and-sdks.md",
+        "rex/<insert-project-id>/onboarding/research.md",
+        "rex/<insert-project-id>/onboarding/resources.md",
+        "rex/<insert-project-id>/onboarding/user-expertise.md",
+        "rex/<insert-project-id>/onboarding/success-measures.md",
+        "rex/<insert-project-id>/onboarding/known-risks.md",
+        "rex/<insert-project-id>/onboarding/uat.md",
+        "rex/<insert-project-id>/onboarding/environment-variables.md"
       ],
-      "outputs": ["rex/some-brief-name/onboarding/idea-generation.md"],
+      "outputs": ["rex/<insert-project-id>/onboarding/idea-generation.md"],
       "status": "not-started"
     },
     {
@@ -256,20 +258,20 @@
         "skills": ["rex-onboarding-skill-building"]
       },
       "inputs": [
-        "rex/some-brief-name/onboarding/goal.md",
-        "rex/some-brief-name/onboarding/scope.md",
-        "rex/some-brief-name/onboarding/existing-code.md",
-        "rex/some-brief-name/onboarding/libraries-and-sdks.md",
-        "rex/some-brief-name/onboarding/research.md",
-        "rex/some-brief-name/onboarding/resources.md",
-        "rex/some-brief-name/onboarding/user-expertise.md",
-        "rex/some-brief-name/onboarding/success-measures.md",
-        "rex/some-brief-name/onboarding/known-risks.md",
-        "rex/some-brief-name/onboarding/uat.md",
-        "rex/some-brief-name/onboarding/environment-variables.md",
-        "rex/some-brief-name/onboarding/idea-generation.md"
+        "rex/<insert-project-id>/onboarding/goal.md",
+        "rex/<insert-project-id>/onboarding/scope.md",
+        "rex/<insert-project-id>/onboarding/existing-code.md",
+        "rex/<insert-project-id>/onboarding/libraries-and-sdks.md",
+        "rex/<insert-project-id>/onboarding/research.md",
+        "rex/<insert-project-id>/onboarding/resources.md",
+        "rex/<insert-project-id>/onboarding/user-expertise.md",
+        "rex/<insert-project-id>/onboarding/success-measures.md",
+        "rex/<insert-project-id>/onboarding/known-risks.md",
+        "rex/<insert-project-id>/onboarding/uat.md",
+        "rex/<insert-project-id>/onboarding/environment-variables.md",
+        "rex/<insert-project-id>/onboarding/idea-generation.md"
       ],
-      "outputs": ["rex/some-brief-name/onboarding/skill-building.md"],
+      "outputs": ["rex/<insert-project-id>/onboarding/skill-building.md"],
       "status": "not-started"
     },
     {
@@ -282,21 +284,21 @@
         "skills": ["rex-onboarding-checklist"]
       },
       "inputs": [
-        "rex/some-brief-name/onboarding/goal.md",
-        "rex/some-brief-name/onboarding/scope.md",
-        "rex/some-brief-name/onboarding/existing-code.md",
-        "rex/some-brief-name/onboarding/libraries-and-sdks.md",
-        "rex/some-brief-name/onboarding/research.md",
-        "rex/some-brief-name/onboarding/resources.md",
-        "rex/some-brief-name/onboarding/user-expertise.md",
-        "rex/some-brief-name/onboarding/success-measures.md",
-        "rex/some-brief-name/onboarding/known-risks.md",
-        "rex/some-brief-name/onboarding/uat.md",
-        "rex/some-brief-name/onboarding/environment-variables.md",
-        "rex/some-brief-name/onboarding/idea-generation.md",
-        "rex/some-brief-name/onboarding/skill-building.md"
+        "rex/<insert-project-id>/onboarding/goal.md",
+        "rex/<insert-project-id>/onboarding/scope.md",
+        "rex/<insert-project-id>/onboarding/existing-code.md",
+        "rex/<insert-project-id>/onboarding/libraries-and-sdks.md",
+        "rex/<insert-project-id>/onboarding/research.md",
+        "rex/<insert-project-id>/onboarding/resources.md",
+        "rex/<insert-project-id>/onboarding/user-expertise.md",
+        "rex/<insert-project-id>/onboarding/success-measures.md",
+        "rex/<insert-project-id>/onboarding/known-risks.md",
+        "rex/<insert-project-id>/onboarding/uat.md",
+        "rex/<insert-project-id>/onboarding/environment-variables.md",
+        "rex/<insert-project-id>/onboarding/idea-generation.md",
+        "rex/<insert-project-id>/onboarding/skill-building.md"
       ],
-      "outputs": ["rex/some-brief-name/onboarding/checklist.json"],
+      "outputs": ["rex/<insert-project-id>/onboarding/checklist.json"],
       "status": "not-started"
     }
   ],
@@ -311,11 +313,13 @@
         "skills": ["rex-design-rust-existing-code-exploration"]
       },
       "inputs": [
-        "rex/some-brief-name/onboarding/goal.md",
-        "rex/some-brief-name/onboarding/scope.md",
-        "rex/some-brief-name/onboarding/existing-code.md"
+        "rex/<insert-project-id>/onboarding/goal.md",
+        "rex/<insert-project-id>/onboarding/scope.md",
+        "rex/<insert-project-id>/onboarding/existing-code.md"
       ],
-      "outputs": ["rex/some-brief-name/design/existing-code-exploration.md"],
+      "outputs": [
+        "rex/<insert-project-id>/design/existing-code-exploration.md"
+      ],
       "status": "not-started"
     },
     {
@@ -328,13 +332,13 @@
         "skills": ["rex-design-rust-library-review"]
       },
       "inputs": [
-        "rex/some-brief-name/onboarding/goal.md",
-        "rex/some-brief-name/onboarding/scope.md",
-        "rex/some-brief-name/onboarding/user-expertise.md",
-        "rex/some-brief-name/onboarding/checklist.json",
-        "rex/some-brief-name/onboarding/libraries-and-sdks.md"
+        "rex/<insert-project-id>/onboarding/goal.md",
+        "rex/<insert-project-id>/onboarding/scope.md",
+        "rex/<insert-project-id>/onboarding/user-expertise.md",
+        "rex/<insert-project-id>/onboarding/checklist.json",
+        "rex/<insert-project-id>/onboarding/libraries-and-sdks.md"
       ],
-      "outputs": ["rex/some-brief-name/design/library-review.md"],
+      "outputs": ["rex/<insert-project-id>/design/library-review.md"],
       "status": "not-started"
     },
     {
@@ -347,22 +351,22 @@
         "skills": ["rex-design-rust-modules"]
       },
       "inputs": [
-        "rex/some-brief-name/onboarding/research.md",
-        "rex/some-brief-name/onboarding/resources.md",
-        "rex/some-brief-name/onboarding/user-expertise.md",
-        "rex/some-brief-name/onboarding/success-measures.md",
-        "rex/some-brief-name/onboarding/known-risks.md",
-        "rex/some-brief-name/onboarding/uat.md",
-        "rex/some-brief-name/onboarding/environment-variables.md",
-        "rex/some-brief-name/onboarding/idea-generation.md",
-        "rex/some-brief-name/onboarding/goal.md",
-        "rex/some-brief-name/onboarding/user-expertise.md",
-        "rex/some-brief-name/onboarding/checklist.json",
-        "rex/some-brief-name/onboarding/libraries-and-sdks.md",
-        "rex/some-brief-name/design/existing-code-exploration.md",
-        "rex/some-brief-name/design/library-review.md"
+        "rex/<insert-project-id>/onboarding/research.md",
+        "rex/<insert-project-id>/onboarding/resources.md",
+        "rex/<insert-project-id>/onboarding/user-expertise.md",
+        "rex/<insert-project-id>/onboarding/success-measures.md",
+        "rex/<insert-project-id>/onboarding/known-risks.md",
+        "rex/<insert-project-id>/onboarding/uat.md",
+        "rex/<insert-project-id>/onboarding/environment-variables.md",
+        "rex/<insert-project-id>/onboarding/idea-generation.md",
+        "rex/<insert-project-id>/onboarding/goal.md",
+        "rex/<insert-project-id>/onboarding/user-expertise.md",
+        "rex/<insert-project-id>/onboarding/checklist.json",
+        "rex/<insert-project-id>/onboarding/libraries-and-sdks.md",
+        "rex/<insert-project-id>/design/existing-code-exploration.md",
+        "rex/<insert-project-id>/design/library-review.md"
       ],
-      "outputs": ["rex/some-brief-name/design/module-design.md"],
+      "outputs": ["rex/<insert-project-id>/design/module-design.md"],
       "status": "not-started"
     },
     {
@@ -375,23 +379,23 @@
         "skills": ["rex-design-rust-architecture"]
       },
       "inputs": [
-        "rex/some-brief-name/onboarding/research.md",
-        "rex/some-brief-name/onboarding/resources.md",
-        "rex/some-brief-name/onboarding/user-expertise.md",
-        "rex/some-brief-name/onboarding/success-measures.md",
-        "rex/some-brief-name/onboarding/known-risks.md",
-        "rex/some-brief-name/onboarding/uat.md",
-        "rex/some-brief-name/onboarding/environment-variables.md",
-        "rex/some-brief-name/onboarding/idea-generation.md",
-        "rex/some-brief-name/onboarding/goal.md",
-        "rex/some-brief-name/onboarding/user-expertise.md",
-        "rex/some-brief-name/onboarding/checklist.json",
-        "rex/some-brief-name/onboarding/libraries-and-sdks.md",
-        "rex/some-brief-name/design/existing-code-exploration.md",
-        "rex/some-brief-name/design/library-review.md",
-        "rex/some-brief-name/design/module-design.md"
+        "rex/<insert-project-id>/onboarding/research.md",
+        "rex/<insert-project-id>/onboarding/resources.md",
+        "rex/<insert-project-id>/onboarding/user-expertise.md",
+        "rex/<insert-project-id>/onboarding/success-measures.md",
+        "rex/<insert-project-id>/onboarding/known-risks.md",
+        "rex/<insert-project-id>/onboarding/uat.md",
+        "rex/<insert-project-id>/onboarding/environment-variables.md",
+        "rex/<insert-project-id>/onboarding/idea-generation.md",
+        "rex/<insert-project-id>/onboarding/goal.md",
+        "rex/<insert-project-id>/onboarding/user-expertise.md",
+        "rex/<insert-project-id>/onboarding/checklist.json",
+        "rex/<insert-project-id>/onboarding/libraries-and-sdks.md",
+        "rex/<insert-project-id>/design/existing-code-exploration.md",
+        "rex/<insert-project-id>/design/library-review.md",
+        "rex/<insert-project-id>/design/module-design.md"
       ],
-      "outputs": ["rex/some-brief-name/design/architecture-design.md"],
+      "outputs": ["rex/<insert-project-id>/design/architecture-design.md"],
       "status": "not-started"
     },
     {
@@ -404,24 +408,24 @@
         "skills": ["rex-design-rust-integration-tests"]
       },
       "inputs": [
-        "rex/some-brief-name/onboarding/research.md",
-        "rex/some-brief-name/onboarding/resources.md",
-        "rex/some-brief-name/onboarding/user-expertise.md",
-        "rex/some-brief-name/onboarding/success-measures.md",
-        "rex/some-brief-name/onboarding/known-risks.md",
-        "rex/some-brief-name/onboarding/uat.md",
-        "rex/some-brief-name/onboarding/environment-variables.md",
-        "rex/some-brief-name/onboarding/idea-generation.md",
-        "rex/some-brief-name/onboarding/goal.md",
-        "rex/some-brief-name/onboarding/user-expertise.md",
-        "rex/some-brief-name/onboarding/checklist.json",
-        "rex/some-brief-name/onboarding/libraries-and-sdks.md",
-        "rex/some-brief-name/design/existing-code-exploration.md",
-        "rex/some-brief-name/design/library-review.md",
-        "rex/some-brief-name/design/module-design.md",
-        "rex/some-brief-name/design/architecture-design.md"
+        "rex/<insert-project-id>/onboarding/research.md",
+        "rex/<insert-project-id>/onboarding/resources.md",
+        "rex/<insert-project-id>/onboarding/user-expertise.md",
+        "rex/<insert-project-id>/onboarding/success-measures.md",
+        "rex/<insert-project-id>/onboarding/known-risks.md",
+        "rex/<insert-project-id>/onboarding/uat.md",
+        "rex/<insert-project-id>/onboarding/environment-variables.md",
+        "rex/<insert-project-id>/onboarding/idea-generation.md",
+        "rex/<insert-project-id>/onboarding/goal.md",
+        "rex/<insert-project-id>/onboarding/user-expertise.md",
+        "rex/<insert-project-id>/onboarding/checklist.json",
+        "rex/<insert-project-id>/onboarding/libraries-and-sdks.md",
+        "rex/<insert-project-id>/design/existing-code-exploration.md",
+        "rex/<insert-project-id>/design/library-review.md",
+        "rex/<insert-project-id>/design/module-design.md",
+        "rex/<insert-project-id>/design/architecture-design.md"
       ],
-      "outputs": ["rex/some-brief-name/design/integration-tests.md"],
+      "outputs": ["rex/<insert-project-id>/design/integration-tests.md"],
       "status": "not-started"
     },
     {
@@ -434,25 +438,25 @@
         "skills": ["rex-design-foreign-critique"]
       },
       "inputs": [
-        "rex/some-brief-name/onboarding/goal.md",
-        "rex/some-brief-name/onboarding/scope.md",
-        "rex/some-brief-name/onboarding/existing-code.md",
-        "rex/some-brief-name/onboarding/libraries-and-sdks.md",
-        "rex/some-brief-name/onboarding/research.md",
-        "rex/some-brief-name/onboarding/resources.md",
-        "rex/some-brief-name/onboarding/user-expertise.md",
-        "rex/some-brief-name/onboarding/success-measures.md",
-        "rex/some-brief-name/onboarding/known-risks.md",
-        "rex/some-brief-name/onboarding/uat.md",
-        "rex/some-brief-name/onboarding/environment-variables.md",
-        "rex/some-brief-name/onboarding/idea-generation.md",
-        "rex/some-brief-name/onboarding/skill-building.md",
-        "rex/some-brief-name/design/existing-code-exploration.md",
-        "rex/some-brief-name/design/library-review.md",
-        "rex/some-brief-name/design/module-design.md",
-        "rex/some-brief-name/design/architecture-design.md"
+        "rex/<insert-project-id>/onboarding/goal.md",
+        "rex/<insert-project-id>/onboarding/scope.md",
+        "rex/<insert-project-id>/onboarding/existing-code.md",
+        "rex/<insert-project-id>/onboarding/libraries-and-sdks.md",
+        "rex/<insert-project-id>/onboarding/research.md",
+        "rex/<insert-project-id>/onboarding/resources.md",
+        "rex/<insert-project-id>/onboarding/user-expertise.md",
+        "rex/<insert-project-id>/onboarding/success-measures.md",
+        "rex/<insert-project-id>/onboarding/known-risks.md",
+        "rex/<insert-project-id>/onboarding/uat.md",
+        "rex/<insert-project-id>/onboarding/environment-variables.md",
+        "rex/<insert-project-id>/onboarding/idea-generation.md",
+        "rex/<insert-project-id>/onboarding/skill-building.md",
+        "rex/<insert-project-id>/design/existing-code-exploration.md",
+        "rex/<insert-project-id>/design/library-review.md",
+        "rex/<insert-project-id>/design/module-design.md",
+        "rex/<insert-project-id>/design/architecture-design.md"
       ],
-      "outputs": ["rex/some-brief-name/design/foreign-critique.md"],
+      "outputs": ["rex/<insert-project-id>/design/foreign-critique.md"],
       "status": "not-started"
     },
     {
@@ -465,12 +469,12 @@
         "skills": ["rex-design-rust-errors"]
       },
       "inputs": [
-        "rex/some-brief-name/design/existing-code-exploration.md",
-        "rex/some-brief-name/design/library-review.md",
-        "rex/some-brief-name/design/module-design.md",
-        "rex/some-brief-name/design/architecture-design.md"
+        "rex/<insert-project-id>/design/existing-code-exploration.md",
+        "rex/<insert-project-id>/design/library-review.md",
+        "rex/<insert-project-id>/design/module-design.md",
+        "rex/<insert-project-id>/design/architecture-design.md"
       ],
-      "outputs": ["rex/some-brief-name/design/error-handling.md"],
+      "outputs": ["rex/<insert-project-id>/design/error-handling.md"],
       "status": "not-started"
     },
     {
@@ -483,17 +487,17 @@
         "skills": ["rex-design-rust-architecture-proposal"]
       },
       "inputs": [
-        "rex/some-brief-name/onboarding/goal.md",
-        "rex/some-brief-name/onboarding/scope.md",
-        "rex/some-brief-name/design/error-handling.md",
-        "rex/some-brief-name/design/existing-code-exploration.md",
-        "rex/some-brief-name/design/library-review.md",
-        "rex/some-brief-name/design/module-design.md",
-        "rex/some-brief-name/design/architecture-design.md"
+        "rex/<insert-project-id>/onboarding/goal.md",
+        "rex/<insert-project-id>/onboarding/scope.md",
+        "rex/<insert-project-id>/design/error-handling.md",
+        "rex/<insert-project-id>/design/existing-code-exploration.md",
+        "rex/<insert-project-id>/design/library-review.md",
+        "rex/<insert-project-id>/design/module-design.md",
+        "rex/<insert-project-id>/design/architecture-design.md"
       ],
       "outputs": [
-        "rex/some-brief-name/design/architecture-proposal.md",
-        "rex/some-brief-name/design/architecture-proposal.html"
+        "rex/<insert-project-id>/design/architecture-proposal.md",
+        "rex/<insert-project-id>/design/architecture-proposal.html"
       ],
       "status": "not-started"
     },
@@ -506,8 +510,111 @@
         "model": "opus",
         "skills": ["rex-design-user-acceptance"]
       },
-      "inputs": ["rex/some-brief-name/design/architecture-proposal.html"],
-      "outputs": ["rex/some-brief-name/design/user-acceptance.md"],
+      "inputs": ["rex/<insert-project-id>/design/architecture-proposal.html"],
+      "outputs": ["rex/<insert-project-id>/design/user-acceptance.md"],
+      "status": "not-started"
+    }
+  ],
+  "planning": [
+    {
+      "item": "milestones",
+      "stop-on-finish": true,
+      "agent": {
+        "count": 1,
+        "effort": "max",
+        "model": "opus",
+        "skills": ["rex-planning-milestones"]
+      },
+      "inputs": [
+        "rex/<insert-project-id>/onboarding/goal.md",
+        "rex/<insert-project-id>/onboarding/scope.md",
+        "rex/<insert-project-id>/onboarding/research.md",
+        "rex/<insert-project-id>/onboarding/resources.md",
+        "rex/<insert-project-id>/onboarding/user-expertise.md",
+        "rex/<insert-project-id>/onboarding/success-measures.md",
+        "rex/<insert-project-id>/onboarding/known-risks.md",
+        "rex/<insert-project-id>/onboarding/uat.md",
+        "rex/<insert-project-id>/onboarding/environment-variables.md",
+        "rex/<insert-project-id>/onboarding/idea-generation.md",
+        "rex/<insert-project-id>/onboarding/user-expertise.md",
+        "rex/<insert-project-id>/onboarding/checklist.json",
+        "rex/<insert-project-id>/design/error-handling.md",
+        "rex/<insert-project-id>/design/existing-code-exploration.md",
+        "rex/<insert-project-id>/design/library-review.md",
+        "rex/<insert-project-id>/design/module-design.md",
+        "rex/<insert-project-id>/design/architecture-design.md",
+        "rex/<insert-project-id>/design/existing-code-exploration.md",
+        "rex/<insert-project-id>/design/library-review.md",
+        "rex/<insert-project-id>/design/module-design.md",
+        "rex/<insert-project-id>/design/architecture-design.md",
+        "rex/<insert-project-id>/design/architecture-proposal.md"
+      ],
+      "outputs": ["rex/<insert-project-id>/planning/milestones.md"],
+      "status": "not-started"
+    },
+    {
+      "item": "objectives",
+      "stop-on-finish": true,
+      "agent": {
+        "count": 1,
+        "effort": "max",
+        "model": "opus",
+        "skills": ["rex-planning-objectives"]
+      },
+      "inputs": [
+        "rex/<insert-project-id>/onboarding/goal.md",
+        "rex/<insert-project-id>/onboarding/scope.md",
+        "rex/<insert-project-id>/onboarding/research.md",
+        "rex/<insert-project-id>/onboarding/resources.md",
+        "rex/<insert-project-id>/onboarding/user-expertise.md",
+        "rex/<insert-project-id>/onboarding/success-measures.md",
+        "rex/<insert-project-id>/onboarding/known-risks.md",
+        "rex/<insert-project-id>/onboarding/uat.md",
+        "rex/<insert-project-id>/onboarding/environment-variables.md",
+        "rex/<insert-project-id>/onboarding/idea-generation.md",
+        "rex/<insert-project-id>/onboarding/user-expertise.md",
+        "rex/<insert-project-id>/onboarding/checklist.json",
+        "rex/<insert-project-id>/design/error-handling.md",
+        "rex/<insert-project-id>/design/existing-code-exploration.md",
+        "rex/<insert-project-id>/design/library-review.md",
+        "rex/<insert-project-id>/design/module-design.md",
+        "rex/<insert-project-id>/design/architecture-design.md",
+        "rex/<insert-project-id>/design/existing-code-exploration.md",
+        "rex/<insert-project-id>/design/library-review.md",
+        "rex/<insert-project-id>/design/module-design.md",
+        "rex/<insert-project-id>/design/architecture-design.md",
+        "rex/<insert-project-id>/design/architecture-proposal.md",
+        "rex/<insert-project-id>/planning/milestones.md"
+      ],
+      "outputs": ["rex/<insert-project-id>/planning/objectives.md"],
+      "status": "not-started"
+    },
+    {
+      "item": "tasks",
+      "stop-on-finish": true,
+      "agent": {
+        "count": 1,
+        "effort": "max",
+        "model": "opus",
+        "skills": ["rex-planning-objectives"]
+      },
+      "inputs": [
+        "rex/<insert-project-id>/design/error-handling.md",
+        "rex/<insert-project-id>/design/existing-code-exploration.md",
+        "rex/<insert-project-id>/design/library-review.md",
+        "rex/<insert-project-id>/design/module-design.md",
+        "rex/<insert-project-id>/design/architecture-design.md",
+        "rex/<insert-project-id>/design/existing-code-exploration.md",
+        "rex/<insert-project-id>/design/library-review.md",
+        "rex/<insert-project-id>/design/module-design.md",
+        "rex/<insert-project-id>/design/architecture-design.md",
+        "rex/<insert-project-id>/design/architecture-proposal.md",
+        "rex/<insert-project-id>/planning/milestones.md",
+        "rex/<insert-project-id>/planning/objectives.md"
+      ],
+      "outputs": [
+        "rex/<insert-project-id>/planning/<insert-objective-id>/tasks.md"
+      ],
       "status": "not-started"
     }
   ]
