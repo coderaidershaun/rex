@@ -254,12 +254,12 @@ fn design_agent_config(item: &str) -> (u32, &'static str, &'static str, Vec<&'st
         "foreign-critique" => (3, "max", "opus", vec!["rex-design-foreign-critique"]),
         "error-handling" => (1, "high", "sonnet", vec!["rex-design-rust-errors"]),
         "architecture-proposal" => (
-            3,
+            1,
             "max",
             "opus",
             vec!["rex-design-rust-architecture-proposal"],
         ),
-        "user-acceptance" => (3, "max", "opus", vec!["rex-design-user-acceptance"]),
+        "user-acceptance" => (1, "max", "opus", vec!["rex-design-user-acceptance"]),
         _ => (1, "high", "sonnet", vec![]),
     }
 }

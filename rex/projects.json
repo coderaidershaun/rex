@@ -1,31 +1,4 @@
 {
-  "active": {
-    "id": "some-brief-namesxx",
-    "category": "library",
-    "complexity": "medium",
-    "title": "Complete later",
-    "subtitle": "Complete later",
-    "description": "Complete later",
-    "directory": "/Users/shaun/Code/DEVELOPMENT/rex/some-brief-namesxx"
-  },
-  "inactive": [
-    {
-      "id": "some-brief-name",
-      "category": "library",
-      "complexity": "low",
-      "title": "Complete later",
-      "subtitle": "Complete later",
-      "description": "Complete later",
-      "directory": "/Users/shaun/Code/DEVELOPMENT/rex/some-brief-name"
-    },
-    {
-      "id": "some-brief-namesss",
-      "category": "library",
-      "complexity": "medium",
-      "title": "Complete later",
-      "subtitle": "Complete later",
-      "description": "Complete later",
-      "directory": "/Users/shaun/Code/DEVELOPMENT/rex/some-brief-namesss"
-    }
-  ]
+  "active": null,
+  "inactive": []
 }
