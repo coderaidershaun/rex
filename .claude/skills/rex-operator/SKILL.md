@@ -165,7 +165,7 @@ The prompt you give each agent must include:
 
 1. **The full project object as JSON** — paste the complete project object (from step 1) so the agent has all metadata: id, category, complexity, title, subtitle, description, directory, locked status. This is critical — onboarding skills use this metadata to avoid re-asking the user things that are already known.
 2. **Recent history** — paste the recent history JSON (from step 5) so the agent knows what's been done.
-3. **The skill to invoke** — tell the agent to invoke the specific skill using the Skill tool. Be explicit: "You MUST invoke the skill `/rex-onboarding-goal` using the Skill tool. Do not try to follow the skill's instructions from memory — actually call it."
+3. **The skill to invoke** — tell the agent to invoke the specific skill from `agent.skills` using the Skill tool. Be explicit: "You MUST invoke the skill `/<skill-name>` using the Skill tool. Do not try to follow the skill's instructions from memory — actually call it." Replace `<skill-name>` with the actual skill from the work item (e.g., `rex-onboarding-goal`, `rex-onboarding-scope`, `rex-design-rust-architecture`, etc.).
 4. **Input files** — list every file in `inputs` and instruct the agent to read them before starting work.
 5. **Output files** — list every file in `outputs` and instruct the agent to write its results there.
 6. **Effort level** — include the effort level as a literal instruction at the end of the prompt. Map the effort field:
@@ -197,9 +197,9 @@ You are working on the rex project "Hello World Library" (id: some-brief-name).
 <paste recent history JSON or "No recent history.">
 
 ## Your Task
-You MUST invoke the skill `/rex-onboarding-goal` using the Skill tool. Do not follow the skill from memory — actually call it via the Skill tool.
+You MUST invoke the skill `/<skill-from-agent.skills>` using the Skill tool. Do not follow the skill from memory — actually call it via the Skill tool.
 
-Complete the "goal" onboarding item.
+Complete the "<item-name>" onboarding item.
 
 Before you begin, read these input files:
 (none for this item)
@@ -257,7 +257,7 @@ You are working on the rex project "My Auth System" (id: auth-system).
 ## Your Task
 <paste full task JSON>
 
-You MUST invoke the skill `/rust-team-coordinator` using the Skill tool. Do not follow the skill from memory — actually call it via the Skill tool.
+You MUST invoke the skill `/<skill-from-agent.skills>` using the Skill tool. Do not follow the skill from memory — actually call it via the Skill tool.
 
 Before you begin, read these reference/input files:
 - docs/auth-spec.md#token-generation
