@@ -367,6 +367,7 @@ fn design_inputs(id: &str, item: &str) -> Vec<String> {
             d("library-review.md"),
             d("module-design.md"),
             d("architecture-design.md"),
+            d("foreign-critique.md"),
         ],
         "user-acceptance" => vec![d("architecture-proposal.html")],
         _ => vec![],
