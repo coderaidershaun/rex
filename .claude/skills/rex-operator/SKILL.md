@@ -165,7 +165,9 @@ The prompt you give each agent must include:
 
 1. **The full project object as JSON** — paste the complete project object (from step 1) so the agent has all metadata: id, category, complexity, title, subtitle, description, directory, locked status. This is critical — onboarding skills use this metadata to avoid re-asking the user things that are already known.
 2. **Recent history** — paste the recent history JSON (from step 5) so the agent knows what's been done.
-3. **The skill to invoke** — tell the agent to invoke the specific skill from `agent.skills` using the Skill tool. Be explicit: "You MUST invoke the skill `/<skill-name>` using the Skill tool. Do not try to follow the skill's instructions from memory — actually call it." Replace `<skill-name>` with the actual skill from the work item (e.g., `rex-onboarding-goal`, `rex-onboarding-scope`, `rex-design-rust-architecture`, etc.).
+3. **The skill(s) to invoke** — tell the agent which skill(s) to invoke from `agent.skills`, using the Skill tool. Be explicit for each skill: "You MUST invoke the skill `/<skill-name>` using the Skill tool. Do not try to follow the skill's instructions from memory — actually call it."
+   - **Single skill** (`agent.skills` has 1 entry): The agent invokes that one skill.
+   - **Multiple skills** (`agent.skills` has 2+ entries): List ALL skills and tell the agent to invoke them sequentially, in order. Example: "You MUST invoke these skills in order using the Skill tool: first `/rex-onboarding-goal`, then `/rex-onboarding-scope`."
 4. **Input files** — list every file in `inputs` and instruct the agent to read them before starting work.
 5. **Output files** — list every file in `outputs` and instruct the agent to write its results there.
 6. **Effort level** — include the effort level as a literal instruction at the end of the prompt. Map the effort field:
@@ -288,16 +290,20 @@ Spawn one agent using the Agent tool with these **exact parameters**:
 
 ### Multiple agents (count > 1)
 
-When `agent.count` is greater than 1, spawn that many worker agents plus one coordinator agent:
+When `agent.count` is greater than 1, spawn that many worker agents plus one coordinator agent. **Every worker agent MUST use the same `model` from `agent.model`.** The model is not optional — it must be set on each Agent tool call.
 
-1. **Worker agents** — Spawn `agent.count` agents in parallel (in a single message with multiple Agent tool calls). Each worker gets the same base prompt but with a role differentiator:
-   - Worker 1: "You are worker 1 of N. Focus on the first portion of the analysis."
-   - Worker 2: "You are worker 2 of N. Focus on the second portion of the analysis."
-   - etc.
+1. **Worker agents** — Spawn `agent.count` agents in parallel (in a single message with multiple Agent tool calls). Each worker:
+   - Gets the **same base prompt** (full project JSON, history, inputs, outputs, effort level)
+   - Gets the **same model** (`agent.model` — set on each Agent tool call)
+   - Gets the **same skill(s)** (`agent.skills` — listed in the prompt)
+   - Gets a **role differentiator** to split the work:
+     - Worker 1: "You are worker 1 of N. Focus on the first portion of the analysis."
+     - Worker 2: "You are worker 2 of N. Focus on the second portion of the analysis."
+     - etc.
    
    Each worker should write its findings to a temporary intermediate file, e.g., `rex/<project-id>/<phase>/<item>-worker-<N>.md`
 
-2. **Coordinator agent** — After all workers complete, spawn one final agent that:
+2. **Coordinator agent** — After all workers complete, spawn one final agent (same `model`) that:
    - Reads all worker output files
    - Synthesizes them into the final output file(s) specified in `outputs`
    - Cleans up the intermediate worker files
@@ -528,6 +534,13 @@ rex checklist set-context "<text>"
 
 ## Rules
 
+- **The work item is the contract.** Every field in the work item JSON must be honored exactly:
+  - `agent.model` → set on the Agent tool `model` parameter. Not optional.
+  - `agent.skills` → every skill listed must be invoked via the Skill tool. If multiple, invoke in order.
+  - `agent.count` → spawn exactly this many worker agents. Not fewer, not more.
+  - `agent.effort` → map to the correct effort instruction including `ultrathink` keyword for max/ultrathink.
+  - `inputs` → every file listed must be read by the agent before starting.
+  - `outputs` → every file listed must be written by the agent.
 - **Respect `stop-on-finish`.** After completing an item, check its `stop-on-finish` field. If `false`, loop back to Step 3 and process the next item. If `true`, stop. If the item was left in-progress, always stop.
 - **CLI only for data management.** All reads and writes to rex data structures go through `rex` commands. Never write `project-status.json`, `history.json`, or `planning.json` directly.
 - **Blocking dispatch.** Never launch agents in the background. Always wait for completion. This is critical for headless/automated operation.
