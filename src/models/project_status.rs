@@ -475,7 +475,10 @@ fn build_execution_steps() -> Vec<TaskStep> {
             count: 1,
             effort: "high".into(),
             model: "opus".into(),
-            skills: vec!["Assign agents with model, effort level and skills as defined in the task".into()],
+            skills: vec![
+                "STEP 1: run 'rex task next'".into(),
+                "STEP 2: Assign agents with model, effort level and skills as defined in the task".into(),
+            ],
         },
         inputs: vec![],
         outputs: vec![],
