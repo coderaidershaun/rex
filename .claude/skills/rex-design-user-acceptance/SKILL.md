@@ -29,7 +29,9 @@ If the output file is empty or doesn't exist, this is a fresh session.
 
 ### Step 1: Orient the user
 
-Tell the user clearly:
+First, check if an HTML viewer exists alongside the proposal markdown (same filename but `.html` extension). If it does, give the user a clickable `file:///` URL to open it in their browser. Construct the URL by taking the absolute path to the HTML file and prefixing it with `file:///`. For example: `file:///Users/name/project/rex/my-project/design/architecture-proposal.html`
+
+Then tell the user clearly:
 
 > I'm here to walk you through the design proposal and get your sign-off before we start building. You can:
 >
