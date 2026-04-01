@@ -18,7 +18,7 @@ Copies all skills, hooks, configuration, and documentation into the current dire
 
 | Item | Claude Code | Cursor | Purpose |
 |------|------------|--------|---------|
-| Skills | `.claude/skills/` | `.cursor/skills/` | All rex and rust agent skills (40 directories) |
+| Skills | `.claude/skills/` | `.cursor/skills/` | All rex and rust agent skills (41 directories) |
 | Hook scripts | `.claude/hooks/` | `.cursor/hooks/` | `commit-and-push.sh` (auto-commit on agent stop) |
 | Hook config | `.claude/settings.json` | `.cursor/hooks.json` | Registers the stop hook with the agent OS |
 | Root file | `CLAUDE.md` | `AGENTS.md` | Points agents to `rex/docs/README.md` |

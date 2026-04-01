@@ -76,7 +76,7 @@ Status messages go to stderr; machine-parseable JSON goes to stdout. This allows
 
 ## Planning Constraints
 
-These constraints are enforced by the planning skills (`rex-planning-milestones`, `rex-planning-objectives`, `rex-planning-tasks`) to keep plans focused and prevent agent-generated bloat:
+These constraints are enforced by the planning skills (`rex-planning-milestones`, `rex-planning-objectives`, `rex-planning-tasks`) and verified by the review skill (`rex-planning-review`) to keep plans focused and prevent agent-generated bloat:
 
 - **1-3 milestones per module or topic.** If more are needed, the scope is too broad.
 - **1-3 objectives per work milestone.** If more are needed, the milestone must be split.
@@ -84,6 +84,7 @@ These constraints are enforced by the planning skills (`rex-planning-milestones`
 - **Review milestones follow heavy milestones.** Every milestone involving significant code gets a paired review milestone with two objectives: (1) review all code, (2) fix significant issues. Lightweight milestones (configuration, setup) can skip review.
 - **All mutations via CLI.** Planning entities are created and updated exclusively through `rex <entity> upsert` commands, never by writing `planning.json` directly.
 - **Dependencies are explicit.** Every entity must have its upstream and downstream dependencies explicitly set. No implicit dependencies.
+- **Planning review before execution.** After milestones, objectives, and tasks are created, the `rex-planning-review` skill performs an adversarial review of the entire planning tree — checking structural integrity, dependency graph correctness, constraint compliance, logical coherence, and coverage against design and onboarding documents. It fixes clear-cut issues directly via CLI and can invoke the planning skills for structural corrections. Only genuine issues are reported — false positives are penalised.
 
 When a constraint would be violated (e.g., 4 objectives needed for one milestone), the planning skills escalate by splitting the parent entity and rewiring all upstream/downstream dependencies to keep the graph intact.
 

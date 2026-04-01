@@ -12,7 +12,7 @@ User creates project
         v
    +---------+     +--------+     +-----------+     +-----------+
    |Onboarding| --> | Design | --> | Planning  | --> | Execution |
-   | 14 items |     | 9 items|     |  3 items  |     |  1 item   |
+   | 14 items |     | 9 items|     |  4 items  |     |  1 item   |
    +---------+     +--------+     +-----------+     +-----------+
         |               |               |                  |
         v               v               v                  v
@@ -40,7 +40,7 @@ This copies all skills, hooks, settings, and documentation into the current dire
 | Cursor | `.cursor/` | `AGENTS.md` |
 
 **What gets created:**
-- `<config-dir>/skills/` — all rex and rust skills (40 skill directories)
+- `<config-dir>/skills/` — all rex and rust skills (41 skill directories)
 - `<config-dir>/hooks/commit-and-push.sh` — auto-commit on agent stop
 - Hook config — `.claude/settings.json` (Claude Code) or `.cursor/hooks.json` (Cursor), each in its native format
 - `rex/docs/` — all CLI and process documentation
@@ -123,7 +123,7 @@ Creates the complete system blueprint. Each item produces documents in `rex/<pro
 - `foreign-critique` — adversarial review checking cross-document consistency (can directly edit module and architecture docs)
 - `user-acceptance` — human approval gate (blocks until user explicitly accepts)
 
-### Phase 3: Planning (3 items)
+### Phase 3: Planning (4 items)
 
 Breaks the design into an executable work tree stored in `rex/<project-id>/planning/planning.json`. All items use opus at max effort with `stop-on-finish: true`.
 
@@ -132,12 +132,15 @@ Breaks the design into an executable work tree stored in `rex/<project-id>/plann
 | 1 | `milestones` | `rex-planning-milestones` | Major checkpoints (1-3 per topic, review milestones after heavy ones) |
 | 2 | `objectives` | `rex-planning-objectives` | Strategic outcomes per milestone (1-3 per milestone) |
 | 3 | `tasks` | `rex-planning-tasks` | Atomic work units per objective (1-3 per objective, single-session) |
+| 4 | `review` | `rex-planning-review` | Adversarial review of entire planning tree — finds dependency disconnects, constraint violations, coverage gaps, and fixes them |
 
 **Hard constraint:** 1-3 items at each level. If more are needed, the parent level must be split.
 
 **Hierarchy:** `Milestone -> Objective -> Task`, with explicit upstream/downstream dependencies at every level. Dependencies are bidirectional — adding an upstream automatically registers the downstream.
 
 **Planning inputs:** Full onboarding context + all design documents + planning.json itself (for building incrementally).
+
+**Quality gate:** The `review` step reads all design documents plus the complete planning tree (milestones, objectives, tasks) and cross-references them for structural integrity, logical coherence, and coverage against the project goal. It fixes clear-cut issues directly via CLI and can invoke the planning skills for structural corrections. Only genuine issues are reported — false positives are penalised.
 
 ### Phase 4: Execution (1 item)
 
@@ -359,7 +362,7 @@ The file contains 5 phase keys, processed in order by `rex project next-item`:
   "user_support": [ ... ],    // 1 item (pre-completed on create)
   "onboarding":   [ ... ],    // 14 items
   "design":       [ ... ],    // 9 items
-  "planning":     [ ... ],    // 3 items
+  "planning":     [ ... ],    // 4 items (milestones, objectives, tasks, review)
   "execution":    [ ... ]     // 1 item (bridges to planning tree via rex task next)
 }
 ```
