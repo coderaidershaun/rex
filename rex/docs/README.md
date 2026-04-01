@@ -163,10 +163,13 @@ This item is intentionally minimal — inputs and outputs are empty because they
 
 1. Calls `rex task next` to find the highest-priority eligible task from `planning.json`
 2. Gets back the task + its parent objective + its parent milestone as full JSON
-3. Dispatches an agent with `rust-team-coordinator` skill + that full planning context
-4. Marks the task completed when done
-5. Checks if more tasks remain — if so, the execution item stays `in-progress`
-6. Only marks the execution item `completed` when ALL tasks are finished
+3. Checks if the task has its own `agent` field — if so, uses it for model/effort/skills; otherwise falls back to the execution item's agent config
+4. Dispatches an agent with the resolved skill + full planning context
+5. Marks the task completed when done
+6. Checks if more tasks remain — if so, the execution item stays `in-progress`
+7. Only marks the execution item `completed` when ALL tasks are finished
+
+**Per-task agent config:** Tasks can carry an optional `agent` object (`--agent-model`, `--agent-effort`, `--agent-skill`, `--agent-count` on `rex task upsert`) that overrides the execution item's default. This allows complex implementation tasks to use `rust-team-coordinator` on opus/max while simple tasks like commenting use `rust-commenting` on sonnet/high.
 
 The execution item persists across many operator invocations. Each invocation processes one task, records history, and stops. The next invocation picks up the next task via `rex task next` again.
 
@@ -193,40 +196,43 @@ The operator (`rex-operator` skill) is the heartbeat. It processes exactly one w
 ### Standard Phase Sequence (Onboarding, Design, Planning)
 
 ```
-1. rex project get-active          -> Get project, check it exists
-2. Check lock status               -> If locked: STOP
-3. rex project next-item           -> Get next incomplete item from project-status.json
-4. rex project update-status       -> Mark item in-progress
-5. rex history get-recent          -> Get recent history for agent context
-6. Build agent prompt              -> From item config (skill, inputs, outputs, effort, model)
-7. Dispatch agent(s)               -> BLOCKING (never background)
-8. Check agent response            -> Respect "do not mark complete" signals
-9. rex history insert-recent       -> Record what was done
-10. rex project update-status      -> Mark item completed
-11. Dispatch rex-manage-history    -> Keep recent history at 3 entries max
+1.  rex project get-active          -> Get project, check it exists
+2.  Check lock status               -> If locked: STOP
+3.  rex project next-item           -> Get next incomplete item from project-status.json
+3b. Pre-dispatch validation         -> Check if item should be skipped (e.g., existing-code-exploration
+                                       when no existing code — mark not-required and loop to step 3)
+4.  rex project update-status       -> Mark item in-progress
+5.  rex history get-recent          -> Get recent history for agent context
+6.  Build agent prompt              -> From item config (skill, inputs, outputs, effort, model)
+7.  Dispatch agent(s)               -> BLOCKING (never background)
+8.  Check agent response            -> Respect "do not mark complete" signals
+9.  rex history insert-recent       -> Record what was done
+10. rex project update-status       -> Mark item completed
+11. Dispatch rex-manage-history     -> Keep recent history at 3 entries max
 12. Stop and report
 ```
 
 ### Execution Phase Sequence
 
 ```
-1. rex project get-active          -> Get project
-2. Check lock status               -> If locked: STOP
-3. rex project next-item           -> Get next item (execution phase)
-3a. rex task next                  -> Resolve actual task from planning tree
+1.  rex project get-active          -> Get project
+2.  Check lock status               -> If locked: STOP
+3.  rex project next-item           -> Get next item (execution phase)
+3c. rex task next                   -> Resolve actual task from planning tree
     If "NO TASKS" -> mark execution item complete, skip to step 9
-4. rex project update-status       -> Mark execution item in-progress
-   rex task upsert --status        -> Mark task in-progress
-5. rex history get-recent          -> Context for agent
-6. Build prompt from task context  -> Task + objective + milestone + project + history
-7. Dispatch agent(s)               -> BLOCKING
-8. rex task upsert --status        -> Mark task completed
-   rex task next                   -> Check if more tasks remain
-   If NO TASKS -> mark execution item completed
-   If tasks remain -> execution item stays in-progress
-9. rex history insert-recent       -> Record task/objective/milestone entities
-10. rex project update-status      -> Mark execution complete (only if ALL tasks done)
-11. Dispatch rex-manage-history    -> Archive old history
+    Resolve agent config            -> Use task's agent if present, else execution item's agent
+4.  rex project update-status       -> Mark execution item in-progress
+    rex task upsert --status        -> Mark task in-progress
+5.  rex history get-recent          -> Context for agent
+6.  Build prompt from task context  -> Task + objective + milestone + project + history
+7.  Dispatch agent(s)               -> BLOCKING (model/effort/skills from resolved agent config)
+8.  rex task upsert --status        -> Mark task completed
+    rex task next                   -> Check if more tasks remain
+    If NO TASKS -> mark execution item completed
+    If tasks remain -> execution item stays in-progress
+9.  rex history insert-recent       -> Record task/objective/milestone entities
+10. rex project update-status       -> Mark execution complete (only if ALL tasks done)
+11. Dispatch rex-manage-history     -> Archive old history
 12. Stop and report
 ```
 
@@ -313,7 +319,7 @@ All three levels share the same command pattern and list modification flags:
 | `rex objective get <id>` | Get objective as JSON |
 | `rex objective list [--milestone <m>] [--status <s>]` | List objectives |
 | `rex objective remove <id>` | Remove objective |
-| `rex task upsert --id <id> --objective <o> [--title <t>] [--description <d>]` | Create or update task under objective |
+| `rex task upsert --id <id> --objective <o> [--title <t>] [--description <d>] [--agent-model <m>] [--agent-effort <e>] [--agent-skill <s>]...` | Create or update task under objective |
 | `rex task get <id>` | Get task as JSON |
 | `rex task list [--objective <o>] [--status <s>]` | List tasks |
 | `rex task remove <id>` | Remove task |
@@ -326,6 +332,12 @@ All three levels share the same command pattern and list modification flags:
 - `--add-downstream <id>` / `--remove-downstream <id>` — reverse dependency
 - `--add-checklist <ID:TEXT>` / `--remove-checklist <id>` — verification items
 - `--check <id>` / `--uncheck <id>` — toggle checklist items
+
+**Task-only agent flags** (available on `rex task upsert` only):
+- `--agent-model <model>` — opus, sonnet, haiku
+- `--agent-effort <effort>` — medium, high, max, ultrathink
+- `--agent-skill <skill>` — skill to invoke (repeatable)
+- `--agent-count <n>` — number of agents to spawn
 
 ### History
 
@@ -396,6 +408,8 @@ rex/
 - **CLI-only mutations** — agents never write JSON files directly; all state changes go through `rex` commands
 - **One item per operator invocation** — prevents runaway execution; the user or a loop controls pacing
 - **Blocking dispatch** — the operator always waits for agents to finish; never runs them in background
+- **Per-task agent config** — tasks can override the execution item's default agent with `--agent-model`, `--agent-effort`, `--agent-skill`, allowing different tasks to use different skills and models
+- **Pre-dispatch validation** — the operator skips items whose preconditions aren't met (e.g., existing-code-exploration when the project is greenfield) to avoid wasting tokens
 - **Bidirectional dependencies** — adding an upstream automatically creates the downstream link
 - **Stop-on-finish** — items marked with this flag cause the operator to stop even if more items follow (all design and planning items have this)
 - **History rotation** — recent history is capped at 3 entries; older entries are summarized and archived

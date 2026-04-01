@@ -13,6 +13,12 @@ Tasks are the atomic units of work — concrete, actionable, and assignable. The
   "title": "Implement the token-generation endpoint for password reset",
   "description": "POST /auth/reset-token — generates a cryptographically secure token, stores it with a 15-minute TTL, returns 202",
   "status": "not-started",
+  "agent": {
+    "count": 1,
+    "effort": "max",
+    "model": "opus",
+    "skills": ["rust-team-coordinator"]
+  },
   "references": ["docs/auth-spec.md#token-generation", "o-password-reset"],
   "outputs": ["src/auth/reset_token.rs", "tests/auth/reset_token_test.rs"],
   "checklist": [
@@ -25,6 +31,26 @@ Tasks are the atomic units of work — concrete, actionable, and assignable. The
 }
 ```
 
+### Agent field
+
+The optional `agent` object overrides the execution item's default agent config during the execution phase. When present, the operator uses this task's agent settings instead of the execution item's. When absent, the execution item's agent config is used as a fallback.
+
+```json
+{
+  "count": 1,
+  "effort": "max",
+  "model": "opus",
+  "skills": ["rust-team-coordinator"]
+}
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `count` | u32 | 1 | Number of agents to spawn |
+| `effort` | string | `"high"` | Reasoning depth: medium, high, max, ultrathink |
+| `model` | string | `"sonnet"` | LLM model: opus, sonnet, haiku |
+| `skills` | string[] | `[]` | Skill(s) the agent should invoke |
+
 ## CLI Commands
 
 ### Create a task
@@ -35,6 +61,9 @@ rex task upsert \
   --objective o-password-reset \
   --title "Implement the token-generation endpoint for password reset" \
   --description "POST /auth/reset-token — generates a secure token, stores with 15min TTL, returns 202" \
+  --agent-model opus \
+  --agent-effort max \
+  --agent-skill rust-team-coordinator \
   --add-reference "docs/auth-spec.md#token-generation" \
   --add-output src/auth/reset_token.rs \
   --add-output tests/auth/reset_token_test.rs \
@@ -62,6 +91,9 @@ rex task upsert --id t-token-endpoint --objective o-auth-v2-reset
 
 # Add a dependency chain
 rex task upsert --id t-email-template --add-upstream t-token-endpoint
+
+# Change agent config (e.g., switch to a lighter agent for a simple task)
+rex task upsert --id t-token-endpoint --agent-model sonnet --agent-effort high --agent-skill rust-developing
 ```
 
 ### Get a task
@@ -93,6 +125,19 @@ rex task remove t-token-endpoint
 ```
 
 Removes the task from its parent objective's `tasks` list and cleans up upstream/downstream references in sibling tasks.
+
+## Agent Flags
+
+Task-specific agent configuration (optional — overrides the execution item's default):
+
+| Flag | Description |
+|------|-------------|
+| `--agent-model <MODEL>` | Agent model: opus, sonnet, haiku |
+| `--agent-effort <EFFORT>` | Reasoning depth: medium, high, max, ultrathink |
+| `--agent-skill <SKILL>` | Skill to invoke (repeatable for multiple skills) |
+| `--agent-count <N>` | Number of agents to spawn |
+
+When any agent flag is provided on create, the task gets an `agent` object. On update, provided fields are merged with the existing agent config (e.g., `--agent-model opus` updates only the model, leaving effort and skills unchanged).
 
 ## List Modification Flags
 

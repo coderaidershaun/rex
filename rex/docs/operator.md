@@ -10,6 +10,8 @@ The operator is the heartbeat of the rex harness. It processes one work item per
 1.  Get active project        →  rex project get-active
 2.  Check lock status          →  If locked: true, STOP immediately
 3.  Get next work item         →  rex project next-item
+3b. Pre-dispatch validation    →  Check if item should be skipped (e.g., existing-code-exploration
+                                  when no existing code — mark not-required and loop to step 3)
 4.  Mark item in-progress      →  rex project update-status <item> in-progress
 5.  Get recent history         →  rex history get-recent
 6.  Prepare agent dispatch     →  Build prompt from item config
@@ -74,6 +76,13 @@ The work item's `agent` object controls how agents are dispatched:
 }
 ```
 
+### Task-Level Agent Override (Execution Phase)
+
+During the execution phase, tasks can carry their own `agent` object. When present, the **task's agent config takes precedence** over the execution item's agent config. This allows different tasks to use different skills, models, and effort levels.
+
+- If the task has an `agent` field → use the task's config
+- If the task has no `agent` field → fall back to the execution item's config
+
 ### Model Mapping
 
 | Item value | Agent model param |
@@ -108,11 +117,19 @@ During execution, agents receive the full planning context — not just the work
 - **Project** — the overall project context
 - **Recent history** — what's been done recently
 
-The execution item's `agent` config still controls model, effort, and skills. But the task drives the actual work, inputs, and outputs.
+If the task has its own `agent` field, use it for model, effort, and skills. Otherwise, the execution item's `agent` config is used as a fallback. The task always drives the actual work, inputs, and outputs.
 
 ## History Management
 
 After each item completes, the operator invokes an agent with the `rex-manage-history` skill to keep the recent history section at 3 entries or fewer. Older entries are summarised and moved to the archived section.
+
+## Pre-Dispatch Validation
+
+Before dispatching an item, the operator checks whether the item should be skipped:
+
+- **`existing-code-exploration`**: Read `rex/<project-id>/onboarding/existing-code.md`. If it indicates no existing code (greenfield), mark the item `not-required` and skip to the next item.
+
+This prevents wasting tokens on items whose preconditions aren't met.
 
 ## Rules
 
@@ -123,5 +140,6 @@ After each item completes, the operator invokes an agent with the `rex-manage-hi
 - Respect agent responses — if an agent says not to mark complete, don't
 - Pass full context — agents receive the project object and recent history
 - Execution uses `rex task next` — the planning tree drives work, not the execution item
+- Task-level agent overrides execution-level agent — when a task has its own `agent` field, use it
 - Mark tasks complete via CLI — `rex task upsert --id <id> --status completed`
 - Only mark execution item complete when ALL tasks are finished

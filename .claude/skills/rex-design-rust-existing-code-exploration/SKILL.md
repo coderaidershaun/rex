@@ -15,6 +15,32 @@ You'll be told where to write the output (a file path like `design/existing-code
 
 ---
 
+## First: Verify there is code to explore
+
+Before doing any exploration, read the `onboarding/existing-code.md` input file. If it indicates there is no existing code to explore (e.g., contains "Greenfield", "no existing code", or the Code Resources section is empty/absent), **stop immediately**. Write a brief output file noting that no existing code exploration was needed and instruct the operator not to mark this as a failure. Do not explore the project's own rex harness or any unrelated code.
+
+Only proceed with exploration if the onboarding document explicitly identifies code locations (paths, repositories) to analyze. Use **only** those identified locations — do not default to exploring the current working directory or the rex project structure itself.
+
+---
+
+## Multi-agent work division
+
+This skill is often dispatched with multiple agents (typically 3) working in parallel. When you are told you are "worker N of M", divide the work by **module or domain area**, not by pass number. Each worker should perform all three passes (big picture, connections, critical details) on their assigned portion of the codebase.
+
+**How to divide:**
+1. Read the existing-code.md to understand the full scope of code to explore
+2. Read the top-level structure (Cargo.toml, src/lib.rs or src/main.rs, directory listing) to identify the major modules or domains
+3. Split the modules roughly equally among workers:
+   - **Worker 1 of 3**: First third of modules/domains (e.g., core types, models, data layer)
+   - **Worker 2 of 3**: Second third (e.g., business logic, engines, processing)
+   - **Worker 3 of 3**: Final third (e.g., API layer, CLI, integration points, tests)
+4. Each worker performs the full three-pass exploration on their assigned modules
+5. The coordinator agent (dispatched after all workers complete) synthesizes the findings into a single coherent document
+
+If there are fewer modules than workers, some workers should go deeper on their modules rather than overlapping with others.
+
+---
+
 ## Reading the inputs
 
 ### From existing-code (primary input)

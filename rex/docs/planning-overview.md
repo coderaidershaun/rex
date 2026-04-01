@@ -38,6 +38,7 @@ Additionally:
 - **Milestone** has `objectives: string[]` — child objective IDs (auto-managed)
 - **Objective** has `milestone_id: string` and `tasks: string[]` — parent ref and child task IDs (auto-managed)
 - **Task** has `objective_id: string` — parent objective reference
+- **Task** has `agent: object?` — optional agent config (`count`, `effort`, `model`, `skills`) that overrides the execution item's default during dispatch. Set via `--agent-model`, `--agent-effort`, `--agent-skill`, `--agent-count` on `rex task upsert`.
 
 ## Cross-Referencing
 
