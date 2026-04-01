@@ -92,6 +92,7 @@ pub struct ProjectStatus {
     pub onboarding: Vec<TaskStep>,
     pub design: Vec<TaskStep>,
     pub planning: Vec<TaskStep>,
+    pub execution: Vec<TaskStep>,
 }
 
 impl ProjectStatus {
@@ -146,6 +147,7 @@ impl ProjectStatus {
 
         let design = build_design_steps(project_id, selected_design, category);
         let planning = build_planning_steps(project_id);
+        let execution = build_execution_steps();
 
         Self {
             user_support: vec![TaskStep {
@@ -164,6 +166,7 @@ impl ProjectStatus {
             onboarding,
             design,
             planning,
+            execution,
         }
     }
 
@@ -468,4 +471,20 @@ fn build_planning_steps(id: &str) -> Vec<TaskStep> {
             status: Status::NotStarted,
         },
     ]
+}
+
+fn build_execution_steps() -> Vec<TaskStep> {
+    vec![TaskStep {
+        item: "run".into(),
+        stop_on_finish: false,
+        agent: Agent {
+            count: 1,
+            effort: "max".into(),
+            model: "opus".into(),
+            skills: vec!["rust-team-coordinator".into()],
+        },
+        inputs: vec![],
+        outputs: vec![],
+        status: Status::NotStarted,
+    }]
 }

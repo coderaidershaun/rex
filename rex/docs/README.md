@@ -12,15 +12,17 @@ User creates project
         v
    +---------+     +--------+     +-----------+     +-----------+
    |Onboarding| --> | Design | --> | Planning  | --> | Execution |
-   | 14 items |     | 9 items|     |  3 items  |     | task tree |
+   | 14 items |     | 9 items|     |  3 items  |     |  1 item   |
    +---------+     +--------+     +-----------+     +-----------+
         |               |               |                  |
         v               v               v                  v
    .md files      design docs      planning.json     completed code
    in onboarding/ in design/       milestones/       in project dir
-                                   objectives/
-                                   tasks
+                                   objectives/       (driven by
+                                   tasks             rex task next)
 ```
+
+All phases live in a single `project-status.json` file. The operator calls `rex project next-item` to get the next incomplete item across all phases. For phases 1-3, the item itself describes the work. For phase 4, the single execution item tells the operator to switch to `rex task next` and work through the planning tree.
 
 ## Phase Overview
 
@@ -110,15 +112,38 @@ Breaks the design into an executable work tree stored in `rex/<project-id>/plann
 
 **Planning inputs:** Full onboarding context + all design documents + planning.json itself (for building incrementally).
 
-### Phase 4: Execution
+### Phase 4: Execution (1 item)
 
-When the operator encounters an execution-phase item, it switches from the `project-status.json` sequence to the **planning tree**:
+After planning completes, `project-status.json` contains a single execution item:
 
-1. Calls `rex task next` to find the highest-priority eligible task
-2. Dispatches an agent with the task + its parent objective + its parent milestone as context
-3. Marks the task completed when done
-4. Checks if more tasks remain — if so, the execution item stays in-progress
-5. Only marks the execution item complete when ALL tasks are finished
+```json
+{
+  "item": "run",
+  "stop-on-finish": false,
+  "agent": {
+    "count": 1,
+    "effort": "max",
+    "model": "opus",
+    "skills": ["rust-team-coordinator"]
+  },
+  "inputs": [],
+  "outputs": [],
+  "status": "not-started"
+}
+```
+
+This item is intentionally minimal — inputs and outputs are empty because they come from the planning tree at runtime. When the operator encounters this item (phase = `"execution"`), it switches from the linear `project-status.json` sequence to the **planning tree**:
+
+1. Calls `rex task next` to find the highest-priority eligible task from `planning.json`
+2. Gets back the task + its parent objective + its parent milestone as full JSON
+3. Dispatches an agent with `rust-team-coordinator` skill + that full planning context
+4. Marks the task completed when done
+5. Checks if more tasks remain — if so, the execution item stays `in-progress`
+6. Only marks the execution item `completed` when ALL tasks are finished
+
+The execution item persists across many operator invocations. Each invocation processes one task, records history, and stops. The next invocation picks up the next task via `rex task next` again.
+
+**`stop-on-finish: false`** — a wrapping loop can continuously invoke the operator to process tasks without pausing between them.
 
 **Task priority scoring** (lower tier = higher priority):
 
@@ -278,13 +303,29 @@ All three levels share the same command pattern and list modification flags:
 | `rex history get-recent` | Get recent entries as JSON |
 | `rex history list` | Get all history (recent + archived) as JSON |
 
+## project-status.json Structure
+
+The file contains 5 phase keys, processed in order by `rex project next-item`:
+
+```json
+{
+  "user_support": [ ... ],    // 1 item (pre-completed on create)
+  "onboarding":   [ ... ],    // 14 items
+  "design":       [ ... ],    // 9 items
+  "planning":     [ ... ],    // 3 items
+  "execution":    [ ... ]     // 1 item (bridges to planning tree via rex task next)
+}
+```
+
+The operator walks this list linearly. Each item has a status (`not-started`, `in-progress`, `completed`, `not-required`). Items marked `not-required` are skipped. When the operator reaches the execution item, it switches from linear progression to the planning tree — calling `rex task next` repeatedly until all tasks are done.
+
 ## Data Storage
 
 ```
 rex/
   projects.json                          # Project registry (active + inactive)
   <project-id>/
-    project-status.json                  # Ordered work items with agent configs
+    project-status.json                  # 5-phase work item manifest
     onboarding/
       goal.md                            # Project goal
       scope.md                           # Boundaries

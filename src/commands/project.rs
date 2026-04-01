@@ -289,6 +289,7 @@ pub fn update_status(item: &str, status: Status) -> Result<(), Box<dyn std::erro
         .chain(&mut project_status.user_support)
         .chain(&mut project_status.design)
         .chain(&mut project_status.planning)
+        .chain(&mut project_status.execution)
         .find(|s| s.item == item)
         .ok_or_else(|| format!("Item \"{item}\" not found in project status."))?;
 
@@ -531,7 +532,7 @@ fn flatten_tasks(
     if let Some(obj) = raw.as_object() {
         // Current format: object with phase keys containing arrays of tasks.
         // Process known phases in workflow order, then any remaining keys.
-        let known_phases = ["user_support", "onboarding", "design", "planning"];
+        let known_phases = ["user_support", "onboarding", "design", "planning", "execution"];
         for phase_key in &known_phases {
             if let Some(items) = obj.get(*phase_key).and_then(|v| v.as_array()) {
                 let phase_name = phase_key.replace('_', "-");

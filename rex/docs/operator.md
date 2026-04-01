@@ -23,7 +23,7 @@ The operator is the heartbeat of the rex harness. It processes one work item per
 
 ### Execution Phase
 
-When the next item's phase is `"execution"`, the operator resolves the actual work from the planning tree instead of the item itself:
+When `rex project next-item` returns the execution item (item: `"run"`, phase: `"execution"`), the operator resolves the actual work from the planning tree instead of the item itself. The execution item has empty inputs/outputs and `stop-on-finish: false` — the real work comes from `rex task next`, and a wrapping loop can continuously invoke the operator to process tasks:
 
 ```
 1.  Get active project        →  rex project get-active
