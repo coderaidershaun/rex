@@ -285,6 +285,15 @@
     sequence: { useMaxWidth: true },
   });
 
+  function decodeHtmlEntities(text) {
+    return text
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'");
+  }
+
   async function render() {
     let md = document.getElementById('md-source').textContent;
 
@@ -295,19 +304,31 @@
       headerIds: true,
     });
 
-    // Render markdown but preserve mermaid blocks
+    // Extract mermaid blocks before marked processes the markdown.
+    // Store raw code separately so innerHTML decoding can't corrupt it.
     const mermaidBlocks = [];
     md = md.replace(/```mermaid\n([\s\S]*?)```/g, (_, code) => {
       const idx = mermaidBlocks.length;
-      mermaidBlocks.push(code.trim());
-      return `<div class="mermaid" id="mermaid-${idx}">${code.trim()}</div>`;
+      mermaidBlocks.push(decodeHtmlEntities(code.trim()));
+      return `<div class="mermaid-placeholder" id="mermaid-${idx}"></div>`;
     });
 
     const html = marked.parse(md);
     document.getElementById('content').innerHTML = html;
 
-    // Render mermaid diagrams
-    await mermaid.run({ querySelector: '.mermaid' });
+    // Render each mermaid block from the stored raw text
+    for (let i = 0; i < mermaidBlocks.length; i++) {
+      const el = document.getElementById(`mermaid-${i}`);
+      if (!el) continue;
+      try {
+        const { svg } = await mermaid.render(`mermaid-graph-${i}`, mermaidBlocks[i]);
+        el.innerHTML = svg;
+        el.classList.add('mermaid');
+      } catch (err) {
+        el.innerHTML = `<pre style="color:var(--danger);font-size:0.85rem">Diagram ${i + 1}: ${err.message}</pre>`;
+        el.classList.add('mermaid');
+      }
+    }
 
     // Build table of contents
     buildToc();
