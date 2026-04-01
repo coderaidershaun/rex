@@ -14,7 +14,7 @@ Your job is simple: keep the `recent` section of project history lean. The recen
 ## Step 1: Read all history
 
 ```bash
-rex history list
+rex-cli history list
 ```
 
 This returns the full `history.json` contents — both `recent` and `archived` arrays.
@@ -43,7 +43,7 @@ For each entry being archived:
 2. **Insert the compacted entry:**
 
 ```bash
-rex history insert-compacted \
+rex-cli history insert-compacted \
   --id "compact-<original-id>" \
   --timestamp "<original-timestamp>" \
   --summary "<condensed summary>"  \
@@ -56,7 +56,7 @@ Include `--entity` flags for any entities from the original entry. You can omit 
 3. **Remove the original from recent:**
 
 ```bash
-rex history remove-from-recent <original-id>
+rex-cli history remove-from-recent <original-id>
 ```
 
 Process entries one at a time: insert-compacted, then remove-from-recent, then move to the next entry. This prevents data loss if something fails partway through.
@@ -65,7 +65,7 @@ Process entries one at a time: insert-compacted, then remove-from-recent, then m
 
 ## Step 4: Verify
 
-Run `rex history get-recent` to confirm that recent now has 3 or fewer entries.
+Run `rex-cli history get-recent` to confirm that recent now has 3 or fewer entries.
 
 Report what you did: how many entries were archived, and what they covered.
 

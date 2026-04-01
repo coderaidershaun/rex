@@ -21,7 +21,7 @@ You'll be told where to write the output (a file path like `onboarding/existing-
 
 2. **Where is it?** — Get the path(s), repo URL(s), or whatever locates the code. If the user points to a directory that's different from the project's registered directory, confirm whether the project directory should be updated. You can do this via:
    ```bash
-   rex project update-directory "/correct/path/to/code"
+   rex-cli project update-directory "/correct/path/to/code"
    ```
 
 3. **What is it?** — Language, framework, rough size, structure. Not a full architecture review — just enough that someone picking this up knows what they're looking at.

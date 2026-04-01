@@ -57,7 +57,7 @@ When you spot this pattern, suggest the split — but frame it as advice, not a 
 
 If the sanity check leads the user to fundamentally change what they're building — not just trimming scope, but redefining the project — then the existing goal is no longer valid. In this case:
 
-1. Set the goal status back to in-progress: `rex project update-status goal in-progress`
+1. Set the goal status back to in-progress: `rex-cli project update-status goal in-progress`
 2. Tell the user the goal needs to be redefined to match the new direction
 3. Invoke the `rex-onboarding-goal` skill to walk through goal definition again
 4. Once the new goal is confirmed, return to scope definition with the updated goal

@@ -11,7 +11,7 @@ You plan the tasks for each objective — the atomic units of work that agents w
 
 Tasks are the leaves of the planning tree. Everything above them (milestones, objectives) describes outcomes and states. Tasks describe actions — concrete, assignable work with a beginning and an end. "Implement the token-generation endpoint for password reset" is a task. "Users can securely reset their passwords" is an objective. Don't confuse the two.
 
-You'll be told where to write any output files and given input files to read for context — including the milestones and objectives that already exist. Read everything first. Then design the tasks with obsessive attention to dependency ordering, and write them using the `rex task upsert` CLI.
+You'll be told where to write any output files and given input files to read for context — including the milestones and objectives that already exist. Read everything first. Then design the tasks with obsessive attention to dependency ordering, and write them using the `rex-cli task upsert` CLI.
 
 ---
 
@@ -42,14 +42,14 @@ The existing objectives are your primary input. For each objective, understand:
 
 Read the objectives using:
 ```bash
-rex objective list
-rex objective get <objective-id>
+rex-cli objective list
+rex-cli objective get <objective-id>
 ```
 
 Also read the milestones for broader context:
 ```bash
-rex milestone list
-rex milestone get <milestone-id>
+rex-cli milestone list
+rex-cli milestone get <milestone-id>
 ```
 
 ### From design documents
@@ -161,7 +161,7 @@ After planning, count the tasks per objective. If any objective has more than 3 
 1. Identify which objective has too many tasks
 2. Determine how to split it into 2 objectives, each with 1-3 tasks, that preserve the original intent
 3. Spawn subagents to perform the restructuring:
-   - One agent to split the objective using `rex objective upsert` (creating the new objective, updating the old one, ensuring both are parented to the same milestone)
+   - One agent to split the objective using `rex-cli objective upsert` (creating the new objective, updating the old one, ensuring both are parented to the same milestone)
    - One agent to rewire all upstream/downstream dependencies — every objective and task that pointed to the old objective as upstream or downstream must be checked and updated. The two new objectives must be correctly sequenced relative to each other and to sibling objectives
    - After both complete, verify the dependency graph is intact: no orphaned references, no broken chains, no circular dependencies
 4. Verify the parent milestone still has at most 3 objectives. If the split pushed the milestone over 3 objectives, escalate further — the milestone itself must be split. Spawn agents to split the milestone and rewire its upstream/downstream dependencies across the milestone graph
@@ -178,7 +178,7 @@ Once you've planned all tasks (1-3 per objective, no exceptions), write them usi
 ### Task creation
 
 ```bash
-rex task upsert \
+rex-cli task upsert \
   --id t-<objective-topic>-<action> \
   --objective o-<parent-objective-id> \
   --title "Clear, actionable description of the work" \
@@ -208,7 +208,7 @@ Wire dependencies as you create tasks. Create upstream tasks first so downstream
 
 ```bash
 # Task with upstream dependency
-rex task upsert \
+rex-cli task upsert \
   --id t-matching-tests \
   --objective o-core-matching \
   --title "Write integration tests for order matching" \
@@ -216,7 +216,7 @@ rex task upsert \
   --add-upstream t-matching-impl
 
 # Cross-objective dependency
-rex task upsert \
+rex-cli task upsert \
   --id t-api-routes \
   --objective o-api-layer \
   --title "Wire REST endpoints to matching engine" \
@@ -277,7 +277,7 @@ Why tasks were scoped this way, notable dependency choices, and any escalation d
 
 You're done when:
 1. Every objective has 1-3 tasks (no exceptions — if any objective needed more, it was split first, and any resulting milestone splits were handled too)
-2. All tasks have been created via the CLI using `rex task upsert`
+2. All tasks have been created via the CLI using `rex-cli task upsert`
 3. Every task has its upstream and downstream dependencies explicitly wired — no implicit dependencies
 4. Each task has a meaningful checklist with concrete, verifiable completion criteria
 5. Each task's references point to the specific design documents an agent needs for cold-start execution

@@ -16,7 +16,7 @@ This is designed for headless operation. Do not ask the user questions unless th
 ## Step 1: Get the active project
 
 ```bash
-rex project get-active
+rex-cli project get-active
 ```
 
 Parse the output to extract all project fields. You need:
@@ -37,7 +37,7 @@ If `locked` is `true`: **stop immediately**. Print a message like "Project is lo
 ## Step 3: Get the next work item
 
 ```bash
-rex project next-item
+rex-cli project next-item
 ```
 
 This returns a JSON object describing the next actionable item from `project-status.json`. It includes:
@@ -67,10 +67,10 @@ If all items are completed, report this and stop.
 
 ## Step 3a: Execution Phase — Resolve the Next Task
 
-The execution phase works differently from other phases. Instead of the item itself describing a single piece of work, the execution item is a container — the real work lives in the planning tree (milestones → objectives → tasks). The operator uses `rex task next` to find the next task to work on, and dispatches an agent for that specific task.
+The execution phase works differently from other phases. Instead of the item itself describing a single piece of work, the execution item is a container — the real work lives in the planning tree (milestones → objectives → tasks). The operator uses `rex-cli task next` to find the next task to work on, and dispatches an agent for that specific task.
 
 ```bash
-rex task next
+rex-cli task next
 ```
 
 This returns the next eligible task along with its parent objective and milestone:
@@ -103,10 +103,10 @@ This returns the next eligible task along with its parent objective and mileston
 }
 ```
 
-**If `rex task next` returns "NO TASKS - Please mark as item complete":** All tasks in the planning tree are done. Mark the execution item as complete and proceed to history/stop:
+**If `rex-cli task next` returns "NO TASKS - Please mark as item complete":** All tasks in the planning tree are done. Mark the execution item as complete and proceed to history/stop:
 
 ```bash
-rex project update-status <execution-item-name> completed
+rex-cli project update-status <execution-item-name> completed
 ```
 
 Then skip to Step 9 to record history.
@@ -120,7 +120,7 @@ Then skip to Step 9 to record history.
 ### Standard phases (onboarding, design, planning, user-support)
 
 ```bash
-rex project update-status <item-name> in-progress
+rex-cli project update-status <item-name> in-progress
 ```
 
 ### Execution phase
@@ -128,8 +128,8 @@ rex project update-status <item-name> in-progress
 Mark both the execution item and the specific task as in-progress:
 
 ```bash
-rex project update-status <execution-item-name> in-progress
-rex task upsert --id <task-id> --status in-progress
+rex-cli project update-status <execution-item-name> in-progress
+rex-cli task upsert --id <task-id> --status in-progress
 ```
 
 ---
@@ -137,7 +137,7 @@ rex task upsert --id <task-id> --status in-progress
 ## Step 5: Get recent history
 
 ```bash
-rex history get-recent
+rex-cli history get-recent
 ```
 
 Capture the output — you'll pass this context to the agent(s) so they understand what's happened recently in the project.
@@ -198,7 +198,7 @@ Think carefully and thoroughly.
 
 ### Execution phase
 
-For execution, the agent prompt is built from the **task** (from `rex task next`), not the execution item. The execution item's `agent` config still controls the model, effort, and skills — but the task provides the actual work, inputs, and outputs.
+For execution, the agent prompt is built from the **task** (from `rex-cli task next`), not the execution item. The execution item's `agent` config still controls the model, effort, and skills — but the task provides the actual work, inputs, and outputs.
 
 #### Building the execution agent prompt
 
@@ -296,17 +296,17 @@ If the agent says **do not mark complete**: leave the task as `in-progress` and 
 Otherwise, **mark the task as complete**:
 
 ```bash
-rex task upsert --id <task-id> --status completed
+rex-cli task upsert --id <task-id> --status completed
 ```
 
 Then check whether all tasks in the planning tree are now done:
 
 ```bash
-rex task next
+rex-cli task next
 ```
 
-- If `rex task next` returns **"NO TASKS - Please mark as item complete"**: all tasks are finished. The execution phase is done — you will mark the execution item as complete in Step 10.
-- If `rex task next` returns **another task**: more work remains. The execution item stays `in-progress` — do NOT mark it as complete. Continue to Step 9 to record history (skipping Step 10).
+- If `rex-cli task next` returns **"NO TASKS - Please mark as item complete"**: all tasks are finished. The execution phase is done — you will mark the execution item as complete in Step 10.
+- If `rex-cli task next` returns **another task**: more work remains. The execution item stays `in-progress` — do NOT mark it as complete. Continue to Step 9 to record history (skipping Step 10).
 
 ---
 
@@ -317,7 +317,7 @@ Insert a history entry for what was just done:
 ### Standard phases
 
 ```bash
-rex history insert-recent \
+rex-cli history insert-recent \
   --id "session-<item-name>-<timestamp-short>" \
   --timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   --summary "<brief description of what the agent accomplished>" \
@@ -328,7 +328,7 @@ rex history insert-recent \
 ### Execution phase
 
 ```bash
-rex history insert-recent \
+rex-cli history insert-recent \
   --id "session-<task-id>-<timestamp-short>" \
   --timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   --summary "<brief description of what the agent accomplished on the task>" \
@@ -349,18 +349,18 @@ The summary should be a concise description of what was accomplished — not a d
 ### Standard phases
 
 ```bash
-rex project update-status <item-name> completed
+rex-cli project update-status <item-name> completed
 ```
 
 ### Execution phase
 
-Only mark the execution item as complete if Step 8 confirmed that **all tasks are done** (i.e., `rex task next` returned "NO TASKS").
+Only mark the execution item as complete if Step 8 confirmed that **all tasks are done** (i.e., `rex-cli task next` returned "NO TASKS").
 
 ```bash
-rex project update-status <execution-item-name> completed
+rex-cli project update-status <execution-item-name> completed
 ```
 
-If tasks remain, **skip this step entirely** — the execution item stays as `in-progress`. It will be picked up again on the next operator invocation, which will run `rex task next` to find the next task.
+If tasks remain, **skip this step entirely** — the execution item stays as `in-progress`. It will be picked up again on the next operator invocation, which will run `rex-cli task next` to find the next task.
 
 ---
 
@@ -412,5 +412,5 @@ Operator complete.
 - **Respect the lock.** If the project is locked, stop immediately. No exceptions, no "let me just check one thing."
 - **Respect agent responses.** If an agent says not to mark complete, don't mark complete.
 - **Pass full context.** Agents should receive the project object and recent history so they have everything they need.
-- **Execution uses `rex task next`, not the item itself.** During execution, the planning tree drives what gets worked on. The execution item's `agent` config provides the model/effort/skills, but the task provides the work, inputs, and outputs.
-- **Mark tasks complete via CLI.** Always run `rex task upsert --id <id> --status completed` when a task is done. Only mark the execution item complete when all tasks are finished.
+- **Execution uses `rex-cli task next`, not the item itself.** During execution, the planning tree drives what gets worked on. The execution item's `agent` config provides the model/effort/skills, but the task provides the work, inputs, and outputs.
+- **Mark tasks complete via CLI.** Always run `rex-cli task upsert --id <id> --status completed` when a task is done. Only mark the execution item complete when all tasks are finished.

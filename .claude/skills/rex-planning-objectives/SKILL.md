@@ -11,7 +11,7 @@ You plan the objectives for each milestone — the strategic outcomes that must 
 
 Think of objectives as the section headings within a chapter. A milestone like "Core engine is operational and tested" might have objectives like "Order matching logic handles all order types correctly," "Engine state persists across restarts," and "Performance meets throughput requirements." Each one is a meaningful outcome — not a single action, but not so broad that it could be a milestone.
 
-You'll be told where to write any output files and given input files to read for context — including the milestones that already exist. Read everything first. Then think carefully about what each milestone genuinely requires, and write the objectives using the `rex objective upsert` CLI.
+You'll be told where to write any output files and given input files to read for context — including the milestones that already exist. Read everything first. Then think carefully about what each milestone genuinely requires, and write the objectives using the `rex-cli objective upsert` CLI.
 
 ---
 
@@ -44,8 +44,8 @@ The existing milestones are your primary input. For each milestone, understand:
 
 Read the milestones using:
 ```bash
-rex milestone list
-rex milestone get <milestone-id>
+rex-cli milestone list
+rex-cli milestone get <milestone-id>
 ```
 
 **Review milestones already have their objectives.** The milestones skill creates review milestones with two objectives (audit and fix). Don't create additional objectives for review milestones unless you have a strong, specific reason. Focus your work on the work milestones.
@@ -165,7 +165,7 @@ After your challenge round, count the objectives per milestone. If any work mile
 1. Identify which milestone has too many objectives
 2. Determine how to split it into 2 milestones, each with 1-3 objectives, that preserve the original intent
 3. Spawn subagents to perform the restructuring:
-   - One agent to split the milestone using `rex milestone upsert` (creating the new milestone, updating the old one)
+   - One agent to split the milestone using `rex-cli milestone upsert` (creating the new milestone, updating the old one)
    - One agent to rewire all upstream/downstream dependencies — every milestone that pointed to the old one as upstream or downstream must be checked and updated. The two new milestones must be correctly sequenced relative to each other and to the rest of the graph
    - After both complete, verify the dependency graph is intact: no orphaned references, no broken chains, no circular dependencies
 4. Re-evaluate the objectives for the now-smaller milestones — they should fit within 1-3 each
@@ -181,7 +181,7 @@ Once you've planned all objectives (1-3 per work milestone, no exceptions), writ
 ### Objective creation
 
 ```bash
-rex objective upsert \
+rex-cli objective upsert \
   --id o-<milestone-topic>-<aspect> \
   --milestone m-<parent-milestone-id> \
   --title "Clear statement of the outcome that must be true" \
@@ -257,7 +257,7 @@ Why objectives were scoped this way, what alternatives were considered, what tra
 You're done when:
 1. Every work milestone has 1-3 objectives (no exceptions — if any milestone needed more, it was split first)
 2. Objectives are collectively sufficient and individually necessary for each milestone
-3. All objectives have been created via the CLI using `rex objective upsert`
+3. All objectives have been created via the CLI using `rex-cli objective upsert`
 4. All intra-milestone and cross-milestone dependencies are correctly wired
 5. Each objective has a meaningful checklist that defines verifiable success criteria
 6. Any requested output files have been written

@@ -9,7 +9,7 @@ user-invocable: false
 
 You've gathered everything — the goal, scope, risks, resources, expertise, success criteria, and ideas. Now distill all of that into a single checklist that tells the design, architecture, and planning phases exactly what they must address. You're not doing the work — you're defining what the work must include.
 
-**Read all available input files first** — goal, scope, existing code, libraries, research, resources, user expertise, UAT, known risks, success measures, environment variables, idea generation, skill building. Every onboarding document that exists is relevant. Then work with the user and use the `rex checklist` CLI to populate the checklist.
+**Read all available input files first** — goal, scope, existing code, libraries, research, resources, user expertise, UAT, known risks, success measures, environment variables, idea generation, skill building. Every onboarding document that exists is relevant. Then work with the user and use the `rex-cli checklist` CLI to populate the checklist.
 
 ---
 
@@ -83,22 +83,22 @@ Keep the conversation proportional to the project. A small project might need a 
 
 ## Writing the output using the CLI
 
-Once the user approves the checklist, use the `rex checklist` CLI commands to populate `checklist.json`. **Do not write the JSON file directly** — use the CLI for all mutations.
+Once the user approves the checklist, use the `rex-cli checklist` CLI commands to populate `checklist.json`. **Do not write the JSON file directly** — use the CLI for all mutations.
 
 ### Step 1: Initialize the checklist
 
 ```bash
-rex checklist init
+rex-cli checklist init
 ```
 
 This creates an empty `checklist.json` in the active project's onboarding directory. Optionally pass `--date YYYY-MM-DD` to set a specific date.
 
 ### Step 2: Add items
 
-Use `rex checklist add` for each item. Every item needs `--category`, `--id`, `--title`, and `--description`. All items except `out-of-scope` also require `--phase`.
+Use `rex-cli checklist add` for each item. Every item needs `--category`, `--id`, `--title`, and `--description`. All items except `out-of-scope` also require `--phase`.
 
 ```bash
-rex checklist add \
+rex-cli checklist add \
   --category design-must-haves \
   --id "design-data-models" \
   --title "Define core data models" \
@@ -107,7 +107,7 @@ rex checklist add \
 ```
 
 ```bash
-rex checklist add \
+rex-cli checklist add \
   --category planning-milestones \
   --id "plan-milestone-mvp" \
   --title "MVP milestone" \
@@ -116,7 +116,7 @@ rex checklist add \
 ```
 
 ```bash
-rex checklist add \
+rex-cli checklist add \
   --category out-of-scope \
   --id "oos-mobile-app" \
   --title "Mobile application" \
@@ -126,7 +126,7 @@ rex checklist add \
 ### Step 3: Set the context
 
 ```bash
-rex checklist set-context "Derived from onboarding inputs. User emphasized X, adjusted Y during review."
+rex-cli checklist set-context "Derived from onboarding inputs. User emphasized X, adjusted Y during review."
 ```
 
 ### Available categories
@@ -176,17 +176,17 @@ Descriptions and titles may contain special characters. Always wrap `--title` an
 After initial population, these commands can be used to manage the checklist:
 
 ```bash
-rex checklist list                                    # List all items
-rex checklist list --phase design                     # Filter by phase
-rex checklist list --category risk-mitigations         # Filter by category
-rex checklist list --incomplete                        # Show only incomplete items
-rex checklist get <ID>                                 # Show item details
-rex checklist update <ID> --title "New title"          # Update fields
-rex checklist update <ID> --description "New desc"     # Update description
-rex checklist update <ID> --phase planning             # Change phase
-rex checklist complete <ID>                            # Mark complete
-rex checklist uncomplete <ID>                          # Mark incomplete
-rex checklist remove <ID>                              # Remove an item
+rex-cli checklist list                                    # List all items
+rex-cli checklist list --phase design                     # Filter by phase
+rex-cli checklist list --category risk-mitigations         # Filter by category
+rex-cli checklist list --incomplete                        # Show only incomplete items
+rex-cli checklist get <ID>                                 # Show item details
+rex-cli checklist update <ID> --title "New title"          # Update fields
+rex-cli checklist update <ID> --description "New desc"     # Update description
+rex-cli checklist update <ID> --phase planning             # Change phase
+rex-cli checklist complete <ID>                            # Mark complete
+rex-cli checklist uncomplete <ID>                          # Mark incomplete
+rex-cli checklist remove <ID>                              # Remove an item
 ```
 
 Adjust categories based on what's relevant. If the project has no research items, don't add items to that category. The categories are a guide — not every project needs all of them.
