@@ -114,10 +114,10 @@ Create a private monorepo on GitHub (without the rex harness at the workspace le
 
 ```bash
 # 1. Create a bare workspace with a private GitHub repo
-rex mono --name my-platform --no-harness --with-git-repo private
+rex mono --name rex-projects --no-harness --with-git-repo private
 
 # 2. Move into the workspace
-cd my-platform
+cd rex-projects
 
 # 3. Create your first project — rex harness lives inside the project
 rex project create
@@ -139,6 +139,13 @@ cd libs/api-server
 ```
 
 Each project under `libs/` has its own `.claude/`, `rex/`, and `CLAUDE.md` — fully independent harnesses that can be worked on in separate agent sessions. The workspace `Cargo.toml` automatically includes all crates under `libs/*`.
+
+To run autorun headlessly for a specific project in the background:
+
+```bash
+# From anywhere — just point --project-dir at the project's absolute path
+nohup rex-autorun --project-dir /absolute/path/to/rex-projects/libs/api-server > /dev/null 2>&1 &
+```
 
 ## CLI Reference
 
