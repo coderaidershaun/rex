@@ -995,3 +995,172 @@ use rex_cli::models::project::ProjectRegistry;
 - **Agent SDK integration**: Replace CLI spawning with `claude_agent_sdk` for tighter control
 - **Webhook mode**: Telegram webhook instead of long-polling (requires a public URL)
 - **Git worktree isolation**: Use `--worktree` for per-invocation filesystem isolation
+
+---
+
+## Step-by-Step Action List
+
+Implementation order is sequenced so that each step produces something testable before moving to the next. Dependencies flow downward — no step requires work from a later step.
+
+### Phase 0: Prerequisite — Operator Skill Modification
+
+This must happen **before any binary code is written**. The autorun binary cannot function without it.
+
+- [ ] **0.1** Add headless-mode branch to `/rex-operator` skill (SKILL.md)
+  - Add the `REX_AUTORUN=1` check at the top of Step 6
+  - For interactive items: determine the question, output `{"status": "needs_input", ...}`, stop
+  - For non-interactive items: proceed normally
+  - Add resume handling: when resumed with a reply, feed it to the skill and continue
+  - Add terminal status output at Step 12: `{"status": "completed", ...}` or `{"status": "project_done", ...}`
+  - Add error status output when errors occur: `{"status": "error", ...}`
+
+- [ ] **0.2** Test the skill modification manually
+  - Run `REX_AUTORUN=1 claude -p "/rex-operator" --output-format json --dangerously-skip-permissions` on a test project with an interactive item pending
+  - Verify the output JSON contains `{"status": "needs_input", "message": "<question>"}` in the `result` field
+  - Resume with `claude --resume <session_id> -p "<test answer>" --output-format json --dangerously-skip-permissions --append-system-prompt "..."`
+  - Verify the skill continues correctly with the answer
+
+- [ ] **0.3** Test with a non-interactive item pending
+  - Run the same headless command on a project with a design or planning item pending
+  - Verify it dispatches the sub-agent, completes, and outputs `{"status": "completed", ...}`
+
+### Phase 1: Project Scaffolding
+
+- [ ] **1.1** Add `[[bin]]` entry to `Cargo.toml`
+  ```toml
+  [[bin]]
+  name = "rex-autorun"
+  path = "src/bin/autorun.rs"
+  ```
+
+- [ ] **1.2** Add new dependencies to `Cargo.toml`
+  - `tokio` (rt-multi-thread, macros, process, time, signal, fs)
+  - `reqwest` (json, rustls-tls)
+  - `anyhow`
+  - `chrono` (serde)
+  - `tracing` + `tracing-subscriber` (env-filter)
+  - `dotenvy`
+  - `libc`
+
+- [ ] **1.3** Create module structure
+  - `src/bin/autorun.rs` — binary entry point (main, arg parsing, tracing setup)
+  - `src/autorun/mod.rs` — module root
+  - `src/autorun/types.rs` — all shared types
+  - `src/autorun/state.rs` — state file management (stub)
+  - `src/autorun/claude.rs` — claude process management (stub)
+  - `src/autorun/telegram.rs` — telegram client (stub)
+  - `src/autorun/runner.rs` — core loop (stub)
+
+- [ ] **1.4** Verify it compiles: `cargo build --bin rex-autorun`
+
+### Phase 2: Types & State Management
+
+- [ ] **2.1** Implement all types in `types.rs`
+  - `OperatorResult`, `OperatorStatus`
+  - `ClaudeOutput`, `ClaudeCost`
+  - `AutorunState`, `AutorunPhase`, `RunStats`
+  - `LogEvent` enum for JSONL logging
+
+- [ ] **2.2** Implement `state.rs`
+  - `write_state_atomic()` — write-to-temp, fsync, rename
+  - `read_state()` — load and parse, return `None` on missing/corrupt
+  - `delete_state()` — remove file + tmp file
+  - `recover_state()` — the full recovery matrix logic (check PID, classify phase)
+
+- [ ] **2.3** Write unit tests for state management
+  - Round-trip: write then read
+  - Corrupt file: write garbage, verify `read_state()` returns `None`
+  - Missing file: verify `read_state()` returns `None`
+  - Atomic write: verify `.json.tmp` is cleaned up
+
+### Phase 3: Claude Process Management
+
+- [ ] **3.1** Implement `claude.rs`
+  - `invoke_claude()` — spawn `claude -p` with process group, `kill_on_drop`, timeout
+  - Capture PID and PGID before awaiting output
+  - Parse JSON stdout into `ClaudeOutput`
+  - `parse_operator_result()` — backward search for `{"status":` in result text
+  - `kill_process_group()` — SIGTERM, wait 5s, SIGKILL
+  - `is_retryable()` — classify stderr for retry decisions
+
+- [ ] **3.2** Implement the append system prompt as a const string in `claude.rs`
+
+- [ ] **3.3** Write integration test
+  - Spawn `claude -p "echo test" --output-format json` (trivial prompt)
+  - Verify JSON parsing works
+  - Verify process group cleanup works (spawn, then kill immediately)
+
+### Phase 4: Telegram Client
+
+- [ ] **4.1** Implement `telegram.rs`
+  - `TelegramClient::new()` — takes token, chat_id, optional initial offset
+  - `send_message()` — POST to `/sendMessage`, return message_id, retry with backoff
+  - `wait_for_reply()` — long-poll `/getUpdates`, filter by chat_id, respect timeout
+  - `notify()` — fire-and-forget send with internal retries
+
+- [ ] **4.2** Test Telegram client manually
+  - Send a test message to the bot
+  - Verify `wait_for_reply()` picks up a response
+  - Verify retry behavior on simulated failure (e.g., invalid token → 401, no retry)
+
+### Phase 5: Core Loop
+
+- [ ] **5.1** Implement `runner.rs` — the main loop
+  - Load `.env` via `dotenvy`
+  - Load project info from `rex_cli::models::project::ProjectRegistry`
+  - Startup: check state file, run recovery matrix
+  - Signal handler setup (SIGTERM, SIGINT)
+  - Main loop:
+    1. Check total budget against `max_total_budget_usd` → exit 5 if exceeded
+    2. Write state: `phase=running`, PID=pending
+    3. Invoke claude (new or resume)
+    4. Update state with actual PID/PGID
+    5. Await result
+    6. Parse `OperatorResult`
+    7. Route: completed → notify + cooldown + loop / project_done → notify + exit 0 / needs_input → save state + telegram + wait / error → retry or exit
+    8. Delete state file between invocations
+
+- [ ] **5.2** Implement `src/bin/autorun.rs` entry point
+  - Parse CLI args with clap
+  - Initialize tracing (stderr + JSONL file)
+  - Call `runner::run(args)`
+  - Map return values to exit codes
+
+### Phase 6: End-to-End Testing
+
+- [ ] **6.1** Test with a real rex project (non-interactive items only)
+  - Create a test project with a design item pending (sub-agent dispatch)
+  - Run `rex-autorun` with Telegram creds
+  - Verify: invocation, completion notification on Telegram, loop to next item
+
+- [ ] **6.2** Test interactive item flow
+  - Set up a project with an onboarding item pending
+  - Run `rex-autorun`
+  - Verify: question appears on Telegram
+  - Reply via Telegram
+  - Verify: session resumes, skill processes the answer
+
+- [ ] **6.3** Test crash recovery
+  - Run `rex-autorun`, wait for it to enter `pending_input` state
+  - Kill the binary (SIGKILL)
+  - Restart `rex-autorun`
+  - Verify: it re-sends the question to Telegram and resumes correctly
+
+- [ ] **6.4** Test session leak prevention
+  - Run `rex-autorun`, wait for claude to be running
+  - Kill the binary (SIGKILL)
+  - Verify: claude process group is dead (check with `ps`)
+  - Restart and verify clean startup
+
+- [ ] **6.5** Test budget cap
+  - Set `--max-total-budget-usd 0.01`
+  - Run against a project with work to do
+  - Verify: exits with code 5 after first invocation exceeds the cap
+
+### Phase 7: Polish
+
+- [ ] **7.1** Add `.rex-autorun.json` and `.rex-autorun.log` to `.gitignore`
+- [ ] **7.2** Add `--help` text and version to the binary
+- [ ] **7.3** Review all error messages — ensure they include enough context for debugging
+- [ ] **7.4** Verify JSONL log events are correct and parseable
+- [ ] **7.5** Rename `TELEGRAM_BOT_USER_ID` to `TELEGRAM_CHAT_ID` in `.env` and document the change
