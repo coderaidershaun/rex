@@ -2,6 +2,13 @@
 
 All notable changes to **rex-cli** are documented here.
 
+## 0.1.27 — 2026-04-03
+
+- **Telegram message formatting overhaul** — Align all autorun notifications with the rich formatting from integration tests: emoji-prefixed titles, `⎯` dividers via shared `DIV` constant, `<blockquote>` for questions, and a consistent `EMOJI <b>Title</b>  ·  <code>{pid}</code>` header on every message without exception.
+- **Inline Stats/Kill/Reply buttons** — Startup and completion messages now include inline keyboard buttons for 📊 Stats, 🛑 Kill, and 💬 Reply. Both polling functions handle `callback_query` updates alongside text commands. Reply button sends a follow-up `force_reply` prompt.
+- **Work item name in notifications** — Add `item` field to `OperatorResult` and operator skill JSON output. Telegram messages now show the current work item (e.g. `goal`, `architecture`, `t-token-endpoint`) after the project ID so you know what topic a question relates to.
+- **Fix context percentage calculation** — The old formula summed input + output + cache_read + cache_creation tokens, giving wildly inflated values (100%+). Now correctly uses `(input_tokens + cache_read_input_tokens) / context_window` — excluding output tokens and the cache_creation double-count.
+
 ## 0.1.26 — 2026-04-03
 
 - **Fix default branch name** — `git init` in both `rex init` and `rex mono` now uses `-b main` to ensure new repositories start on the `main` branch instead of inheriting the system default (often `master`), preventing branch name mismatches with GitHub remotes.
