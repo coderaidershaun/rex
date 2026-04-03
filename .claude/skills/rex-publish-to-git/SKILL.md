@@ -118,7 +118,35 @@ EOF
 
 ## Step 6: Push
 
-Push to the remote:
+Check whether the `gh` CLI is available and authenticated:
+
+```bash
+command -v gh && gh auth status
+```
+
+### If `gh` is available and authenticated
+
+Use `gh` for push operations — it handles authentication seamlessly (especially useful for token-based auth and SSO):
+
+```bash
+gh repo sync --source . 2>/dev/null || git push
+```
+
+If the current branch has no upstream tracking branch:
+
+```bash
+git push -u origin $(git branch --show-current)
+```
+
+If the push fails due to remote changes, pull with rebase first:
+
+```bash
+git pull --rebase && git push
+```
+
+### If `gh` is NOT available
+
+Fall back to standard git:
 
 ```bash
 git push

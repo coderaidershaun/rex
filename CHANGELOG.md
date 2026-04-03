@@ -2,6 +2,11 @@
 
 All notable changes to **rex-cli** are documented here.
 
+## 0.1.25 — 2026-04-03
+
+- **Publish-to-git: prefer `gh` CLI** — the `rex-publish-to-git` skill now checks for a working `gh` CLI and uses it for push operations when available, falling back to standard git otherwise.
+- **README: autorun in monorepo quickstart** — add `nohup rex-autorun --project-dir` example to the monorepo quickstart section so users know how to run autorun headlessly for a specific project.
+
 ## 0.1.24 — 2026-04-03
 
 - **`--with-git-repo` flag** — `rex mono` and `rex project create` now accept `--with-git-repo <public|private>` to create a GitHub repository via the `gh` CLI and add it as the `origin` remote during project/workspace setup.
