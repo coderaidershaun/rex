@@ -7,7 +7,7 @@ description = "Rust CLI for harness management"
 license = "MIT"
 repository = "https://github.com/coderaidershaun/rex"
 readme = "README.md"
-keywords = ["cli", "harness", "auto-harness", "project-management", "agent", "workflow"]
+keywords = ["harness", "auto-harness", "project-management", "agent", "workflow"]
 categories = ["command-line-utilities", "development-tools"]
 exclude = ["rex/projects.json", "rex/<insert-project-id>/", "skills-lock.json", ".claude/settings.local.json"]
 
