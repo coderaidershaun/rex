@@ -144,6 +144,11 @@ pub async fn await_claude(
 
             if !status.success() {
                 let code = status.code().unwrap_or(-1);
+                if is_auth_error(&stderr_str) {
+                    return Err(RexError::AuthExpired(
+                        stderr_str.chars().take(500).collect::<String>()
+                    ));
+                }
                 if is_retryable(&stderr_str) {
                     return Err(RexError::ClaudeProcess(format!(
                         "claude exited with code {code} (retryable): {}",
@@ -245,6 +250,14 @@ pub async fn kill_process_group(pgid: i32) {
         libc::killpg(pgid, libc::SIGKILL);
     }
     info!(pgid, "sent SIGKILL to process group");
+}
+
+/// Check if a stderr message indicates an expired OAuth token.
+pub fn is_auth_error(stderr: &str) -> bool {
+    let lower = stderr.to_lowercase();
+    lower.contains("authentication_error")
+        || lower.contains("oauth token has expired")
+        || (lower.contains("401") && (lower.contains("token") || lower.contains("auth")))
 }
 
 /// Check if a stderr message indicates a retryable error.

@@ -67,6 +67,10 @@ pub enum RexError {
     #[error("claude process: {0}")]
     ClaudeProcess(String),
 
+    // --- Autorun: Auth expired ---
+    #[error("claude auth expired: {0}")]
+    AuthExpired(String),
+
     // --- Autorun: Killed via /kill command ---
     #[error("killed via /kill command")]
     Killed,

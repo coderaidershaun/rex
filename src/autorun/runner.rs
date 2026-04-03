@@ -242,6 +242,27 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
                         Err(ref e) if matches!(e, RexError::Killed) => {
                             return Ok(handle_kill(&tg, &project_id, &log_path, &state_path).await);
                         }
+                        Err(RexError::AuthExpired(_)) => {
+                            warn!("claude auth expired during recovery, attempting refresh");
+                            match attempt_auth_refresh(&mut tg, &project_id, &project_dir, &log_path).await {
+                                Ok(true) => {
+                                    // Auth refreshed — fall through to main loop
+                                    (stats, invocation_count, Some(tg.update_offset))
+                                }
+                                Ok(false) => {
+                                    state::delete_state(&state_path);
+                                    return Ok(ExitCode::from(1));
+                                }
+                                Err(RexError::Killed) => {
+                                    return Ok(handle_kill(&tg, &project_id, &log_path, &state_path).await);
+                                }
+                                Err(e) => {
+                                    error!("auth refresh failed: {e}");
+                                    state::delete_state(&state_path);
+                                    return Ok(ExitCode::from(1));
+                                }
+                            }
+                        }
                         Err(e) => {
                             error!("resume invocation failed: {e}");
                             tg.notify(&format!(
@@ -330,6 +351,7 @@ async fn main_loop(
     invocation_count: &mut u32,
 ) -> RexResult<ExitCode> {
     let mut consecutive_errors = 0u32;
+    let mut auth_refreshed = false;
 
     loop {
         // Budget check
@@ -640,6 +662,28 @@ async fn main_loop(
                                     Err(ref e) if matches!(e, RexError::Killed) => {
                                         return Ok(handle_kill(tg, project_id, log_path, state_path).await);
                                     }
+                                    Err(RexError::AuthExpired(_)) if !auth_refreshed => {
+                                        warn!("claude auth expired during resume, attempting refresh");
+                                        match attempt_auth_refresh(tg, project_id, project_dir, log_path).await {
+                                            Ok(true) => {
+                                                auth_refreshed = true;
+                                                state::delete_state(state_path);
+                                                break; // back to outer loop for fresh invocation
+                                            }
+                                            Ok(false) => {
+                                                state::delete_state(state_path);
+                                                return Ok(ExitCode::from(1));
+                                            }
+                                            Err(RexError::Killed) => {
+                                                return Ok(handle_kill(tg, project_id, log_path, state_path).await);
+                                            }
+                                            Err(e) => {
+                                                error!("auth refresh failed: {e}");
+                                                state::delete_state(state_path);
+                                                return Ok(ExitCode::from(1));
+                                            }
+                                        }
+                                    }
                                     Err(e) => {
                                         let err_str = e.to_string();
                                         if is_retryable(&err_str) && consecutive_errors < args.max_retries {
@@ -795,6 +839,33 @@ async fn main_loop(
             Err(ref e) if matches!(e, RexError::Killed) => {
                 return Ok(handle_kill(tg, project_id, log_path, state_path).await);
             }
+            Err(RexError::AuthExpired(_)) if !auth_refreshed => {
+                warn!("claude auth expired, attempting refresh");
+                match attempt_auth_refresh(tg, project_id, project_dir, log_path).await {
+                    Ok(true) => {
+                        auth_refreshed = true;
+                        state::delete_state(state_path);
+                        continue;
+                    }
+                    Ok(false) => {
+                        state::delete_state(state_path);
+                        return Ok(ExitCode::from(1));
+                    }
+                    Err(RexError::Killed) => {
+                        return Ok(handle_kill(tg, project_id, log_path, state_path).await);
+                    }
+                    Err(e) => {
+                        error!("auth refresh failed: {e}");
+                        tg.notify(&format!(
+                            "<b>[{pid}] Auth refresh failed</b>\n{err}",
+                            pid = escape_html(project_id),
+                            err = escape_html(&e.to_string()),
+                        )).await;
+                        state::delete_state(state_path);
+                        return Ok(ExitCode::from(1));
+                    }
+                }
+            }
             Err(e) => {
                 let err_str = e.to_string();
                 consecutive_errors += 1;
@@ -903,6 +974,136 @@ async fn handle_kill(
     .await;
     state::delete_state(state_path);
     ExitCode::from(6)
+}
+
+/// Extract the first `https://` URL from text.
+fn extract_url(text: &str) -> Option<String> {
+    let start = text.find("https://")?;
+    let rest = &text[start..];
+    let end = rest
+        .find(|c: char| c.is_whitespace() || c == '"' || c == '\'' || c == '>' || c == '<')
+        .unwrap_or(rest.len());
+    Some(rest[..end].to_string())
+}
+
+/// Read stdout from the auth process looking for a URL (up to 15s).
+async fn read_auth_url(child: &mut tokio::process::Child) -> Option<String> {
+    use tokio::io::AsyncReadExt;
+
+    let mut stdout = child.stdout.take()?;
+    let mut buf = vec![0u8; 8192];
+    let mut text = String::new();
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(15);
+
+    while tokio::time::Instant::now() < deadline {
+        match tokio::time::timeout(Duration::from_secs(3), stdout.read(&mut buf)).await {
+            Ok(Ok(0)) => break,
+            Ok(Ok(n)) => {
+                text.push_str(&String::from_utf8_lossy(&buf[..n]));
+                if let Some(url) = extract_url(&text) {
+                    return Some(url);
+                }
+            }
+            Ok(Err(_)) => break,
+            Err(_) => continue,
+        }
+    }
+
+    // Also try stderr as fallback
+    if let Some(mut stderr) = child.stderr.take() {
+        let mut ebuf = vec![0u8; 8192];
+        if let Ok(Ok(n)) =
+            tokio::time::timeout(Duration::from_secs(5), stderr.read(&mut ebuf)).await
+        {
+            if n > 0 {
+                let etext = String::from_utf8_lossy(&ebuf[..n]);
+                return extract_url(&etext);
+            }
+        }
+    }
+
+    None
+}
+
+/// Attempt to refresh Claude auth by running `claude auth login`.
+///
+/// Spawns the auth process, parses the URL from its output, sends it
+/// to the user via Telegram, then waits for the user to confirm auth.
+///
+/// Returns `Ok(true)` if user confirmed, `Ok(false)` if timed out.
+/// Returns `Err(RexError::Killed)` if user sent /kill.
+async fn attempt_auth_refresh(
+    tg: &mut TelegramClient,
+    project_id: &str,
+    project_dir: &Path,
+    log_path: &Path,
+) -> RexResult<bool> {
+    info!("attempting auth refresh via `claude auth login`");
+
+    // Spawn claude auth login
+    let mut child = tokio::process::Command::new("claude")
+        .arg("auth")
+        .arg("login")
+        .current_dir(project_dir)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| {
+            RexError::ClaudeProcess(format!("failed to spawn claude auth login: {e}"))
+        })?;
+
+    // Read output looking for an auth URL
+    let auth_url = read_auth_url(&mut child).await;
+
+    // Build message with URL or fallback to manual instruction
+    let msg = match &auth_url {
+        Some(url) => format!(
+            "<b>[{pid}] Auth expired</b>\n━━━━━━━━━━━━━━━━━━━━\nYour Claude token has expired.\n\nPlease visit this URL to re-authorize:\n{url}\n\n<i>Reply when authorization is complete</i>",
+            pid = escape_html(project_id),
+        ),
+        None => format!(
+            "<b>[{pid}] Auth expired</b>\n━━━━━━━━━━━━━━━━━━━━\nYour Claude token has expired.\n\nPlease run <code>claude auth login</code> on the server, then reply here when done.\n\n<i>Reply when authorization is complete</i>",
+            pid = escape_html(project_id),
+        ),
+    };
+
+    let msg_id = tg.send_question(&msg).await?;
+
+    log_event(
+        log_path,
+        &LogEvent::AuthRefresh {
+            project_id: project_id.to_string(),
+            timestamp: now_iso(),
+        },
+    );
+
+    // Wait for user to confirm they've authorized (10 min timeout)
+    let auth_timeout = Duration::from_secs(600);
+    let result = tg
+        .wait_for_reply(msg_id, project_id, auth_timeout)
+        .await;
+
+    // Clean up auth process
+    let _ = child.kill().await;
+    let _ = child.wait().await;
+
+    match result {
+        Ok(TelegramPollResult::Reply(_)) => {
+            send_ack(tg, project_id).await;
+            info!("auth refresh confirmed by user");
+            Ok(true)
+        }
+        Ok(TelegramPollResult::Kill) => Err(RexError::Killed),
+        Err(e) => {
+            warn!("auth refresh timed out: {e}");
+            tg.notify(&format!(
+                "<b>[{pid}] Auth timed out</b>\nShutting down.",
+                pid = escape_html(project_id),
+            ))
+            .await;
+            Ok(false)
+        }
+    }
 }
 
 /// Format a human-readable duration from an ISO 8601 start time to now.

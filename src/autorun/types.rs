@@ -222,6 +222,10 @@ pub enum LogEvent {
         project_id: String,
         timestamp: String,
     },
+    AuthRefresh {
+        project_id: String,
+        timestamp: String,
+    },
 }
 
 /// Acknowledgment responses sent when a Telegram reply is received.
