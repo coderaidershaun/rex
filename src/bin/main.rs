@@ -42,7 +42,7 @@ enum Commands {
         #[command(subcommand)]
         action: TaskAction,
     },
-    /// Initialize a Cargo workspace monorepo with rex harness
+    /// Create and manage Cargo workspace monorepos
     Mono {
         #[command(subcommand)]
         action: MonoAction,
@@ -443,6 +443,12 @@ enum MonoAction {
         #[arg(long)]
         name: String,
     },
+    /// Create an empty Cargo workspace (no rex or claude folders)
+    Empty {
+        /// Name of the monorepo directory to create
+        #[arg(long)]
+        name: String,
+    },
 }
 
 // ---------------------------------------------------------------------------
@@ -644,7 +650,8 @@ fn main() {
 
         // -- Mono -----------------------------------------------------------
         Commands::Mono { action } => match action {
-            MonoAction::Init { name } => rex_cli::commands::mono::init(&name)
+            MonoAction::Init { name } => rex_cli::commands::mono::init(&name),
+            MonoAction::Empty { name } => rex_cli::commands::mono::empty(&name)
         },
 
         // -- History --------------------------------------------------------
