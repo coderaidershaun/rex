@@ -2,6 +2,18 @@
 
 All notable changes to **rex-cli** are documented here.
 
+## 0.1.24 — 2026-04-03
+
+- **`--with-git-repo` flag** — `rex mono` and `rex project create` now accept `--with-git-repo <public|private>` to create a GitHub repository via the `gh` CLI and add it as the `origin` remote during project/workspace setup.
+- **Unified `rex mono` command** — replace separate `rex mono init` and `rex mono empty` subcommands with a single `rex mono --name <name> [--no-harness]` command. The `--no-harness` flag replaces the old `empty` subcommand.
+- **Autorun: reply-to matching** — Telegram questions now use `ForceReply` markup and poll for replies that match the specific `message_id`, preventing cross-talk when multiple projects are running.
+- **Autorun: `/kill` command** — send `/kill <project-id>` in Telegram to gracefully stop a running autorun session (exit code 6).
+- **Autorun: `/stats` command** — send `/stats` in Telegram to get a summary of the current session (invocations, cost, uptime, model).
+- **Autorun: auth refresh** — automatically detect expired Claude auth tokens and attempt `claude auth login --api-key` recovery before failing.
+- **Autorun: detailed cost tracking** — parse `total_cost_usd`, `modelUsage`, and `usage.speed` from Claude output for richer session reporting.
+- **Autorun: documented exit codes** — exit codes 0–6 now have defined meanings (success, fatal, timeout, retries, signal, budget, killed).
+- **README quickstart** — new "Quickstart Example — Monorepo with Individual Projects" section showing the full workflow from workspace creation to per-project harness setup.
+
 ## 0.1.23 — 2026-04-03
 
 - **`rex mono empty`** — new subcommand to create a bare Cargo workspace (no rex harness, no `.claude/` folder) with git initialized. Useful for monorepos where rex is initialized per-project rather than at the root.
