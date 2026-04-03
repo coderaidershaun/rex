@@ -60,7 +60,7 @@ pub fn create(name: &str, no_harness: bool, with_git_repo: Option<RepoVisibility
 
     // 5. git init
     let git_output = Command::new("git")
-        .arg("init")
+        .args(["init", "-b", "main"])
         .current_dir(&repo_dir)
         .output()?;
     if !git_output.status.success() {

@@ -30,7 +30,10 @@ pub fn ensure_git_init(dir: &Path) -> RexResult<bool> {
     if is_git_repo(dir) {
         return Ok(false);
     }
-    let output = Command::new("git").arg("init").current_dir(dir).output()?;
+    let output = Command::new("git")
+        .args(["init", "-b", "main"])
+        .current_dir(dir)
+        .output()?;
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(RexError::Subprocess {

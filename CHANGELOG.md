@@ -2,6 +2,10 @@
 
 All notable changes to **rex-cli** are documented here.
 
+## 0.1.26 — 2026-04-03
+
+- **Fix default branch name** — `git init` in both `rex init` and `rex mono` now uses `-b main` to ensure new repositories start on the `main` branch instead of inheriting the system default (often `master`), preventing branch name mismatches with GitHub remotes.
+
 ## 0.1.25 — 2026-04-03
 
 - **Publish-to-git: prefer `gh` CLI** — the `rex-publish-to-git` skill now checks for a working `gh` CLI and uses it for push operations when available, falling back to standard git otherwise.
