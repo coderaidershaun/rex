@@ -74,6 +74,10 @@ impl ClaudeOutput {
     }
 
     /// Context window usage as a percentage.
+    ///
+    /// Total input = `input_tokens` (non-cached) + `cache_read_input_tokens` (cached).
+    /// `cache_creation_input_tokens` is a subset of `input_tokens` (not additive).
+    /// `output_tokens` are generated, not part of context window usage.
     pub fn context_percent(&self) -> f64 {
         let Some(entry) = self.model_usage.values().next() else {
             return 0.0;
@@ -81,11 +85,8 @@ impl ClaudeOutput {
         if entry.context_window == 0 {
             return 0.0;
         }
-        let total = entry.input_tokens
-            + entry.output_tokens
-            + entry.cache_read_input_tokens
-            + entry.cache_creation_input_tokens;
-        (total as f64 / entry.context_window as f64) * 100.0
+        let total_input = entry.input_tokens + entry.cache_read_input_tokens;
+        (total_input as f64 / entry.context_window as f64) * 100.0
     }
 
     /// Formatted stats line for Telegram messages (HTML).
