@@ -6,6 +6,8 @@ use crate::errors::{RexError, RexResult};
 use serde_json::Value;
 use tracing::{debug, error, info, warn};
 
+use super::chat;
+
 /// Outcome of polling Telegram for updates.
 pub enum TelegramPollResult {
     /// A reply matching the expected message_id was received.
@@ -170,17 +172,113 @@ impl TelegramClient {
         self.send_with_body(&body).await
     }
 
+    /// Send a message with inline Reply + Restart buttons for chat sessions.
+    pub async fn send_with_chat_buttons(&self, text: &str, chat_id: &str) -> RexResult<i64> {
+        let body = serde_json::json!({
+            "chat_id": self.chat_id,
+            "text": text,
+            "parse_mode": "HTML",
+            "reply_markup": {
+                "inline_keyboard": [[
+                    { "text": "💬 Reply", "callback_data": format!("cr:{chat_id}") },
+                    { "text": "🔄 Restart", "callback_data": format!("cx:{chat_id}") },
+                ]]
+            },
+        });
+        self.send_with_body(&body).await
+    }
+
+    /// Send a force-reply prompt for a chat session.
+    pub async fn send_chat_reply_prompt(&self, chat_id: &str) -> RexResult<i64> {
+        let text = format!(
+            "💬 <b>Chat Reply</b>  ·  <code>{cid}</code>\n\
+             <i>Type your message below</i>",
+            cid = super::types::escape_html(chat_id),
+        );
+        let body = serde_json::json!({
+            "chat_id": self.chat_id,
+            "text": text,
+            "parse_mode": "HTML",
+            "reply_markup": { "force_reply": true },
+        });
+        self.send_with_body(&body).await
+    }
+
+    /// Edit an existing message's text.
+    pub async fn edit_message(&self, message_id: i64, text: &str) -> RexResult<()> {
+        let body = serde_json::json!({
+            "chat_id": self.chat_id,
+            "message_id": message_id,
+            "text": text,
+            "parse_mode": "HTML",
+        });
+        let resp = self
+            .http
+            .post(self.api_url("editMessageText"))
+            .json(&body)
+            .timeout(Duration::from_secs(30))
+            .send()
+            .await
+            .map_err(|e| RexError::Telegram(format!("editMessageText failed: {e}")))?;
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body_text = resp.text().await.unwrap_or_default();
+            return Err(RexError::Telegram(format!(
+                "editMessageText failed ({status}): {body_text}"
+            )));
+        }
+        Ok(())
+    }
+
+    /// Edit an existing message and add chat buttons.
+    pub async fn edit_message_with_chat_buttons(
+        &self,
+        message_id: i64,
+        text: &str,
+        chat_id: &str,
+    ) -> RexResult<()> {
+        let body = serde_json::json!({
+            "chat_id": self.chat_id,
+            "message_id": message_id,
+            "text": text,
+            "parse_mode": "HTML",
+            "reply_markup": {
+                "inline_keyboard": [[
+                    { "text": "💬 Reply", "callback_data": format!("cr:{chat_id}") },
+                    { "text": "🔄 Restart", "callback_data": format!("cx:{chat_id}") },
+                ]]
+            },
+        });
+        let resp = self
+            .http
+            .post(self.api_url("editMessageText"))
+            .json(&body)
+            .timeout(Duration::from_secs(30))
+            .send()
+            .await
+            .map_err(|e| RexError::Telegram(format!("editMessageText failed: {e}")))?;
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body_text = resp.text().await.unwrap_or_default();
+            return Err(RexError::Telegram(format!(
+                "editMessageText failed ({status}): {body_text}"
+            )));
+        }
+        Ok(())
+    }
+
     /// Long-poll `getUpdates` until a matching reply or `/kill` command arrives.
     ///
     /// Only accepts messages that are replies to `expected_message_id`.
     /// Non-matching messages are logged and skipped.
     /// `/query` commands are answered inline and polling continues.
-    pub async fn wait_for_reply(
+    pub(crate) async fn wait_for_reply(
         &mut self,
         mut expected_message_id: i64,
         project_id: &str,
         timeout: Duration,
         query_response: &str,
+        chat_manager: &chat::ChatManager,
     ) -> RexResult<TelegramPollResult> {
         let deadline = tokio::time::Instant::now() + timeout;
         info!(
@@ -266,6 +364,18 @@ impl TelegramClient {
                                 expected_message_id = prompt_id;
                             }
                         }
+                        d if d.starts_with("cr:") => {
+                            let cid = &d[3..];
+                            info!(chat_id = cid, "chat reply button pressed");
+                            if let Ok(prompt_id) = self.send_chat_reply_prompt(cid).await {
+                                chat::register_message(chat_manager, prompt_id, cid).await;
+                            }
+                        }
+                        d if d.starts_with("cx:") => {
+                            let cid = &d[3..];
+                            info!(chat_id = cid, "chat restart button pressed");
+                            chat::route_restart(chat_manager, cid).await;
+                        }
                         _ => {
                             debug!(data, "ignoring unknown callback data");
                         }
@@ -315,9 +425,30 @@ impl TelegramClient {
                     continue;
                 }
 
-                // Check reply-to matching
+                // Check for /chat command
+                if let Some(rest) = text.strip_prefix("/chat ") {
+                    let rest = rest.trim();
+                    if let Some(pos) = rest.find(char::is_whitespace) {
+                        let target = &rest[..pos];
+                        let query = rest[pos..].trim();
+                        if !query.is_empty() {
+                            chat::try_start_chat(chat_manager, target, query).await;
+                        }
+                    }
+                    continue;
+                }
+
+                // Route replies to active chat sessions
                 let reply_to_msg_id =
                     msg["reply_to_message"]["message_id"].as_i64();
+                if let Some(rid) = reply_to_msg_id {
+                    if let Some(cid) = chat::lookup_chat(chat_manager, rid).await {
+                        chat::route_reply(chat_manager, &cid, text.to_string()).await;
+                        continue;
+                    }
+                }
+
+                // Check reply-to matching
                 match reply_to_msg_id {
                     Some(id) if id == expected_message_id => {
                         info!(
@@ -351,10 +482,11 @@ impl TelegramClient {
     /// Returns `Ok(())` when a matching `/kill` is found.
     /// `/query` commands are answered inline and polling continues.
     /// All other messages are consumed and discarded (offset advances).
-    pub async fn poll_for_kill(
+    pub(crate) async fn poll_for_kill(
         &mut self,
         project_id: &str,
         query_response: &str,
+        chat_manager: &chat::ChatManager,
     ) -> RexResult<()> {
         loop {
             let body = serde_json::json!({
@@ -425,6 +557,18 @@ impl TelegramClient {
                             info!("received reply button press during claude execution");
                             let _ = self.send_reply_prompt(project_id).await;
                         }
+                        d if d.starts_with("cr:") => {
+                            let cid = &d[3..];
+                            info!(chat_id = cid, "chat reply button during execution");
+                            if let Ok(prompt_id) = self.send_chat_reply_prompt(cid).await {
+                                chat::register_message(chat_manager, prompt_id, cid).await;
+                            }
+                        }
+                        d if d.starts_with("cx:") => {
+                            let cid = &d[3..];
+                            info!(chat_id = cid, "chat restart button during execution");
+                            chat::route_restart(chat_manager, cid).await;
+                        }
                         _ => {
                             debug!(data, "ignoring unknown callback data");
                         }
@@ -453,6 +597,31 @@ impl TelegramClient {
                         if target.is_empty() || target == project_id {
                             info!("received /query during claude execution");
                             self.notify(query_response).await;
+                        }
+                    }
+                    if let Some(rest) = text.strip_prefix("/chat ") {
+                        let rest = rest.trim();
+                        if let Some(pos) = rest.find(char::is_whitespace) {
+                            let target = &rest[..pos];
+                            let query = rest[pos..].trim();
+                            if !query.is_empty() {
+                                chat::try_start_chat(chat_manager, target, query)
+                                    .await;
+                            }
+                        }
+                    }
+                }
+
+                // Route replies to active chat sessions
+                if let Some(reply_to_id) =
+                    msg["reply_to_message"]["message_id"].as_i64()
+                {
+                    if let Some(cid) =
+                        chat::lookup_chat(chat_manager, reply_to_id).await
+                    {
+                        if let Some(t) = msg["text"].as_str() {
+                            chat::route_reply(chat_manager, &cid, t.to_string())
+                                .await;
                         }
                     }
                 }
