@@ -12,7 +12,7 @@ use crate::models::project::ProjectRegistry;
 
 use super::claude::{self, is_retryable};
 use super::state::{self, RecoveryAction};
-use super::telegram::TelegramClient;
+use super::telegram::{TelegramClient, TelegramPollResult};
 use super::types::*;
 
 /// CLI arguments for `rex-autorun`.
@@ -44,7 +44,7 @@ pub struct Args {
     pub max_retries: u32,
 
     /// Human reply timeout in days
-    #[arg(long, default_value = "7")]
+    #[arg(long, default_value = "1")]
     pub human_timeout_days: u64,
 
     /// Log file path (default: <project-dir>/.rex-autorun.log)
@@ -135,12 +135,26 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
                 pid = escape_html(&project_id),
                 q = escape_html(&question),
             );
-            tg.notify(&msg).await;
+            let recovery_msg_id = match tg.send_question(&msg).await {
+                Ok(id) => id,
+                Err(e) => {
+                    error!("failed to send recovered question: {e}");
+                    tg.notify(&format!(
+                        "<b>[{pid}] Error sending recovered question</b>\n{err}",
+                        pid = escape_html(&project_id),
+                        err = escape_html(&e.to_string()),
+                    )).await;
+                    state::delete_state(&state_path);
+                    return Ok(ExitCode::from(1));
+                }
+            };
 
-            // Wait for reply
+            // Wait for reply (with reply-to matching)
             let human_timeout = Duration::from_secs(args.human_timeout_days * 86400);
-            match tg.wait_for_reply(human_timeout).await {
-                Ok(reply) => {
+            match tg.wait_for_reply(recovery_msg_id, &project_id, human_timeout).await {
+                Ok(TelegramPollResult::Reply(reply)) => {
+                    send_ack(&tg, &project_id).await;
+
                     log_event(&log_path, &LogEvent::InputReceived {
                         reply_length: reply.len(),
                         timestamp: now_iso(),
@@ -152,20 +166,36 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
                     let timeout = Duration::from_secs(args.process_timeout_mins * 60);
                     let session_name = format!("rex-autorun-{project_id}-{invocation_count}");
 
-                    let spawn_result = claude::spawn_claude(
+                    let spawned = match claude::spawn_claude(
                         &project_dir,
                         &reply,
                         Some(&session_id),
                         &session_name,
                         args.max_turns,
                         args.max_budget_usd,
-                    );
+                    ) {
+                        Ok(s) => s,
+                        Err(e) => {
+                            error!("failed to spawn resume: {e}");
+                            tg.notify(&format!(
+                                "<b>[{pid}] Error spawning resume</b>\n{err}",
+                                pid = escape_html(&project_id),
+                                err = escape_html(&e.to_string()),
+                            )).await;
+                            return Ok(ExitCode::from(1));
+                        }
+                    };
+                    let pgid = spawned.pgid;
 
-                    match async {
-                        let spawned = spawn_result?;
-                        claude::await_claude(spawned, timeout).await
-                    }.await
-                    {
+                    let invoke_result = tokio::select! {
+                        result = claude::await_claude(spawned, timeout) => result,
+                        _ = tg.poll_for_kill(&project_id) => {
+                            claude::kill_process_group(pgid).await;
+                            Err(RexError::Killed)
+                        }
+                    };
+
+                    match invoke_result {
                         Ok((output, _pgid)) => {
                             let cost = output.effective_cost();
                             let mut recovered_stats = stats;
@@ -209,6 +239,9 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
                                 }
                             }
                         }
+                        Err(ref e) if matches!(e, RexError::Killed) => {
+                            return Ok(handle_kill(&tg, &project_id, &log_path, &state_path).await);
+                        }
                         Err(e) => {
                             error!("resume invocation failed: {e}");
                             tg.notify(&format!(
@@ -219,6 +252,9 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
                             (stats, invocation_count, Some(tg.update_offset))
                         }
                     }
+                }
+                Ok(TelegramPollResult::Kill) => {
+                    return Ok(handle_kill(&tg, &project_id, &log_path, &state_path).await);
                 }
                 Err(e) => {
                     error!("human reply timeout: {e}");
@@ -342,25 +378,65 @@ async fn main_loop(
         }
 
         // Spawn claude and record PID for orphan cleanup
-        let invoke_result = async {
-            let spawned = claude::spawn_claude(
-                project_dir,
-                "/rex-operator",
-                None,
-                &session_name,
-                args.max_turns,
-                args.max_budget_usd,
-            )?;
+        let spawned = match claude::spawn_claude(
+            project_dir,
+            "/rex-operator",
+            None,
+            &session_name,
+            args.max_turns,
+            args.max_budget_usd,
+        ) {
+            Ok(s) => s,
+            Err(e) => {
+                // Treat spawn failure as an invocation error
+                let err_str = e.to_string();
+                consecutive_errors += 1;
 
-            // Update state with PID/PGID so crash recovery can kill orphans
-            let mut with_pid = running_state.clone();
-            with_pid.claude_pid = Some(spawned.pid);
-            with_pid.claude_pgid = Some(spawned.pgid);
-            let _ = state::write_state_atomic(state_path, &with_pid);
+                log_event(log_path, &LogEvent::Error {
+                    message: err_str.clone(),
+                    retryable: is_retryable(&err_str),
+                    attempt: consecutive_errors,
+                    timestamp: now_iso(),
+                });
 
-            claude::await_claude(spawned, timeout).await
-        }
-        .await;
+                if is_retryable(&err_str) && consecutive_errors <= args.max_retries {
+                    let delay = retry_delay(consecutive_errors);
+                    warn!(attempt = consecutive_errors, max = args.max_retries, delay_secs = delay, "retryable spawn error, backing off");
+                    tg.notify(&format!(
+                        "<b>[{pid}] Error</b>\n{err}\n\nRetrying in {delay}s (attempt {consecutive_errors}/{max})",
+                        pid = escape_html(project_id), err = escape_html(&err_str), max = args.max_retries,
+                    )).await;
+                    state::delete_state(state_path);
+                    tokio::time::sleep(Duration::from_secs(delay)).await;
+                    continue;
+                }
+
+                error!("non-retryable spawn error: {err_str}");
+                tg.notify(&format!(
+                    "<b>[{pid}] Fatal error</b>\n{err}",
+                    pid = escape_html(project_id), err = escape_html(&err_str),
+                )).await;
+                state::delete_state(state_path);
+                return Ok(ExitCode::from(1));
+            }
+        };
+
+        let pgid = spawned.pgid;
+
+        // Update state with PID/PGID so crash recovery can kill orphans
+        let mut with_pid = running_state.clone();
+        with_pid.claude_pid = Some(spawned.pid);
+        with_pid.claude_pgid = Some(spawned.pgid);
+        let _ = state::write_state_atomic(state_path, &with_pid);
+
+        // Race await_claude against /kill command from Telegram
+        let invoke_result = tokio::select! {
+            result = claude::await_claude(spawned, timeout) => result,
+            _ = tg.poll_for_kill(project_id) => {
+                claude::kill_process_group(pgid).await;
+                Err(RexError::Killed)
+            }
+        };
 
         match invoke_result {
             Ok((output, _pgid)) => {
@@ -458,24 +534,40 @@ async fn main_loop(
                                     timestamp: now_iso(),
                                 });
 
-                                // Send question to Telegram
+                                // Send question to Telegram with force_reply
                                 let msg = format!(
                                     "{header}\n━━━━━━━━━━━━━━━━━━━━\n<b>[{pid}] Input needed</b>\n\n{q}\n\n<i>Reply to this message with your answer</i>",
                                     header = output.telegram_header(),
                                     pid = escape_html(project_id),
                                     q = escape_html(&current_question),
                                 );
-                                if let Ok(msg_id) = tg.send_message(&msg).await {
-                                    let mut updated = pending_state;
-                                    updated.telegram_message_id = Some(msg_id);
-                                    updated.telegram_update_offset = Some(tg.update_offset);
-                                    let _ = state::write_state_atomic(state_path, &updated);
-                                }
+                                let question_msg_id = match tg.send_question(&msg).await {
+                                    Ok(id) => {
+                                        let mut updated = pending_state;
+                                        updated.telegram_message_id = Some(id);
+                                        updated.telegram_update_offset = Some(tg.update_offset);
+                                        let _ = state::write_state_atomic(state_path, &updated);
+                                        id
+                                    }
+                                    Err(e) => {
+                                        error!("failed to send question: {e}");
+                                        tg.notify(&format!(
+                                            "<b>[{pid}] Error sending question</b>\n{err}",
+                                            pid = escape_html(project_id),
+                                            err = escape_html(&e.to_string()),
+                                        )).await;
+                                        state::delete_state(state_path);
+                                        return Ok(ExitCode::from(1));
+                                    }
+                                };
 
-                                // Wait for reply
+                                // Wait for reply (with reply-to matching)
                                 let human_timeout = Duration::from_secs(args.human_timeout_days * 86400);
-                                let reply = match tg.wait_for_reply(human_timeout).await {
-                                    Ok(r) => r,
+                                let reply = match tg.wait_for_reply(question_msg_id, project_id, human_timeout).await {
+                                    Ok(TelegramPollResult::Reply(r)) => r,
+                                    Ok(TelegramPollResult::Kill) => {
+                                        return Ok(handle_kill(tg, project_id, log_path, state_path).await);
+                                    }
                                     Err(e) => {
                                         error!("human reply timeout: {e}");
                                         tg.notify(&format!(
@@ -487,6 +579,8 @@ async fn main_loop(
                                     }
                                 };
 
+                                // Send acknowledgment
+                                send_ack(tg, project_id).await;
                                 info!(reply_len = reply.len(), "got user reply, resuming session");
                                 log_event(log_path, &LogEvent::InputReceived {
                                     reply_length: reply.len(),
@@ -515,6 +609,8 @@ async fn main_loop(
                                     }
                                 };
 
+                                let resume_pgid = spawned.pgid;
+
                                 // Write PID to state for orphan cleanup
                                 let resume_running = AutorunState {
                                     phase: AutorunPhase::Running,
@@ -530,8 +626,20 @@ async fn main_loop(
                                 };
                                 let _ = state::write_state_atomic(state_path, &resume_running);
 
-                                let resume_output = match claude::await_claude(spawned, timeout).await {
+                                // Race await_claude against /kill command
+                                let resume_result = tokio::select! {
+                                    result = claude::await_claude(spawned, timeout) => result,
+                                    _ = tg.poll_for_kill(project_id) => {
+                                        claude::kill_process_group(resume_pgid).await;
+                                        Err(RexError::Killed)
+                                    }
+                                };
+
+                                let resume_output = match resume_result {
                                     Ok((output, _pgid)) => output,
+                                    Err(ref e) if matches!(e, RexError::Killed) => {
+                                        return Ok(handle_kill(tg, project_id, log_path, state_path).await);
+                                    }
                                     Err(e) => {
                                         let err_str = e.to_string();
                                         if is_retryable(&err_str) && consecutive_errors < args.max_retries {
@@ -684,6 +792,9 @@ async fn main_loop(
                     }
                 }
             }
+            Err(ref e) if matches!(e, RexError::Killed) => {
+                return Ok(handle_kill(tg, project_id, log_path, state_path).await);
+            }
             Err(e) => {
                 let err_str = e.to_string();
                 consecutive_errors += 1;
@@ -755,6 +866,43 @@ fn log_event(log_path: &Path, event: &LogEvent) {
         return;
     };
     let _ = writeln!(file, "{line}");
+}
+
+/// Pick a random acknowledgment response using subsecond nanos as entropy.
+fn pick_ack_response() -> &'static str {
+    let idx = Utc::now().timestamp_subsec_nanos() as usize % ACK_RESPONSES.len();
+    ACK_RESPONSES[idx]
+}
+
+/// Send an acknowledgment message to confirm receipt of a reply.
+async fn send_ack(tg: &TelegramClient, project_id: &str) {
+    let ack = pick_ack_response();
+    tg.notify(&format!(
+        "<b>[{pid}]</b>\n{ack}",
+        pid = escape_html(project_id),
+    ))
+    .await;
+}
+
+/// Handle a /kill command — log, notify, clean up, return exit code 6.
+async fn handle_kill(
+    tg: &TelegramClient,
+    project_id: &str,
+    log_path: &Path,
+    state_path: &Path,
+) -> ExitCode {
+    info!("killed by user via /kill command");
+    log_event(log_path, &LogEvent::KilledByUser {
+        project_id: project_id.to_string(),
+        timestamp: now_iso(),
+    });
+    tg.notify(&format!(
+        "<b>[{pid}] Killed by /kill command</b>",
+        pid = escape_html(project_id),
+    ))
+    .await;
+    state::delete_state(state_path);
+    ExitCode::from(6)
 }
 
 /// Format a human-readable duration from an ISO 8601 start time to now.

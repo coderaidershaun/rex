@@ -67,6 +67,10 @@ pub enum RexError {
     #[error("claude process: {0}")]
     ClaudeProcess(String),
 
+    // --- Autorun: Killed via /kill command ---
+    #[error("killed via /kill command")]
+    Killed,
+
     // --- Cancelled (user Ctrl+C in UI) ---
     #[error("Cancelled")]
     Cancelled,
