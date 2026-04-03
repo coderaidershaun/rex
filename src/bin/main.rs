@@ -543,7 +543,26 @@ All commands:
                                             Insert a history entry (recent by default, archived with --archived)
   rex history remove <id> [--archived]      Remove a history entry (recent by default, archived with --archived)
   rex history get-recent                    Get recent history entries as JSON
-  rex history list                          List all history (recent and archived) as JSON";
+  rex history list                          List all history (recent and archived) as JSON
+
+Autorun (separate binary — headless autopilot with Telegram):
+
+  rex-autorun [OPTIONS]                     Run the active project autonomously
+      --project-dir <PATH>                  Rex project root (default: current directory)
+      --max-budget-usd <AMT>               Max USD per invocation (default: 50)
+      --max-total-budget-usd <AMT>         Hard stop for total spend (default: 500)
+      --max-turns <N>                       Max agentic turns per invocation (default: 200)
+      --process-timeout-mins <N>            Max minutes per Claude process (default: 60)
+      --max-retries <N>                     Max retries for transient failures (default: 5)
+      --human-timeout-days <N>              Max days to wait for Telegram reply (default: 1)
+      --log-file <PATH>                     JSONL log file (default: .rex-autorun.log)
+
+  Telegram commands (send to bot while autorun is running):
+      /kill <project-id>                    Terminate the autorun session
+      /query <project-id>                   Show live stats and other running autoruns
+
+  Background usage (recommended):
+      nohup rex-autorun --project-dir /absolute/path/to/project > /dev/null 2>&1 &";
 
 fn print_commands() {
     println!();
