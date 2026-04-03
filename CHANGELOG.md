@@ -2,6 +2,13 @@
 
 All notable changes to **rex-cli** are documented here.
 
+## 0.1.23 — 2026-04-03
+
+- **`rex mono empty`** — new subcommand to create a bare Cargo workspace (no rex harness, no `.claude/` folder) with git initialized. Useful for monorepos where rex is initialized per-project rather than at the root.
+- **Init inside project** — `rex project create` now prompts whether to run `rex init` inside the project directory, creating a fully self-contained project with its own harness, skills, and registry. Defaults to Yes when no outer harness exists.
+- **`rex --commands`** — new flag that prints a formatted list of every command and subcommand with descriptions.
+- **Documentation overhaul** — README, monorepo, projects, init, and main docs all updated for new commands, missing project commands (lock, unlock, update-category, update-complexity), and the init-inside workflow.
+
 ## 0.1.22 — 2026-04-03
 
 - **Error handling overhaul** — new `RexError` enum via `thiserror` replaces `Box<dyn Error>` across all commands, models, autorun, and UI modules. Provides structured error variants (`FileRead`, `NotFound`, `Validation`, `Subprocess`, etc.) with contextual messages.
