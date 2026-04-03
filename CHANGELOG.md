@@ -2,6 +2,15 @@
 
 All notable changes to **rex-cli** are documented here.
 
+## 0.1.22 — 2026-04-03
+
+- **Error handling overhaul** — new `RexError` enum via `thiserror` replaces `Box<dyn Error>` across all commands, models, autorun, and UI modules. Provides structured error variants (`FileRead`, `NotFound`, `Validation`, `Subprocess`, etc.) with contextual messages.
+- **Publish skills** — add `rex-publish-to-git` (commit and push with meaningful messages) and `rex-publish-to-crates-io` (full release workflow: version bump, changelog, commit, publish).
+
+## 0.1.21 — 2026-04-03
+
+- **Fix crates.io keywords** — reduce keywords from 6 to 5 (crates.io maximum).
+
 ## 0.1.20 — 2026-04-03
 
 - **Remove Cursor support** — `rex init` now targets Claude Code only. Removed `--cursor` / `--claude` flags, `AgentOs` enum, interactive agent OS prompt, and all Cursor-specific hook configuration (`write_cursor_hooks`, `merge_cursor_hooks`, `CURSOR_HOOKS_JSON`).
