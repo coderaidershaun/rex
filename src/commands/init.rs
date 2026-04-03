@@ -1,3 +1,4 @@
+use crate::errors::{RexError, RexResult};
 use console::style;
 use include_dir::{include_dir, Dir};
 use std::fs;
@@ -41,7 +42,7 @@ orchestrates onboarding, design, planning, and execution phases.
 | [planning](rex/docs/planning-overview.md) | Three-level planning hierarchy |
 ";
 
-pub fn init() -> Result<(), Box<dyn std::error::Error>> {
+pub fn init() -> RexResult<()> {
     println!();
     println!("  {}", style("Rex Init").bold().cyan());
     println!("  {}", style("\u{2500}".repeat(40)).dim());
@@ -158,7 +159,7 @@ fn write_claude_settings(
     config_dir: &Path,
     created: &mut Vec<String>,
     skipped: &mut Vec<String>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> RexResult<()> {
     let settings_path = config_dir.join("settings.json");
     if !settings_path.exists() {
         fs::create_dir_all(config_dir)?;
@@ -184,7 +185,7 @@ fn write_claude_settings(
 /// ```
 fn merge_claude_settings(
     existing_path: &Path,
-) -> Result<Option<String>, Box<dyn std::error::Error>> {
+) -> RexResult<Option<String>> {
     let existing_str = fs::read_to_string(existing_path)?;
     if existing_str.contains("commit-and-push") {
         return Ok(None);
@@ -195,13 +196,13 @@ fn merge_claude_settings(
 
     let existing_obj = existing
         .as_object_mut()
-        .ok_or("settings.json is not an object")?;
+        .ok_or_else(|| RexError::Validation("settings.json is not an object".into()))?;
 
     if let Some(rex_hooks) = rex.get("hooks") {
         if let Some(existing_hooks) = existing_obj.get_mut("hooks") {
             let existing_hooks_obj = existing_hooks
                 .as_object_mut()
-                .ok_or("hooks is not an object")?;
+                .ok_or_else(|| RexError::Validation("hooks is not an object".into()))?;
             if let Some(rex_hooks_obj) = rex_hooks.as_object() {
                 for (event, handlers) in rex_hooks_obj {
                     if !existing_hooks_obj.contains_key(event) {
@@ -237,7 +238,7 @@ fn copy_embedded_dir(
     target: &Path,
     created: &mut Vec<String>,
     skipped: &mut Vec<String>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> RexResult<()> {
     use include_dir::DirEntry;
 
     fn walk<'a>(
@@ -245,7 +246,7 @@ fn copy_embedded_dir(
         target: &Path,
         created: &mut Vec<String>,
         skipped: &mut Vec<String>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> RexResult<()> {
         for entry in entries {
             match entry {
                 DirEntry::File(file) => {

@@ -34,7 +34,6 @@ crossterm = "0.29"
 include_dir = "0.7"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "time", "signal", "fs"] }
 reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
-anyhow = "1"
 chrono = { version = "0.4", features = ["serde"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

@@ -1,3 +1,4 @@
+use crate::errors::{RexError, RexResult};
 use console::style;
 use crossterm::{
     cursor,
@@ -22,7 +23,7 @@ pub fn text_input(
     prompt: &str,
     placeholder: &str,
     validator: Option<&dyn Fn(&str) -> Option<String>>,
-) -> Result<String, Box<dyn std::error::Error>> {
+) -> RexResult<String> {
     let mut stdout = io::stdout();
     let mut input = String::new();
     let mut error_msg: Option<String> = None;
@@ -74,7 +75,7 @@ pub fn text_input(
             error_msg = None;
             match code {
                 KeyCode::Char('c') if modifiers.contains(KeyModifiers::CONTROL) => {
-                    return Err("Cancelled".into());
+                    return Err(RexError::Cancelled);
                 }
                 KeyCode::Tab => {
                     if input.is_empty() && !placeholder.is_empty() {

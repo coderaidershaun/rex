@@ -1,3 +1,4 @@
+use crate::errors::{RexError, RexResult};
 use crate::models::project::{Category, Complexity};
 use crate::models::project_status::ONBOARDING_ITEMS;
 use console::style;
@@ -256,7 +257,7 @@ fn render(
 
 pub fn tab_select(
     complexity: &Complexity,
-) -> Result<TabSelectResult, Box<dyn std::error::Error>> {
+) -> RexResult<TabSelectResult> {
     let mut stdout = io::stdout();
     let total_rows = ACTION_ROWS + ONBOARDING_ITEMS.len();
 
@@ -351,7 +352,7 @@ pub fn tab_select(
                         render(&mut stdout, tab_index, cursor_row, &selected, &category, complexity, &mut total_lines)?;
                     }
                     KeyCode::Char('c') if modifiers.contains(KeyModifiers::CONTROL) => {
-                        break Err("Cancelled".into());
+                        break Err(RexError::Cancelled);
                     }
                     _ => {}
                 }

@@ -1,3 +1,4 @@
+use crate::errors::{RexError, RexResult};
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -130,18 +131,18 @@ impl Checklist {
         }
     }
 
-    pub fn load(path: &Path) -> Result<Self, String> {
+    pub fn load(path: &Path) -> RexResult<Self> {
         let contents = fs::read_to_string(path)
-            .map_err(|e| format!("Failed to read checklist.json: {e}"))?;
+            .map_err(|e| RexError::FileRead { path: path.display().to_string(), source: e })?;
         serde_json::from_str(&contents)
-            .map_err(|e| format!("Failed to parse checklist.json: {e}"))
+            .map_err(|e| RexError::JsonParse { context: "checklist.json".into(), source: e })
     }
 
-    pub fn save(&self, path: &Path) -> Result<(), String> {
+    pub fn save(&self, path: &Path) -> RexResult<()> {
         let json = serde_json::to_string_pretty(self)
-            .map_err(|e| format!("Failed to serialize checklist: {e}"))?;
+            .map_err(|e| RexError::JsonSerialize { context: "checklist.json".into(), source: e })?;
         fs::write(path, format!("{json}\n"))
-            .map_err(|e| format!("Failed to write checklist.json: {e}"))?;
+            .map_err(|e| RexError::FileWrite { path: path.display().to_string(), source: e })?;
         Ok(())
     }
 

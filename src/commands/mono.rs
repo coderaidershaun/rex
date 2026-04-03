@@ -1,8 +1,9 @@
+use crate::errors::{RexError, RexResult};
 use console::style;
 use std::fs;
 use std::process::Command;
 
-pub fn init(name: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn init(name: &str) -> RexResult<()> {
     println!();
     println!("  {}", style("Rex Mono Init").bold().cyan());
     println!("  {}", style("\u{2500}".repeat(40)).dim());
@@ -12,7 +13,9 @@ pub fn init(name: &str) -> Result<(), Box<dyn std::error::Error>> {
     let repo_dir = cwd.join(name);
 
     if repo_dir.exists() {
-        return Err(format!("Directory \"{name}\" already exists.").into());
+        return Err(RexError::AlreadyExists(format!(
+            "Directory \"{name}\" already exists."
+        )));
     }
 
     // 1. Create the monorepo directory
@@ -55,7 +58,10 @@ pub fn init(name: &str) -> Result<(), Box<dyn std::error::Error>> {
         .output()?;
     if !git_output.status.success() {
         let stderr = String::from_utf8_lossy(&git_output.stderr);
-        return Err(format!("git init failed: {stderr}").into());
+        return Err(RexError::Subprocess {
+            command: "git init".into(),
+            detail: stderr.to_string(),
+        });
     }
     println!(
         "  {} Initialized git repository",
@@ -74,7 +80,10 @@ pub fn init(name: &str) -> Result<(), Box<dyn std::error::Error>> {
         .status()?;
 
     if !rex_status.success() {
-        return Err("rex init failed.".into());
+        return Err(RexError::Subprocess {
+            command: "rex init".into(),
+            detail: "non-zero exit".into(),
+        });
     }
 
     // 7. Summary

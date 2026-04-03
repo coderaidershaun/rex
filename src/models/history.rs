@@ -1,3 +1,4 @@
+use crate::errors::{RexError, RexResult};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
@@ -34,22 +35,23 @@ pub struct History {
 }
 
 impl History {
-    pub fn load(project_dir: &Path) -> Result<Self, String> {
+    pub fn load(project_dir: &Path) -> RexResult<Self> {
         let path = project_dir.join("history.json");
         if !path.exists() {
             return Ok(Self::default());
         }
-        let contents =
-            fs::read_to_string(&path).map_err(|e| format!("Failed to read history.json: {e}"))?;
-        serde_json::from_str(&contents).map_err(|e| format!("Failed to parse history.json: {e}"))
+        let contents = fs::read_to_string(&path)
+            .map_err(|e| RexError::FileRead { path: path.display().to_string(), source: e })?;
+        serde_json::from_str(&contents)
+            .map_err(|e| RexError::JsonParse { context: "history.json".into(), source: e })
     }
 
-    pub fn save(&self, project_dir: &Path) -> Result<(), String> {
+    pub fn save(&self, project_dir: &Path) -> RexResult<()> {
         let path = project_dir.join("history.json");
-        let json =
-            serde_json::to_string_pretty(self).map_err(|e| format!("Failed to serialize: {e}"))?;
+        let json = serde_json::to_string_pretty(self)
+            .map_err(|e| RexError::JsonSerialize { context: "history.json".into(), source: e })?;
         fs::write(&path, format!("{json}\n"))
-            .map_err(|e| format!("Failed to write history.json: {e}"))?;
+            .map_err(|e| RexError::FileWrite { path: path.display().to_string(), source: e })?;
         Ok(())
     }
 }

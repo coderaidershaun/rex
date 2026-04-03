@@ -1,24 +1,24 @@
 use std::io::Write;
 use std::path::Path;
 
-use anyhow::{Context, Result};
+use crate::errors::{RexError, RexResult};
 use tracing::{info, warn};
 
 use super::types::{AutorunPhase, AutorunState};
 
 /// Write state atomically: write to `.json.tmp`, fsync, then rename.
-pub fn write_state_atomic(path: &Path, state: &AutorunState) -> Result<()> {
+pub fn write_state_atomic(path: &Path, state: &AutorunState) -> RexResult<()> {
     let tmp = path.with_extension("json.tmp");
     let data = serde_json::to_string_pretty(state)
-        .context("failed to serialize autorun state")?;
+        .map_err(|e| RexError::JsonSerialize { context: "autorun state".into(), source: e })?;
     let mut file = std::fs::File::create(&tmp)
-        .context("failed to create state tmp file")?;
+        .map_err(|e| RexError::FileWrite { path: tmp.display().to_string(), source: e })?;
     file.write_all(data.as_bytes())
-        .context("failed to write state tmp file")?;
+        .map_err(|e| RexError::FileWrite { path: tmp.display().to_string(), source: e })?;
     file.sync_all()
-        .context("failed to fsync state tmp file")?;
+        .map_err(|e| RexError::FileWrite { path: tmp.display().to_string(), source: e })?;
     std::fs::rename(&tmp, path)
-        .context("failed to rename state tmp file")?;
+        .map_err(|e| RexError::FileWrite { path: path.display().to_string(), source: e })?;
     Ok(())
 }
 
@@ -104,7 +104,7 @@ pub fn recover_state(path: &Path) -> RecoveryAction {
                     }
                     RecoveryAction::ResumePendingInput {
                         session_id,
-                        question: state.pending_question.unwrap(),
+                        question: state.pending_question.expect("guarded by is_some check"),
                         telegram_update_offset: state.telegram_update_offset,
                         stats: state.stats,
                         invocation_count: state.invocation_count,

@@ -21,7 +21,7 @@ async fn main() -> ExitCode {
     match rex_cli::autorun::runner::run(args).await {
         Ok(code) => code,
         Err(e) => {
-            tracing::error!("fatal: {e:#}");
+            tracing::error!("fatal: {e}");
             ExitCode::from(1)
         }
     }

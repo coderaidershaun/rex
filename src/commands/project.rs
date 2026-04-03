@@ -1,3 +1,4 @@
+use crate::errors::{RexError, RexResult};
 use crate::models::project::{Category, Complexity, Project, ProjectRegistry};
 use crate::models::project_status::{ProjectStatus, Status};
 use crate::ui::design_select::design_select;
@@ -30,7 +31,7 @@ fn print_project(project: &Project) {
 fn resolve_directory(
     theme: &ColorfulTheme,
     id: &str,
-) -> Result<String, Box<dyn std::error::Error>> {
+) -> RexResult<String> {
     let cwd = std::env::current_dir()?;
     let candidate = cwd.join(id);
 
@@ -89,7 +90,7 @@ fn resolve_directory(
     }
 }
 
-pub fn create() -> Result<(), Box<dyn std::error::Error>> {
+pub fn create() -> RexResult<()> {
     let theme = ColorfulTheme::default();
 
     println!();
@@ -226,7 +227,10 @@ pub fn create() -> Result<(), Box<dyn std::error::Error>> {
             .output()?;
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("cargo new failed: {stderr}").into());
+            return Err(RexError::Subprocess {
+                command: "cargo new".into(),
+                detail: stderr.to_string(),
+            });
         }
         println!(
             "  {} Scaffolded new Rust project at {}",
@@ -276,9 +280,11 @@ pub fn create() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-pub fn update_status(item: &str, status: Status) -> Result<(), Box<dyn std::error::Error>> {
+pub fn update_status(item: &str, status: Status) -> RexResult<()> {
     let registry = ProjectRegistry::load()?;
-    let project = registry.active.ok_or("No active project.")?;
+    let project = registry
+        .active
+        .ok_or_else(|| RexError::NotFound("No active project.".into()))?;
 
     let project_dir = format!("rex/{}", project.id);
     let mut project_status = ProjectStatus::load(Path::new(&project_dir))?;
@@ -291,7 +297,7 @@ pub fn update_status(item: &str, status: Status) -> Result<(), Box<dyn std::erro
         .chain(&mut project_status.planning)
         .chain(&mut project_status.execution)
         .find(|s| s.item == item)
-        .ok_or_else(|| format!("Item \"{item}\" not found in project status."))?;
+        .ok_or_else(|| RexError::NotFound(format!("Item \"{item}\" not found in project status.")))?;
 
     step.status = status;
     project_status.save(Path::new(&project_dir))?;
@@ -307,13 +313,13 @@ pub fn update_status(item: &str, status: Status) -> Result<(), Box<dyn std::erro
     Ok(())
 }
 
-pub fn remove(id: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn remove(id: &str) -> RexResult<()> {
     let theme = ColorfulTheme::default();
     let mut registry = ProjectRegistry::load()?;
 
     let project = registry
         .remove_project(id)
-        .ok_or_else(|| format!("Project \"{id}\" not found."))?;
+        .ok_or_else(|| RexError::NotFound(format!("Project \"{id}\" not found.")))?;
 
     // Remove rex/{id}/ project metadata directory
     let rex_project_dir = format!("rex/{id}");
@@ -380,7 +386,7 @@ pub fn remove(id: &str) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-pub fn activate(id: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn activate(id: &str) -> RexResult<()> {
     let mut registry = ProjectRegistry::load()?;
 
     let prev_active_id = registry.active.as_ref().map(|p| p.id.clone());
@@ -404,10 +410,14 @@ pub fn activate(id: &str) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-pub fn update_directory(directory: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn update_directory(directory: &str) -> RexResult<()> {
     let mut registry = ProjectRegistry::load()?;
 
-    let project = registry.active.as_mut().ok_or("No active project.")?;
+    let project = registry
+        .active
+        .as_mut()
+        .ok_or_else(|| RexError::NotFound("No active project.".into()))?;
+    let id = project.id.clone();
     let old_directory = project.directory.clone();
     project.directory = directory.to_owned();
     registry.save()?;
@@ -415,7 +425,7 @@ pub fn update_directory(directory: &str) -> Result<(), Box<dyn std::error::Error
     println!(
         "\n  {} Updated directory for project \"{}\".",
         style("\u{2713}").green().bold(),
-        registry.active.as_ref().unwrap().id
+        id
     );
     println!(
         "  {:<16} {}",
@@ -431,9 +441,13 @@ pub fn update_directory(directory: &str) -> Result<(), Box<dyn std::error::Error
     Ok(())
 }
 
-pub fn update_title(title: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn update_title(title: &str) -> RexResult<()> {
     let mut registry = ProjectRegistry::load()?;
-    let project = registry.active.as_mut().ok_or("No active project.")?;
+    let project = registry
+        .active
+        .as_mut()
+        .ok_or_else(|| RexError::NotFound("No active project.".into()))?;
+    let id = project.id.clone();
     let old = project.title.clone();
     project.title = title.to_owned();
     registry.save()?;
@@ -441,16 +455,20 @@ pub fn update_title(title: &str) -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "\n  {} Updated title for project \"{}\".",
         style("\u{2713}").green().bold(),
-        registry.active.as_ref().unwrap().id
+        id
     );
     println!("  {:<16} {}", style("From:").dim(), old);
     println!("  {:<16} {}\n", style("To:").dim(), title);
     Ok(())
 }
 
-pub fn update_subtitle(subtitle: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn update_subtitle(subtitle: &str) -> RexResult<()> {
     let mut registry = ProjectRegistry::load()?;
-    let project = registry.active.as_mut().ok_or("No active project.")?;
+    let project = registry
+        .active
+        .as_mut()
+        .ok_or_else(|| RexError::NotFound("No active project.".into()))?;
+    let id = project.id.clone();
     let old = project.subtitle.clone();
     project.subtitle = subtitle.to_owned();
     registry.save()?;
@@ -458,16 +476,20 @@ pub fn update_subtitle(subtitle: &str) -> Result<(), Box<dyn std::error::Error>>
     println!(
         "\n  {} Updated subtitle for project \"{}\".",
         style("\u{2713}").green().bold(),
-        registry.active.as_ref().unwrap().id
+        id
     );
     println!("  {:<16} {}", style("From:").dim(), old);
     println!("  {:<16} {}\n", style("To:").dim(), subtitle);
     Ok(())
 }
 
-pub fn update_category(category: Category) -> Result<(), Box<dyn std::error::Error>> {
+pub fn update_category(category: Category) -> RexResult<()> {
     let mut registry = ProjectRegistry::load()?;
-    let project = registry.active.as_mut().ok_or("No active project.")?;
+    let project = registry
+        .active
+        .as_mut()
+        .ok_or_else(|| RexError::NotFound("No active project.".into()))?;
+    let id = project.id.clone();
     let old = project.category.clone();
     project.category = category.clone();
     registry.save()?;
@@ -475,16 +497,20 @@ pub fn update_category(category: Category) -> Result<(), Box<dyn std::error::Err
     println!(
         "\n  {} Updated category for project \"{}\".",
         style("\u{2713}").green().bold(),
-        registry.active.as_ref().unwrap().id
+        id
     );
     println!("  {:<16} {}", style("From:").dim(), old);
     println!("  {:<16} {}\n", style("To:").dim(), category);
     Ok(())
 }
 
-pub fn update_complexity(complexity: Complexity) -> Result<(), Box<dyn std::error::Error>> {
+pub fn update_complexity(complexity: Complexity) -> RexResult<()> {
     let mut registry = ProjectRegistry::load()?;
-    let project = registry.active.as_mut().ok_or("No active project.")?;
+    let project = registry
+        .active
+        .as_mut()
+        .ok_or_else(|| RexError::NotFound("No active project.".into()))?;
+    let id = project.id.clone();
     let old = project.complexity.clone();
     project.complexity = complexity.clone();
     registry.save()?;
@@ -492,16 +518,20 @@ pub fn update_complexity(complexity: Complexity) -> Result<(), Box<dyn std::erro
     println!(
         "\n  {} Updated complexity for project \"{}\".",
         style("\u{2713}").green().bold(),
-        registry.active.as_ref().unwrap().id
+        id
     );
     println!("  {:<16} {}", style("From:").dim(), old);
     println!("  {:<16} {}\n", style("To:").dim(), complexity);
     Ok(())
 }
 
-pub fn update_description(description: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn update_description(description: &str) -> RexResult<()> {
     let mut registry = ProjectRegistry::load()?;
-    let project = registry.active.as_mut().ok_or("No active project.")?;
+    let project = registry
+        .active
+        .as_mut()
+        .ok_or_else(|| RexError::NotFound("No active project.".into()))?;
+    let id = project.id.clone();
     let old = project.description.clone();
     project.description = description.to_owned();
     registry.save()?;
@@ -509,23 +539,25 @@ pub fn update_description(description: &str) -> Result<(), Box<dyn std::error::E
     println!(
         "\n  {} Updated description for project \"{}\".",
         style("\u{2713}").green().bold(),
-        registry.active.as_ref().unwrap().id
+        id
     );
     println!("  {:<16} {}", style("From:").dim(), old);
     println!("  {:<16} {}\n", style("To:").dim(), description);
     Ok(())
 }
 
-pub fn next_item() -> Result<(), Box<dyn std::error::Error>> {
+pub fn next_item() -> RexResult<()> {
     let registry = ProjectRegistry::load()?;
-    let project = registry.active.ok_or("No active project.")?;
+    let project = registry
+        .active
+        .ok_or_else(|| RexError::NotFound("No active project.".into()))?;
 
     let project_dir = format!("rex/{}", project.id);
     let path = Path::new(&project_dir).join("project-status.json");
     let contents = fs::read_to_string(&path)
-        .map_err(|e| format!("Failed to read project-status.json: {e}"))?;
+        .map_err(|e| RexError::FileRead { path: path.display().to_string(), source: e })?;
     let raw: serde_json::Value = serde_json::from_str(&contents)
-        .map_err(|e| format!("Failed to parse project-status.json: {e}"))?;
+        .map_err(|e| RexError::JsonParse { context: "project-status.json".into(), source: e })?;
 
     let tasks = flatten_tasks(&raw)?;
 
@@ -560,7 +592,7 @@ pub fn next_item() -> Result<(), Box<dyn std::error::Error>> {
 /// - **Flat (future):** a top-level array of task objects that already contain a `"phase"` field.
 fn flatten_tasks(
     raw: &serde_json::Value,
-) -> Result<Vec<serde_json::Value>, Box<dyn std::error::Error>> {
+) -> RexResult<Vec<serde_json::Value>> {
     let mut tasks = Vec::new();
 
     if let Some(obj) = raw.as_object() {
@@ -603,15 +635,20 @@ fn flatten_tasks(
         // Future flat format: array of tasks with phase field already present.
         tasks = arr.clone();
     } else {
-        return Err("project-status.json has unexpected format.".into());
+        return Err(RexError::Validation(
+            "project-status.json has unexpected format.".into(),
+        ));
     }
 
     Ok(tasks)
 }
 
-pub fn lock() -> Result<(), Box<dyn std::error::Error>> {
+pub fn lock() -> RexResult<()> {
     let mut registry = ProjectRegistry::load()?;
-    let project = registry.active.as_mut().ok_or("No active project.")?;
+    let project = registry
+        .active
+        .as_mut()
+        .ok_or_else(|| RexError::NotFound("No active project.".into()))?;
 
     if project.locked {
         println!(
@@ -634,9 +671,12 @@ pub fn lock() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-pub fn unlock() -> Result<(), Box<dyn std::error::Error>> {
+pub fn unlock() -> RexResult<()> {
     let mut registry = ProjectRegistry::load()?;
-    let project = registry.active.as_mut().ok_or("No active project.")?;
+    let project = registry
+        .active
+        .as_mut()
+        .ok_or_else(|| RexError::NotFound("No active project.".into()))?;
 
     if !project.locked {
         println!(
@@ -659,7 +699,7 @@ pub fn unlock() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-pub fn get_active() -> Result<(), Box<dyn std::error::Error>> {
+pub fn get_active() -> RexResult<()> {
     let registry = ProjectRegistry::load()?;
 
     match registry.active {

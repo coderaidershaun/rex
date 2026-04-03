@@ -1,23 +1,25 @@
+use crate::errors::{RexError, RexResult};
 use crate::models::checklist::{Checklist, ChecklistCategory, ChecklistItem, Phase};
 use crate::models::project::ProjectRegistry;
 use console::style;
 use std::path::PathBuf;
 use std::process::Command;
 
-fn checklist_path() -> Result<(String, PathBuf), Box<dyn std::error::Error>> {
+fn checklist_path() -> RexResult<(String, PathBuf)> {
     let registry = ProjectRegistry::load()?;
-    let project = registry.active.ok_or("No active project.")?;
+    let project = registry
+        .active
+        .ok_or(RexError::NotFound("No active project.".into()))?;
     let path = PathBuf::from(format!("rex/{}/onboarding/checklist.json", project.id));
     Ok((project.id, path))
 }
 
-fn load_checklist() -> Result<(String, PathBuf, Checklist), Box<dyn std::error::Error>> {
+fn load_checklist() -> RexResult<(String, PathBuf, Checklist)> {
     let (project_id, path) = checklist_path()?;
     if !path.exists() {
-        return Err(format!(
+        return Err(RexError::NotFound(format!(
             "No checklist.json found for project \"{project_id}\". Run `rex checklist init` first."
-        )
-        .into());
+        )));
     }
     let checklist = Checklist::load(&path)?;
     Ok((project_id, path, checklist))
@@ -27,12 +29,12 @@ fn print_field(label: &str, value: impl std::fmt::Display) {
     println!("  {:<16} {value}", style(format!("{label}:")).dim());
 }
 
-pub fn init(date: Option<String>) -> Result<(), Box<dyn std::error::Error>> {
+pub fn init(date: Option<String>) -> RexResult<()> {
     let (project_id, path) = checklist_path()?;
     if path.exists() {
-        return Err(
-            format!("checklist.json already exists for project \"{project_id}\".").into(),
-        );
+        return Err(RexError::AlreadyExists(format!(
+            "checklist.json already exists for project \"{project_id}\"."
+        )));
     }
 
     let date = match date {
@@ -60,18 +62,24 @@ pub fn add(
     title: &str,
     description: &str,
     phase: Option<Phase>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> RexResult<()> {
     let (project_id, path, mut checklist) = load_checklist()?;
 
     if checklist.has_id(id) {
-        return Err(format!("Item with ID \"{id}\" already exists in the checklist.").into());
+        return Err(RexError::AlreadyExists(format!(
+            "Item with ID \"{id}\" already exists in the checklist."
+        )));
     }
 
     if category == ChecklistCategory::OutOfScope && phase.is_some() {
-        return Err("Out-of-scope items should not have a phase.".into());
+        return Err(RexError::Validation(
+            "Out-of-scope items should not have a phase.".into(),
+        ));
     }
     if category != ChecklistCategory::OutOfScope && phase.is_none() {
-        return Err("--phase (design or planning) is required for non out-of-scope items.".into());
+        return Err(RexError::Validation(
+            "--phase (design or planning) is required for non out-of-scope items.".into(),
+        ));
     }
 
     let item = ChecklistItem {
@@ -104,7 +112,7 @@ pub fn list(
     phase_filter: Option<Phase>,
     show_complete: bool,
     show_incomplete: bool,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> RexResult<()> {
     let (project_id, _, checklist) = load_checklist()?;
 
     println!();
@@ -183,18 +191,18 @@ pub fn list(
     Ok(())
 }
 
-pub fn get(id: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn get(id: &str) -> RexResult<()> {
     let (_project_id, _, checklist) = load_checklist()?;
 
     let cat = checklist
         .find_category(id)
-        .ok_or_else(|| format!("Item \"{id}\" not found in checklist."))?;
+        .ok_or_else(|| RexError::NotFound(format!("Item \"{id}\" not found in checklist.")))?;
 
     let item = checklist
         .items(cat)
         .iter()
         .find(|i| i.id == id)
-        .unwrap();
+        .expect("verified by prior check");
 
     println!();
     print_field("ID", &item.id);
@@ -217,28 +225,30 @@ pub fn update(
     title: Option<String>,
     description: Option<String>,
     phase: Option<Phase>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> RexResult<()> {
     if title.is_none() && description.is_none() && phase.is_none() {
-        return Err(
+        return Err(RexError::Validation(
             "At least one of --title, --description, or --phase must be provided.".into(),
-        );
+        ));
     }
 
     let (project_id, path, mut checklist) = load_checklist()?;
 
     let cat = checklist
         .find_category(id)
-        .ok_or_else(|| format!("Item \"{id}\" not found in checklist."))?;
+        .ok_or_else(|| RexError::NotFound(format!("Item \"{id}\" not found in checklist.")))?;
 
     if phase.is_some() && cat == ChecklistCategory::OutOfScope {
-        return Err("Cannot set phase on out-of-scope items.".into());
+        return Err(RexError::Validation(
+            "Cannot set phase on out-of-scope items.".into(),
+        ));
     }
 
     let item = checklist
         .items_mut(cat)
         .iter_mut()
         .find(|i| i.id == id)
-        .unwrap();
+        .expect("verified by prior check");
 
     let mut changes = Vec::new();
 
@@ -275,22 +285,24 @@ pub fn update(
     Ok(())
 }
 
-pub fn complete(id: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn complete(id: &str) -> RexResult<()> {
     let (project_id, path, mut checklist) = load_checklist()?;
 
     let cat = checklist
         .find_category(id)
-        .ok_or_else(|| format!("Item \"{id}\" not found in checklist."))?;
+        .ok_or_else(|| RexError::NotFound(format!("Item \"{id}\" not found in checklist.")))?;
 
     if cat == ChecklistCategory::OutOfScope {
-        return Err("Cannot mark out-of-scope items as complete.".into());
+        return Err(RexError::Validation(
+            "Cannot mark out-of-scope items as complete.".into(),
+        ));
     }
 
     let item = checklist
         .items_mut(cat)
         .iter_mut()
         .find(|i| i.id == id)
-        .unwrap();
+        .expect("verified by prior check");
 
     item.complete = Some(true);
     checklist.save(&path)?;
@@ -304,22 +316,24 @@ pub fn complete(id: &str) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-pub fn uncomplete(id: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn uncomplete(id: &str) -> RexResult<()> {
     let (project_id, path, mut checklist) = load_checklist()?;
 
     let cat = checklist
         .find_category(id)
-        .ok_or_else(|| format!("Item \"{id}\" not found in checklist."))?;
+        .ok_or_else(|| RexError::NotFound(format!("Item \"{id}\" not found in checklist.")))?;
 
     if cat == ChecklistCategory::OutOfScope {
-        return Err("Cannot toggle completion on out-of-scope items.".into());
+        return Err(RexError::Validation(
+            "Cannot toggle completion on out-of-scope items.".into(),
+        ));
     }
 
     let item = checklist
         .items_mut(cat)
         .iter_mut()
         .find(|i| i.id == id)
-        .unwrap();
+        .expect("verified by prior check");
 
     item.complete = Some(false);
     checklist.save(&path)?;
@@ -333,12 +347,12 @@ pub fn uncomplete(id: &str) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-pub fn remove(id: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn remove(id: &str) -> RexResult<()> {
     let (project_id, path, mut checklist) = load_checklist()?;
 
     let cat = checklist
         .find_category(id)
-        .ok_or_else(|| format!("Item \"{id}\" not found in checklist."))?;
+        .ok_or_else(|| RexError::NotFound(format!("Item \"{id}\" not found in checklist.")))?;
 
     checklist.items_mut(cat).retain(|i| i.id != id);
     checklist.save(&path)?;
@@ -353,7 +367,7 @@ pub fn remove(id: &str) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-pub fn set_context(context: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn set_context(context: &str) -> RexResult<()> {
     let (project_id, path, mut checklist) = load_checklist()?;
 
     checklist.project_checklist.context = context.to_string();

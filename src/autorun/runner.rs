@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::Duration;
 
-use anyhow::{Context, Result};
+use crate::errors::{RexError, RexResult};
 use chrono::Utc;
 use clap::Parser;
 use tracing::{error, info, warn};
@@ -53,10 +53,10 @@ pub struct Args {
 }
 
 /// Main entry point — the core state machine.
-pub async fn run(args: Args) -> Result<ExitCode> {
+pub async fn run(args: Args) -> RexResult<ExitCode> {
     // Resolve project directory to absolute path
     let project_dir = std::fs::canonicalize(&args.project_dir)
-        .with_context(|| format!("cannot resolve project dir: {}", args.project_dir.display()))?;
+        .map_err(|e| RexError::FileRead { path: args.project_dir.display().to_string(), source: e })?;
 
     // Load .env from project dir
     let env_path = project_dir.join(".env");
@@ -68,21 +68,20 @@ pub async fn run(args: Args) -> Result<ExitCode> {
 
     // Read Telegram credentials from env
     let telegram_token = std::env::var("TELEGRAM_BOT_TOKEN")
-        .context("TELEGRAM_BOT_TOKEN not set (check .env)")?;
+        .map_err(|_| RexError::EnvVar { name: "TELEGRAM_BOT_TOKEN".into(), detail: "check .env".into() })?;
     let telegram_chat_id: i64 = std::env::var("TELEGRAM_CHAT_ID")
-        .context("TELEGRAM_CHAT_ID not set (check .env)")?
+        .map_err(|_| RexError::EnvVar { name: "TELEGRAM_CHAT_ID".into(), detail: "check .env".into() })?
         .parse()
-        .context("TELEGRAM_CHAT_ID must be a valid integer")?;
+        .map_err(|e| RexError::EnvVar { name: "TELEGRAM_CHAT_ID".into(), detail: format!("must be a valid integer: {e}") })?;
 
     // Load project info from projects.json
     // ProjectRegistry::load() reads from cwd, so we set cwd first.
     std::env::set_current_dir(&project_dir)
-        .with_context(|| format!("cannot chdir to {}", project_dir.display()))?;
+        .map_err(|e| RexError::FileRead { path: project_dir.display().to_string(), source: e })?;
 
-    let registry = ProjectRegistry::load()
-        .map_err(|e| anyhow::anyhow!("failed to load project registry: {e}"))?;
+    let registry = ProjectRegistry::load()?;
     let project = registry.active
-        .context("no active rex project — run `rex project set-active` first")?;
+        .ok_or_else(|| RexError::NotFound("no active rex project — run `rex project set-active` first".into()))?;
 
     let project_id = project.id.clone();
     let project_title = project.title.clone();
@@ -236,8 +235,7 @@ pub async fn run(args: Args) -> Result<ExitCode> {
     )).await;
 
     // Signal handling + main loop
-    let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-        .context("failed to register SIGTERM handler")?;
+    let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
 
     let main_result = tokio::select! {
         _ = tokio::signal::ctrl_c() => {
@@ -280,7 +278,7 @@ async fn main_loop(
     tg: &mut TelegramClient,
     stats: &mut RunStats,
     invocation_count: &mut u32,
-) -> Result<ExitCode> {
+) -> RexResult<ExitCode> {
     let mut consecutive_errors = 0u32;
 
     loop {

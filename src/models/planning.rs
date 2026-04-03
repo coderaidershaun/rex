@@ -1,3 +1,4 @@
+use crate::errors::{RexError, RexResult};
 use crate::models::project_status::Agent;
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
@@ -129,24 +130,26 @@ pub struct PlanningStore {
 }
 
 impl PlanningStore {
-    pub fn load(project_dir: &Path) -> Result<Self, String> {
+    pub fn load(project_dir: &Path) -> RexResult<Self> {
         let path = project_dir.join("planning/planning.json");
         if !path.exists() {
             return Ok(Self::default());
         }
-        let contents =
-            fs::read_to_string(&path).map_err(|e| format!("Failed to read planning.json: {e}"))?;
-        serde_json::from_str(&contents).map_err(|e| format!("Failed to parse planning.json: {e}"))
+        let contents = fs::read_to_string(&path)
+            .map_err(|e| RexError::FileRead { path: path.display().to_string(), source: e })?;
+        serde_json::from_str(&contents)
+            .map_err(|e| RexError::JsonParse { context: "planning.json".into(), source: e })
     }
 
-    pub fn save(&self, project_dir: &Path) -> Result<(), String> {
+    pub fn save(&self, project_dir: &Path) -> RexResult<()> {
         let dir = project_dir.join("planning");
-        fs::create_dir_all(&dir).map_err(|e| format!("Failed to create planning dir: {e}"))?;
+        fs::create_dir_all(&dir)
+            .map_err(|e| RexError::DirCreate { path: dir.display().to_string(), source: e })?;
         let path = dir.join("planning.json");
-        let json =
-            serde_json::to_string_pretty(self).map_err(|e| format!("Failed to serialize: {e}"))?;
+        let json = serde_json::to_string_pretty(self)
+            .map_err(|e| RexError::JsonSerialize { context: "planning.json".into(), source: e })?;
         fs::write(&path, format!("{json}\n"))
-            .map_err(|e| format!("Failed to write planning.json: {e}"))?;
+            .map_err(|e| RexError::FileWrite { path: path.display().to_string(), source: e })?;
         Ok(())
     }
 }
@@ -195,16 +198,16 @@ pub fn apply_checklist_mods(
     remove: &[String],
     check: &[String],
     uncheck: &[String],
-) -> Result<(), String> {
+) -> RexResult<()> {
     for id in remove {
         checklist.retain(|item| item.id != *id);
     }
     for entry in add {
         let (id, text) = entry
             .split_once(':')
-            .ok_or_else(|| format!("Invalid checklist format: \"{entry}\". Expected \"id:text\"."))?;
+            .ok_or_else(|| RexError::Validation(format!("Invalid checklist format: \"{entry}\". Expected \"id:text\".")))?;
         if checklist.iter().any(|i| i.id == id) {
-            return Err(format!("Checklist item \"{id}\" already exists."));
+            return Err(RexError::AlreadyExists(format!("Checklist item \"{id}\" already exists.")));
         }
         checklist.push(PlanningChecklistItem {
             id: id.to_string(),
@@ -216,14 +219,14 @@ pub fn apply_checklist_mods(
         let item = checklist
             .iter_mut()
             .find(|i| i.id == *id)
-            .ok_or_else(|| format!("Checklist item \"{id}\" not found."))?;
+            .ok_or_else(|| RexError::NotFound(format!("Checklist item \"{id}\" not found.")))?;
         item.done = true;
     }
     for id in uncheck {
         let item = checklist
             .iter_mut()
             .find(|i| i.id == *id)
-            .ok_or_else(|| format!("Checklist item \"{id}\" not found."))?;
+            .ok_or_else(|| RexError::NotFound(format!("Checklist item \"{id}\" not found.")))?;
         item.done = false;
     }
     Ok(())
@@ -237,7 +240,7 @@ pub fn apply_all_list_mods(
     downstream: &mut Vec<String>,
     checklist: &mut Vec<PlanningChecklistItem>,
     mods: &ListMods,
-) -> Result<(), String> {
+) -> RexResult<()> {
     apply_list_mods(references, &mods.add_references, &mods.remove_references);
     apply_list_mods(outputs, &mods.add_outputs, &mods.remove_outputs);
     apply_list_mods(upstream, &mods.add_upstream, &mods.remove_upstream);

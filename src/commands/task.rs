@@ -1,3 +1,4 @@
+use crate::errors::{RexError, RexResult};
 use crate::models::planning::{
     apply_all_list_mods, ListMods, PlanningStatus, PlanningStore, Task,
 };
@@ -7,9 +8,11 @@ use console::style;
 use std::collections::{HashSet, VecDeque};
 use std::path::Path;
 
-fn load_store() -> Result<(String, PlanningStore), Box<dyn std::error::Error>> {
+fn load_store() -> RexResult<(String, PlanningStore)> {
     let registry = ProjectRegistry::load()?;
-    let project = registry.active.ok_or("No active project.")?;
+    let project = registry
+        .active
+        .ok_or_else(|| RexError::NotFound("No active project.".into()))?;
     let project_dir = format!("rex/{}", project.id);
     let store = PlanningStore::load(Path::new(&project_dir))?;
     Ok((project_dir, store))
@@ -61,21 +64,27 @@ pub fn upsert(
     agent_skills: Vec<String>,
     agent_count: Option<u32>,
     mods: ListMods,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> RexResult<()> {
     let (project_dir, mut store) = load_store()?;
 
     let is_new = !store.tasks.iter().any(|t| t.id == id);
 
     if is_new {
-        let objective_id =
-            objective.ok_or("--objective is required when creating a new task.")?;
-        let title = title.ok_or("--title is required when creating a new task.")?;
-        let description =
-            description.ok_or("--description is required when creating a new task.")?;
+        let objective_id = objective.ok_or_else(|| {
+            RexError::Validation("--objective is required when creating a new task.".into())
+        })?;
+        let title = title.ok_or_else(|| {
+            RexError::Validation("--title is required when creating a new task.".into())
+        })?;
+        let description = description.ok_or_else(|| {
+            RexError::Validation("--description is required when creating a new task.".into())
+        })?;
 
         // Validate parent objective exists
         if !store.objectives.iter().any(|o| o.id == objective_id) {
-            return Err(format!("Objective \"{objective_id}\" not found.").into());
+            return Err(RexError::NotFound(format!(
+                "Objective \"{objective_id}\" not found."
+            )));
         }
 
         let agent = build_agent(None, agent_model, agent_effort, agent_skills, agent_count);
@@ -112,13 +121,19 @@ pub fn upsert(
             }
         }
     } else {
-        let task = store.tasks.iter_mut().find(|t| t.id == id).unwrap();
+        let task = store
+            .tasks
+            .iter_mut()
+            .find(|t| t.id == id)
+            .expect("verified by is_new check");
 
         // Handle re-parenting
         if let Some(ref new_objective) = objective {
             if *new_objective != task.objective_id {
                 if !store.objectives.iter().any(|o| o.id == *new_objective) {
-                    return Err(format!("Objective \"{new_objective}\" not found.").into());
+                    return Err(RexError::NotFound(format!(
+                        "Objective \"{new_objective}\" not found."
+                    )));
                 }
                 let old_objective = task.objective_id.clone();
                 task.objective_id = new_objective.clone();
@@ -136,7 +151,11 @@ pub fn upsert(
             }
         }
 
-        let task = store.tasks.iter_mut().find(|t| t.id == id).unwrap();
+        let task = store
+            .tasks
+            .iter_mut()
+            .find(|t| t.id == id)
+            .expect("verified by is_new check");
 
         if let Some(t) = title {
             task.title = t;
@@ -195,7 +214,11 @@ pub fn upsert(
 
     store.save(Path::new(&project_dir))?;
 
-    let task = store.tasks.iter().find(|t| t.id == id).unwrap();
+    let task = store
+        .tasks
+        .iter()
+        .find(|t| t.id == id)
+        .expect("just created or modified");
     let action = if is_new { "Created" } else { "Updated" };
 
     eprintln!(
@@ -207,14 +230,14 @@ pub fn upsert(
     Ok(())
 }
 
-pub fn get(id: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn get(id: &str) -> RexResult<()> {
     let (_project_dir, store) = load_store()?;
 
     let task = store
         .tasks
         .iter()
         .find(|t| t.id == id)
-        .ok_or_else(|| format!("Task \"{id}\" not found."))?;
+        .ok_or_else(|| RexError::NotFound(format!("Task \"{id}\" not found.")))?;
 
     println!("{}", serde_json::to_string_pretty(task)?);
     Ok(())
@@ -223,7 +246,7 @@ pub fn get(id: &str) -> Result<(), Box<dyn std::error::Error>> {
 pub fn list(
     objective: Option<String>,
     status: Option<PlanningStatus>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> RexResult<()> {
     let (_project_dir, store) = load_store()?;
 
     let tasks: Vec<&Task> = store
@@ -237,11 +260,13 @@ pub fn list(
     Ok(())
 }
 
-pub fn next() -> Result<(), Box<dyn std::error::Error>> {
+pub fn next() -> RexResult<()> {
     let (_project_dir, store) = load_store()?;
 
     if store.tasks.is_empty() {
-        return Err("No tasks exist in the planning store.".into());
+        return Err(RexError::NotFound(
+            "No tasks exist in the planning store.".into(),
+        ));
     }
 
     // --- Build eligibility sets at milestone and objective level ---
@@ -321,11 +346,13 @@ pub fn next() -> Result<(), Box<dyn std::error::Error>> {
             .iter()
             .all(|t| t.status == PlanningStatus::Completed);
         if all_done {
-            return Err("NO TASKS - Please mark as item complete".into());
+            return Err(RexError::Validation(
+                "NO TASKS - Please mark as item complete".into(),
+            ));
         }
-        return Err(
+        return Err(RexError::Validation(
             "No eligible tasks. Remaining tasks are blocked by unmet dependencies.".into(),
-        );
+        ));
     }
 
     // --- Score candidates ---
@@ -450,14 +477,14 @@ fn transitive_downstream_count(task_id: &str, tasks: &[Task]) -> usize {
     visited.len()
 }
 
-pub fn remove(id: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn remove(id: &str) -> RexResult<()> {
     let (project_dir, mut store) = load_store()?;
 
     let pos = store
         .tasks
         .iter()
         .position(|t| t.id == id)
-        .ok_or_else(|| format!("Task \"{id}\" not found."))?;
+        .ok_or_else(|| RexError::NotFound(format!("Task \"{id}\" not found.")))?;
 
     let objective_id = store.tasks[pos].objective_id.clone();
     store.tasks.remove(pos);

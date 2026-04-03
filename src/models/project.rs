@@ -1,3 +1,4 @@
+use crate::errors::{RexError, RexResult};
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -92,27 +93,27 @@ impl ProjectRegistry {
         PathBuf::from("rex/projects.json")
     }
 
-    pub fn load() -> Result<Self, String> {
+    pub fn load() -> RexResult<Self> {
         let path = Self::registry_path();
         if !path.exists() {
             return Ok(Self::default());
         }
         let contents = fs::read_to_string(&path)
-            .map_err(|e| format!("Failed to read projects.json: {e}"))?;
+            .map_err(|e| RexError::FileRead { path: path.display().to_string(), source: e })?;
         serde_json::from_str(&contents)
-            .map_err(|e| format!("Failed to parse projects.json: {e}"))
+            .map_err(|e| RexError::JsonParse { context: "projects.json".into(), source: e })
     }
 
-    pub fn save(&self) -> Result<(), String> {
+    pub fn save(&self) -> RexResult<()> {
         let path = Self::registry_path();
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)
-                .map_err(|e| format!("Failed to create directory: {e}"))?;
+                .map_err(|e| RexError::DirCreate { path: parent.display().to_string(), source: e })?;
         }
         let json = serde_json::to_string_pretty(self)
-            .map_err(|e| format!("Failed to serialize: {e}"))?;
+            .map_err(|e| RexError::JsonSerialize { context: "projects.json".into(), source: e })?;
         fs::write(&path, format!("{json}\n"))
-            .map_err(|e| format!("Failed to write projects.json: {e}"))?;
+            .map_err(|e| RexError::FileWrite { path: path.display().to_string(), source: e })?;
         Ok(())
     }
 
@@ -136,15 +137,15 @@ impl ProjectRegistry {
         Some(self.inactive.remove(pos))
     }
 
-    pub fn activate_project(&mut self, id: &str) -> Result<(), String> {
+    pub fn activate_project(&mut self, id: &str) -> RexResult<()> {
         if self.active.as_ref().is_some_and(|a| a.id == id) {
-            return Err(format!("Project \"{id}\" is already the active project."));
+            return Err(RexError::Validation(format!("Project \"{id}\" is already the active project.")));
         }
         let pos = self
             .inactive
             .iter()
             .position(|p| p.id == id)
-            .ok_or_else(|| format!("Project \"{id}\" not found."))?;
+            .ok_or_else(|| RexError::NotFound(format!("Project \"{id}\" not found.")))?;
         let project = self.inactive.remove(pos);
         self.set_active(project);
         Ok(())

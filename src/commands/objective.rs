@@ -1,3 +1,4 @@
+use crate::errors::{RexError, RexResult};
 use crate::models::planning::{
     apply_all_list_mods, ListMods, Objective, PlanningStatus, PlanningStore,
 };
@@ -5,9 +6,11 @@ use crate::models::project::ProjectRegistry;
 use console::style;
 use std::path::Path;
 
-fn load_store() -> Result<(String, PlanningStore), Box<dyn std::error::Error>> {
+fn load_store() -> RexResult<(String, PlanningStore)> {
     let registry = ProjectRegistry::load()?;
-    let project = registry.active.ok_or("No active project.")?;
+    let project = registry
+        .active
+        .ok_or_else(|| RexError::NotFound("No active project.".into()))?;
     let project_dir = format!("rex/{}", project.id);
     let store = PlanningStore::load(Path::new(&project_dir))?;
     Ok((project_dir, store))
@@ -20,21 +23,27 @@ pub fn upsert(
     description: Option<String>,
     status: Option<PlanningStatus>,
     mods: ListMods,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> RexResult<()> {
     let (project_dir, mut store) = load_store()?;
 
     let is_new = !store.objectives.iter().any(|o| o.id == id);
 
     if is_new {
-        let milestone_id =
-            milestone.ok_or("--milestone is required when creating a new objective.")?;
-        let title = title.ok_or("--title is required when creating a new objective.")?;
-        let description =
-            description.ok_or("--description is required when creating a new objective.")?;
+        let milestone_id = milestone.ok_or_else(|| {
+            RexError::Validation("--milestone is required when creating a new objective.".into())
+        })?;
+        let title = title.ok_or_else(|| {
+            RexError::Validation("--title is required when creating a new objective.".into())
+        })?;
+        let description = description.ok_or_else(|| {
+            RexError::Validation("--description is required when creating a new objective.".into())
+        })?;
 
         // Validate parent milestone exists
         if !store.milestones.iter().any(|m| m.id == milestone_id) {
-            return Err(format!("Milestone \"{milestone_id}\" not found.").into());
+            return Err(RexError::NotFound(format!(
+                "Milestone \"{milestone_id}\" not found."
+            )));
         }
 
         let mut objective = Objective {
@@ -69,13 +78,19 @@ pub fn upsert(
             }
         }
     } else {
-        let objective = store.objectives.iter_mut().find(|o| o.id == id).unwrap();
+        let objective = store
+            .objectives
+            .iter_mut()
+            .find(|o| o.id == id)
+            .expect("verified by is_new check");
 
         // Handle re-parenting
         if let Some(ref new_milestone) = milestone {
             if *new_milestone != objective.milestone_id {
                 if !store.milestones.iter().any(|m| m.id == *new_milestone) {
-                    return Err(format!("Milestone \"{new_milestone}\" not found.").into());
+                    return Err(RexError::NotFound(format!(
+                        "Milestone \"{new_milestone}\" not found."
+                    )));
                 }
                 let old_milestone = objective.milestone_id.clone();
                 objective.milestone_id = new_milestone.clone();
@@ -93,7 +108,11 @@ pub fn upsert(
             }
         }
 
-        let objective = store.objectives.iter_mut().find(|o| o.id == id).unwrap();
+        let objective = store
+            .objectives
+            .iter_mut()
+            .find(|o| o.id == id)
+            .expect("verified by is_new check");
 
         if let Some(t) = title {
             objective.title = t;
@@ -144,7 +163,11 @@ pub fn upsert(
 
     store.save(Path::new(&project_dir))?;
 
-    let objective = store.objectives.iter().find(|o| o.id == id).unwrap();
+    let objective = store
+        .objectives
+        .iter()
+        .find(|o| o.id == id)
+        .expect("just created or modified");
     let action = if is_new { "Created" } else { "Updated" };
 
     eprintln!(
@@ -156,14 +179,14 @@ pub fn upsert(
     Ok(())
 }
 
-pub fn get(id: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn get(id: &str) -> RexResult<()> {
     let (_project_dir, store) = load_store()?;
 
     let objective = store
         .objectives
         .iter()
         .find(|o| o.id == id)
-        .ok_or_else(|| format!("Objective \"{id}\" not found."))?;
+        .ok_or_else(|| RexError::NotFound(format!("Objective \"{id}\" not found.")))?;
 
     println!("{}", serde_json::to_string_pretty(objective)?);
     Ok(())
@@ -172,7 +195,7 @@ pub fn get(id: &str) -> Result<(), Box<dyn std::error::Error>> {
 pub fn list(
     milestone: Option<String>,
     status: Option<PlanningStatus>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> RexResult<()> {
     let (_project_dir, store) = load_store()?;
 
     let objectives: Vec<&Objective> = store
@@ -186,14 +209,14 @@ pub fn list(
     Ok(())
 }
 
-pub fn remove(id: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn remove(id: &str) -> RexResult<()> {
     let (project_dir, mut store) = load_store()?;
 
     let pos = store
         .objectives
         .iter()
         .position(|o| o.id == id)
-        .ok_or_else(|| format!("Objective \"{id}\" not found."))?;
+        .ok_or_else(|| RexError::NotFound(format!("Objective \"{id}\" not found.")))?;
 
     let milestone_id = store.objectives[pos].milestone_id.clone();
     store.objectives.remove(pos);

@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use anyhow::{bail, Context, Result};
+use crate::errors::{RexError, RexResult};
 use serde_json::Value;
 use tracing::{debug, error, info, warn};
 
@@ -29,7 +29,7 @@ impl TelegramClient {
     }
 
     /// Send a message and return the `message_id`. Retries with exponential backoff.
-    pub async fn send_message(&self, text: &str) -> Result<i64> {
+    pub async fn send_message(&self, text: &str) -> RexResult<i64> {
         let body = serde_json::json!({
             "chat_id": self.chat_id,
             "text": text,
@@ -48,18 +48,18 @@ impl TelegramClient {
             match resp {
                 Ok(r) if r.status().is_success() => {
                     let json: Value = r.json().await
-                        .context("failed to parse sendMessage response")?;
+                        .map_err(|e| RexError::Telegram(format!("failed to parse sendMessage response: {e}")))?;
                     let msg_id = json["result"]["message_id"]
                         .as_i64()
-                        .context("missing message_id in sendMessage response")?;
+                        .ok_or_else(|| RexError::Telegram("missing message_id in sendMessage response".into()))?;
                     debug!(msg_id, "telegram message sent");
                     return Ok(msg_id);
                 }
                 Ok(r) if r.status() == 401 || r.status() == 403 => {
-                    bail!(
-                        "telegram auth error ({}): check TELEGRAM_BOT_TOKEN",
+                    return Err(RexError::Telegram(format!(
+                        "auth error ({}): check TELEGRAM_BOT_TOKEN",
                         r.status()
-                    );
+                    )));
                 }
                 Ok(r) if (r.status() == 429 || r.status().is_server_error()) && attempt <= 5 => {
                     let delay = backoff_delay(attempt);
@@ -74,7 +74,7 @@ impl TelegramClient {
                 Ok(r) => {
                     let status = r.status();
                     let body_text = r.text().await.unwrap_or_default();
-                    bail!("telegram sendMessage failed ({status}): {body_text}");
+                    return Err(RexError::Telegram(format!("sendMessage failed ({status}): {body_text}")));
                 }
                 Err(e) if attempt <= 5 => {
                     let delay = backoff_delay(attempt);
@@ -86,14 +86,14 @@ impl TelegramClient {
                     tokio::time::sleep(delay).await;
                 }
                 Err(e) => {
-                    bail!("telegram sendMessage failed after {attempt} attempts: {e}");
+                    return Err(RexError::Telegram(format!("sendMessage failed after {attempt} attempts: {e}")));
                 }
             }
         }
     }
 
     /// Long-poll `getUpdates` until a reply arrives from the correct chat, or timeout.
-    pub async fn wait_for_reply(&mut self, timeout: Duration) -> Result<String> {
+    pub async fn wait_for_reply(&mut self, timeout: Duration) -> RexResult<String> {
         let deadline = tokio::time::Instant::now() + timeout;
         info!(
             timeout_secs = timeout.as_secs(),
@@ -102,7 +102,7 @@ impl TelegramClient {
 
         loop {
             if tokio::time::Instant::now() >= deadline {
-                bail!("human reply timeout exceeded ({} days)", timeout.as_secs() / 86400);
+                return Err(RexError::Telegram(format!("human reply timeout exceeded ({} days)", timeout.as_secs() / 86400)));
             }
 
             let body = serde_json::json!({

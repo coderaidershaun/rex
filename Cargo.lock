@@ -1317,7 +1317,6 @@ dependencies = [
 name = "rex-cli"
 version = "0.1.21"
 dependencies = [
- "anyhow",
  "chrono",
  "clap",
  "console",

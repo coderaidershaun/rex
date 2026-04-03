@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::time::Duration;
 
-use anyhow::{bail, Context, Result};
+use crate::errors::{RexError, RexResult};
 use tokio::io::AsyncReadExt;
 use tracing::{debug, error, info, warn};
 
@@ -48,7 +48,7 @@ pub fn spawn_claude(
     session_name: &str,
     max_turns: u32,
     max_budget_usd: f64,
-) -> Result<SpawnedClaude> {
+) -> RexResult<SpawnedClaude> {
     let mut cmd = tokio::process::Command::new("claude");
     cmd.current_dir(project_dir);
 
@@ -84,7 +84,9 @@ pub fn spawn_claude(
     cmd.kill_on_drop(true);
 
     info!("spawning claude process");
-    let child = cmd.spawn().context("failed to spawn claude process")?;
+    let child = cmd
+        .spawn()
+        .map_err(|e| RexError::ClaudeProcess(format!("failed to spawn claude process: {e}")))?;
 
     let pid = child.id().unwrap_or(0);
     let pgid = pid as i32; // group leader = same as PID due to setpgid(0,0)
@@ -97,7 +99,7 @@ pub fn spawn_claude(
 pub async fn await_claude(
     spawned: SpawnedClaude,
     timeout: Duration,
-) -> Result<(ClaudeOutput, i32)> {
+) -> RexResult<(ClaudeOutput, i32)> {
     let mut child = spawned.child;
     let pgid = spawned.pgid;
 
@@ -127,7 +129,7 @@ pub async fn await_claude(
         );
 
         let status = child.wait().await?;
-        Ok::<_, anyhow::Error>((status, stdout_buf, stderr_buf))
+        Ok::<_, RexError>((status, stdout_buf, stderr_buf))
     })
     .await;
 
@@ -143,17 +145,24 @@ pub async fn await_claude(
             if !status.success() {
                 let code = status.code().unwrap_or(-1);
                 if is_retryable(&stderr_str) {
-                    bail!("claude exited with code {code} (retryable): {}", stderr_str.chars().take(200).collect::<String>());
+                    return Err(RexError::ClaudeProcess(format!(
+                        "claude exited with code {code} (retryable): {}",
+                        stderr_str.chars().take(200).collect::<String>()
+                    )));
                 }
-                bail!("claude exited with code {code}: {}", stderr_str.chars().take(200).collect::<String>());
+                return Err(RexError::ClaudeProcess(format!(
+                    "claude exited with code {code}: {}",
+                    stderr_str.chars().take(200).collect::<String>()
+                )));
             }
 
             let output: ClaudeOutput = serde_json::from_str(&stdout_str)
-                .with_context(|| {
-                    format!(
-                        "failed to parse claude JSON output (first 300 chars): {}",
+                .map_err(|e| RexError::JsonParse {
+                    context: format!(
+                        "claude JSON output (first 300 chars): {}",
                         stdout_str.chars().take(300).collect::<String>()
-                    )
+                    ),
+                    source: e,
                 })?;
 
             Ok((output, pgid))
@@ -162,13 +171,16 @@ pub async fn await_claude(
             // Process error (not timeout)
             error!("claude process error: {e}");
             kill_process_group(pgid).await;
-            bail!("claude process error: {e}");
+            Err(RexError::ClaudeProcess(format!("process error: {e}")))
         }
         Err(_) => {
             // Timeout
             warn!(pgid, "claude process timed out, killing process group");
             kill_process_group(pgid).await;
-            bail!("claude process timed out after {} minutes", timeout.as_secs() / 60);
+            Err(RexError::ClaudeProcess(format!(
+                "claude process timed out after {} minutes",
+                timeout.as_secs() / 60
+            )))
         }
     }
 }
@@ -176,10 +188,15 @@ pub async fn await_claude(
 /// Parse the `OperatorResult` from the result text.
 ///
 /// Searches backward for `{"status":` and parses the JSON object from that position.
-pub fn parse_operator_result(result_text: &str) -> Result<OperatorResult> {
+pub fn parse_operator_result(result_text: &str) -> RexResult<OperatorResult> {
     let marker = r#"{"status":"#;
-    let pos = result_text.rfind(marker)
-        .context("no operator result JSON found in claude output (missing {\"status\":)")?;
+    let pos = result_text
+        .rfind(marker)
+        .ok_or_else(|| {
+            RexError::ClaudeProcess(
+                "no operator result JSON found in claude output (missing {\"status\":)".into(),
+            )
+        })?;
 
     let from_marker = &result_text[pos..];
 
@@ -201,11 +218,15 @@ pub fn parse_operator_result(result_text: &str) -> Result<OperatorResult> {
         }
     }
 
-    let end = end.context("no matching closing brace for operator result JSON")?;
+    let end = end.ok_or_else(|| {
+        RexError::ClaudeProcess("no matching closing brace for operator result JSON".into())
+    })?;
     let json_str = &from_marker[..end];
 
-    serde_json::from_str::<OperatorResult>(json_str)
-        .with_context(|| format!("failed to parse operator result JSON: {json_str}"))
+    serde_json::from_str::<OperatorResult>(json_str).map_err(|e| RexError::JsonParse {
+        context: format!("operator result JSON: {json_str}"),
+        source: e,
+    })
 }
 
 /// Kill a process group: SIGTERM, wait 5s, then SIGKILL.

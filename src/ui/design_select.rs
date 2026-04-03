@@ -1,3 +1,4 @@
+use crate::errors::{RexError, RexResult};
 use crate::models::project::{Category, Complexity};
 use crate::models::project_status::DESIGN_ITEMS;
 use console::style;
@@ -229,7 +230,7 @@ fn render(
 pub fn design_select(
     complexity: &Complexity,
     category: &Category,
-) -> Result<DesignSelectResult, Box<dyn std::error::Error>> {
+) -> RexResult<DesignSelectResult> {
     let mut stdout = io::stdout();
     let total_rows = ACTION_ROWS + DESIGN_ITEMS.len();
 
@@ -363,7 +364,7 @@ pub fn design_select(
                         )?;
                     }
                     KeyCode::Char('c') if modifiers.contains(KeyModifiers::CONTROL) => {
-                        break Err("Cancelled".into());
+                        break Err(RexError::Cancelled);
                     }
                     _ => {}
                 }
