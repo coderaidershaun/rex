@@ -34,7 +34,12 @@ fn resolve_directory(
     id: &str,
 ) -> RexResult<String> {
     let cwd = std::env::current_dir()?;
-    let candidate = cwd.join(id);
+    let libs_dir = cwd.join("libs");
+    let candidate = if libs_dir.is_dir() {
+        libs_dir.join(id)
+    } else {
+        cwd.join(id)
+    };
 
     if candidate.is_dir() {
         let display_path = candidate.display().to_string();
@@ -55,9 +60,14 @@ fn resolve_directory(
     }
 
     let cwd_for_validator = cwd.clone();
+    let default_dir = if libs_dir.is_dir() {
+        format!("libs/{id}")
+    } else {
+        id.to_string()
+    };
     let directory = text_input(
         "  Directory \u{203a}",
-        id,
+        &default_dir,
         Some(&move |input: &str| {
             let path = Path::new(input);
             let resolved = if path.is_absolute() {
