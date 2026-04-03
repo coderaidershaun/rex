@@ -151,16 +151,19 @@ pub async fn run(args: Args) -> Result<ExitCode> {
                     let timeout = Duration::from_secs(args.process_timeout_mins * 60);
                     let session_name = format!("rex-autorun-{project_id}-{invocation_count}");
 
-                    match claude::invoke_claude(
+                    let spawn_result = claude::spawn_claude(
                         &project_dir,
                         &reply,
                         Some(&session_id),
                         &session_name,
                         args.max_turns,
                         args.max_budget_usd,
-                        timeout,
-                    )
-                    .await
+                    );
+
+                    match async {
+                        let spawned = spawn_result?;
+                        claude::await_claude(spawned, timeout).await
+                    }.await
                     {
                         Ok((output, _pgid)) => {
                             let cost = output.cost.total_cost;
@@ -324,16 +327,25 @@ async fn main_loop(
             warn!("failed to write running state: {e}");
         }
 
-        // Invoke claude
-        let invoke_result = claude::invoke_claude(
-            project_dir,
-            "/rex-operator",
-            None,
-            &session_name,
-            args.max_turns,
-            args.max_budget_usd,
-            timeout,
-        )
+        // Spawn claude and record PID for orphan cleanup
+        let invoke_result = async {
+            let spawned = claude::spawn_claude(
+                project_dir,
+                "/rex-operator",
+                None,
+                &session_name,
+                args.max_turns,
+                args.max_budget_usd,
+            )?;
+
+            // Update state with PID/PGID so crash recovery can kill orphans
+            let mut with_pid = running_state.clone();
+            with_pid.claude_pid = Some(spawned.pid);
+            with_pid.claude_pgid = Some(spawned.pgid);
+            let _ = state::write_state_atomic(state_path, &with_pid);
+
+            claude::await_claude(spawned, timeout).await
+        }
         .await;
 
         match invoke_result {
@@ -455,15 +467,17 @@ async fn main_loop(
                                     state::delete_state(state_path);
 
                                     // Resume the session with the user's reply
-                                    let resume_result = claude::invoke_claude(
-                                        project_dir,
-                                        &reply,
-                                        Some(&output.session_id),
-                                        &session_name,
-                                        args.max_turns,
-                                        args.max_budget_usd,
-                                        timeout,
-                                    )
+                                    let resume_result = async {
+                                        let spawned = claude::spawn_claude(
+                                            project_dir,
+                                            &reply,
+                                            Some(&output.session_id),
+                                            &session_name,
+                                            args.max_turns,
+                                            args.max_budget_usd,
+                                        )?;
+                                        claude::await_claude(spawned, timeout).await
+                                    }
                                     .await;
 
                                     match resume_result {

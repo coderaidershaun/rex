@@ -27,18 +27,28 @@ Blocked on human input (interactive item — onboarding, user-acceptance, etc.):
 Error (unrecoverable problem):
 {"status": "error", "message": "<what went wrong>"}"#;
 
-/// Invoke `claude -p` with process group isolation.
+/// A spawned claude process, ready to be awaited.
 ///
-/// Returns the parsed `ClaudeOutput` and the process group ID for cleanup.
-pub async fn invoke_claude(
+/// Split from `await_claude` so the caller can write the PID to the
+/// state file between spawn and await — enabling orphan cleanup on crash.
+pub struct SpawnedClaude {
+    pub child: tokio::process::Child,
+    pub pid: u32,
+    pub pgid: i32,
+}
+
+/// Spawn `claude -p` with process group isolation.
+///
+/// Returns immediately with the child handle and PID/PGID. Call
+/// `await_claude()` to wait for completion and parse output.
+pub fn spawn_claude(
     project_dir: &Path,
     prompt: &str,
     session_id_to_resume: Option<&str>,
     session_name: &str,
     max_turns: u32,
     max_budget_usd: f64,
-    timeout: Duration,
-) -> Result<(ClaudeOutput, i32)> {
+) -> Result<SpawnedClaude> {
     let mut cmd = tokio::process::Command::new("claude");
     cmd.current_dir(project_dir);
 
@@ -74,26 +84,47 @@ pub async fn invoke_claude(
     cmd.kill_on_drop(true);
 
     info!("spawning claude process");
-    let mut child = cmd.spawn().context("failed to spawn claude process")?;
+    let child = cmd.spawn().context("failed to spawn claude process")?;
 
     let pid = child.id().unwrap_or(0);
     let pgid = pid as i32; // group leader = same as PID due to setpgid(0,0)
     info!(pid, pgid, "claude process started");
 
-    // Await with timeout
-    let result = tokio::time::timeout(timeout, async {
-        let mut stdout_buf = Vec::new();
-        let mut stderr_buf = Vec::new();
+    Ok(SpawnedClaude { child, pid, pgid })
+}
 
-        if let Some(ref mut stdout) = child.stdout {
-            stdout.read_to_end(&mut stdout_buf).await.ok();
-        }
-        // We need to read stderr concurrently but child.wait() consumes.
-        // Instead, take the handles and read them, then wait.
-        // Actually, let's use wait_with_output approach via reading then waiting.
-        if let Some(ref mut stderr) = child.stderr {
-            stderr.read_to_end(&mut stderr_buf).await.ok();
-        }
+/// Await a spawned claude process with timeout, returning parsed output.
+pub async fn await_claude(
+    spawned: SpawnedClaude,
+    timeout: Duration,
+) -> Result<(ClaudeOutput, i32)> {
+    let mut child = spawned.child;
+    let pgid = spawned.pgid;
+
+    // Read stdout and stderr concurrently to avoid pipe deadlock.
+    // If we read sequentially (stdout then stderr), a child that fills the
+    // stderr pipe buffer (~64KB) before finishing stdout will block, while
+    // we block reading stdout — classic deadlock.
+    let result = tokio::time::timeout(timeout, async {
+        let mut stdout_handle = child.stdout.take();
+        let mut stderr_handle = child.stderr.take();
+
+        let (stdout_buf, stderr_buf) = tokio::join!(
+            async {
+                let mut buf = Vec::new();
+                if let Some(ref mut stdout) = stdout_handle {
+                    stdout.read_to_end(&mut buf).await.ok();
+                }
+                buf
+            },
+            async {
+                let mut buf = Vec::new();
+                if let Some(ref mut stderr) = stderr_handle {
+                    stderr.read_to_end(&mut buf).await.ok();
+                }
+                buf
+            },
+        );
 
         let status = child.wait().await?;
         Ok::<_, anyhow::Error>((status, stdout_buf, stderr_buf))
@@ -135,7 +166,7 @@ pub async fn invoke_claude(
         }
         Err(_) => {
             // Timeout
-            warn!(pid, "claude process timed out, killing process group");
+            warn!(pgid, "claude process timed out, killing process group");
             kill_process_group(pgid).await;
             bail!("claude process timed out after {} minutes", timeout.as_secs() / 60);
         }

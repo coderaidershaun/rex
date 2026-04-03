@@ -39,7 +39,7 @@ pub struct ClaudeCost {
 }
 
 /// Persisted to `.rex-autorun.json` for crash recovery.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutorunState {
     pub phase: AutorunPhase,
     pub session_id: Option<String>,
@@ -54,7 +54,7 @@ pub struct AutorunState {
     pub stats: RunStats,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum AutorunPhase {
     Running,
