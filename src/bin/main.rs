@@ -16,14 +16,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Initialize the rex harness in the current directory
-    Init {
-        /// Use Claude Code (skip interactive prompt)
-        #[arg(long)]
-        claude: bool,
-        /// Use Cursor (skip interactive prompt)
-        #[arg(long)]
-        cursor: bool,
-    },
+    Init,
     /// Manage projects
     Project {
         #[command(subcommand)]
@@ -449,12 +442,6 @@ enum MonoAction {
         /// Name of the monorepo directory to create
         #[arg(long)]
         name: String,
-        /// Use Claude Code (skip interactive prompt)
-        #[arg(long)]
-        claude: bool,
-        /// Use Cursor (skip interactive prompt)
-        #[arg(long)]
-        cursor: bool,
     },
 }
 
@@ -531,16 +518,7 @@ fn main() {
 
     let result = match cli.command {
         // -- Init -----------------------------------------------------------
-        Commands::Init { claude, cursor } => {
-            let agent_os = if claude {
-                Some(rex_cli::commands::init::AgentOs::Claude)
-            } else if cursor {
-                Some(rex_cli::commands::init::AgentOs::Cursor)
-            } else {
-                None
-            };
-            rex_cli::commands::init::init(agent_os)
-        }
+        Commands::Init => rex_cli::commands::init::init(),
 
         // -- Project --------------------------------------------------------
         Commands::Project { action } => match action {
@@ -666,16 +644,7 @@ fn main() {
 
         // -- Mono -----------------------------------------------------------
         Commands::Mono { action } => match action {
-            MonoAction::Init { name, claude, cursor } => {
-                let agent_os = if claude {
-                    Some(rex_cli::commands::init::AgentOs::Claude)
-                } else if cursor {
-                    Some(rex_cli::commands::init::AgentOs::Cursor)
-                } else {
-                    None
-                };
-                rex_cli::commands::mono::init(&name, agent_os)
-            }
+            MonoAction::Init { name } => rex_cli::commands::mono::init(&name)
         },
 
         // -- History --------------------------------------------------------

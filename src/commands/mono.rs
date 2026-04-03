@@ -2,9 +2,7 @@ use console::style;
 use std::fs;
 use std::process::Command;
 
-use super::init::AgentOs;
-
-pub fn init(name: &str, agent_os: Option<AgentOs>) -> Result<(), Box<dyn std::error::Error>> {
+pub fn init(name: &str) -> Result<(), Box<dyn std::error::Error>> {
     println!();
     println!("  {}", style("Rex Mono Init").bold().cyan());
     println!("  {}", style("\u{2500}".repeat(40)).dim());
@@ -66,15 +64,9 @@ pub fn init(name: &str, agent_os: Option<AgentOs>) -> Result<(), Box<dyn std::er
 
     // 6. Run rex init inside the new directory
     let exe = std::env::current_exe()?;
-    let mut rex_args = vec!["init".to_string()];
-    match &agent_os {
-        Some(AgentOs::Claude) => rex_args.push("--claude".into()),
-        Some(AgentOs::Cursor) => rex_args.push("--cursor".into()),
-        None => {}
-    }
 
     let rex_status = Command::new(&exe)
-        .args(&rex_args)
+        .arg("init")
         .current_dir(&repo_dir)
         .stdin(std::process::Stdio::inherit())
         .stdout(std::process::Stdio::inherit())

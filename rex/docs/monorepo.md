@@ -5,9 +5,7 @@ Initialize a Cargo workspace monorepo with the rex harness pre-configured — a 
 ## Usage
 
 ```bash
-rex mono init --name my-workspace              # Interactive — prompts for agent OS
-rex mono init --name my-workspace --claude     # Non-interactive — Claude Code
-rex mono init --name my-workspace --cursor     # Non-interactive — Cursor
+rex mono init --name my-workspace
 ```
 
 ## What It Does
@@ -28,16 +26,16 @@ my-workspace/
   Cargo.toml              # [workspace] with members = ["libs/*"]
   .gitignore              # /target, .env, .env.*
   .git/
-  .claude/                # or .cursor/
+  .claude/
     skills/               # All rex and rust agent skills
     hooks/                # commit-and-push.sh
-    settings.json         # Hook configuration (Claude Code)
+    settings.json         # Hook configuration
   rex/
     docs/                 # CLI and process documentation
     projects.json         # Empty project registry
   libs/
     .gitkeep
-  CLAUDE.md               # or AGENTS.md
+  CLAUDE.md
 ```
 
 ## Adding Projects
@@ -83,4 +81,3 @@ tokio = { workspace = true }
 | `Directory "<name>" already exists.` | A directory with that name already exists in the current directory |
 | `git init failed: ...` | Git is not installed or the directory is inside a repository that forbids nested inits |
 | `rex init failed.` | The rex initialization step failed — check the output above the error for details |
-| `IO error: not a terminal` | Interactive mode requires a TTY — use `--claude` or `--cursor` flag |

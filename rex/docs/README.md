@@ -29,27 +29,22 @@ All phases live in a single `project-status.json` file. The operator calls `rex 
 Before creating projects, initialize the rex harness in your repository:
 
 ```bash
-rex init [--claude | --cursor]
+rex init
 ```
 
-This copies all skills, hooks, settings, and documentation into the current directory. Prompts for the agent OS (Claude Code or Cursor) to determine the config directory:
-
-| Agent OS | Config dir | Root file |
-|----------|-----------|-----------|
-| Claude Code | `.claude/` | `CLAUDE.md` |
-| Cursor | `.cursor/` | `AGENTS.md` |
+This copies all skills, hooks, settings, and documentation into the current directory. The rex binary embeds these files at compile time, so no network access or external downloads are needed.
 
 **What gets created:**
-- `<config-dir>/skills/` — all rex and rust skills (41 skill directories)
-- `<config-dir>/hooks/commit-and-push.sh` — auto-commit on agent stop
-- Hook config — `.claude/settings.json` (Claude Code) or `.cursor/hooks.json` (Cursor), each in its native format
+- `.claude/skills/` — all rex and rust skills (41 skill directories)
+- `.claude/hooks/commit-and-push.sh` — auto-commit on agent stop
+- `.claude/settings.json` — hook configuration
 - `rex/docs/` — all CLI and process documentation
 - `rex/projects.json` — empty project registry
-- `CLAUDE.md` or `AGENTS.md` — points to `rex/docs/README.md`
+- `CLAUDE.md` — points to `rex/docs/README.md`
 
-**Safe to re-run:** existing files are never overwritten. Only missing files/folders are created. If `CLAUDE.md`/`AGENTS.md` already exists, the rex section is appended. If hook config already exists, rex hooks are merged in.
+**Safe to re-run:** existing files are never overwritten. Only missing files/folders are created. If `CLAUDE.md` already exists, the rex section is appended. If hook config already exists, rex hooks are merged in.
 
-See [init.md](init.md) for full details on configuration format differences between Claude Code and Cursor.
+See [init.md](init.md) for full details on configuration format.
 
 ## Headless Autopilot (rex-autorun)
 
@@ -285,9 +280,7 @@ Each work item in `project-status.json` specifies how its agent(s) should be dis
 
 | Command | Purpose |
 |---------|---------|
-| `rex init` | Initialize the rex harness in the current directory (interactive) |
-| `rex init --claude` | Initialize for Claude Code (non-interactive) |
-| `rex init --cursor` | Initialize for Cursor (non-interactive) |
+| `rex init` | Initialize the rex harness in the current directory |
 
 ### Project Management
 

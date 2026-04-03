@@ -5,9 +5,7 @@ Initialize the rex harness in any repository so it works as a standalone agent-o
 ## Usage
 
 ```bash
-rex init              # Interactive — prompts for agent OS
-rex init --claude     # Non-interactive — Claude Code
-rex init --cursor     # Non-interactive — Cursor
+rex init
 ```
 
 ## What It Does
@@ -16,20 +14,18 @@ Copies all skills, hooks, configuration, and documentation into the current dire
 
 ### Files Created
 
-| Item | Claude Code | Cursor | Purpose |
-|------|------------|--------|---------|
-| Skills | `.claude/skills/` | `.cursor/skills/` | All rex and rust agent skills (41 directories) |
-| Hook scripts | `.claude/hooks/` | `.cursor/hooks/` | `commit-and-push.sh` (auto-commit on agent stop) |
-| Hook config | `.claude/settings.json` | `.cursor/hooks.json` | Registers the stop hook with the agent OS |
-| Root file | `CLAUDE.md` | `AGENTS.md` | Points agents to `rex/docs/README.md` |
-| Docs | `rex/docs/` | `rex/docs/` | All CLI and process documentation (9 files) |
-| Registry | `rex/projects.json` | `rex/projects.json` | Empty project registry |
+| Item | Location | Purpose |
+|------|----------|---------|
+| Skills | `.claude/skills/` | All rex and rust agent skills (41 directories) |
+| Hook scripts | `.claude/hooks/` | `commit-and-push.sh` (auto-commit on agent stop) |
+| Hook config | `.claude/settings.json` | Registers the stop hook with Claude Code |
+| Root file | `CLAUDE.md` | Points agents to `rex/docs/README.md` |
+| Docs | `rex/docs/` | All CLI and process documentation (9 files) |
+| Registry | `rex/projects.json` | Empty project registry |
 
-### Configuration Format Differences
+### Configuration Format
 
-The hook configuration follows each agent OS's native format:
-
-**Claude Code** (`.claude/settings.json`):
+The hook configuration follows Claude Code's native format (`.claude/settings.json`):
 
 ```json
 {
@@ -54,38 +50,13 @@ The hook configuration follows each agent OS's native format:
 - Each event has an array of matcher objects, each containing a `hooks` array
 - Hook script paths use `$CLAUDE_PROJECT_DIR` for the project root
 
-**Cursor** (`.cursor/hooks.json`):
-
-```json
-{
-  "version": 1,
-  "hooks": {
-    "stop": [
-      {
-        "type": "command",
-        "command": ".cursor/hooks/commit-and-push.sh",
-        "timeout": 30,
-        "failClosed": false
-      }
-    ]
-  }
-}
-```
-
-- Hooks live in a dedicated `hooks.json` file (not inside settings)
-- Top-level `"version": 1` field required
-- Event names are lowercase (`stop`)
-- Hook objects are flat (no nested matcher/hooks structure)
-- Hook script paths are relative to the project root
-- Each hook supports `timeout` (seconds) and `failClosed` (boolean)
-
 ### Skills
 
-Both agent OSes use the same skill format: a directory containing a `SKILL.md` file with YAML frontmatter. Claude Code looks in `.claude/skills/`, Cursor looks in `.cursor/skills/` (and also `.claude/skills/` for backward compatibility).
+Skills use a directory containing a `SKILL.md` file with YAML frontmatter. Claude Code looks in `.claude/skills/`.
 
 ### Root File
 
-The root file (`CLAUDE.md` or `AGENTS.md`) gives the agent context about the rex harness. It contains a quick reference table linking to all documentation files under `rex/docs/`.
+The root file (`CLAUDE.md`) gives the agent context about the rex harness. It contains a quick reference table linking to all documentation files under `rex/docs/`.
 
 ## Splice Behavior
 
@@ -100,7 +71,7 @@ Running `rex init` is safe on directories that already have agent configuration.
 | Hook config exists but no rex hooks | Rex hooks merged in |
 | Hook config exists with rex hooks | Skipped |
 
-This means you can run `rex init` on a repo that already has `.claude/` or `.cursor/` configuration, custom skills, and existing hooks — rex will add only what's missing.
+This means you can run `rex init` on a repo that already has `.claude/` configuration, custom skills, and existing hooks — rex will add only what's missing.
 
 ## After Init
 
@@ -122,5 +93,4 @@ See [README.md](README.md) for the full end-to-end process.
 
 | Error | Cause |
 |-------|-------|
-| `IO error: not a terminal` | Interactive mode requires a TTY — use `--claude` or `--cursor` flag |
 | Permission denied on hooks | The init command sets hook scripts to `755` — re-run if permissions were changed |

@@ -1,5 +1,4 @@
 use console::style;
-use dialoguer::{theme::ColorfulTheme, Select};
 use include_dir::{include_dir, Dir};
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
@@ -11,22 +10,6 @@ static DOCS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/rex/docs");
 
 // Claude Code: hooks live inside settings.json
 static CLAUDE_SETTINGS_JSON: &str = include_str!("../../.claude/settings.json");
-
-// Cursor: hooks live in a separate hooks.json with its own schema
-const CURSOR_HOOKS_JSON: &str = r#"{
-  "version": 1,
-  "hooks": {
-    "stop": [
-      {
-        "type": "command",
-        "command": ".cursor/hooks/commit-and-push.sh",
-        "timeout": 30,
-        "failClosed": false
-      }
-    ]
-  }
-}
-"#;
 
 const ROOT_FILE_CONTENT: &str = "\
 # Rex Harness
@@ -58,47 +41,19 @@ orchestrates onboarding, design, planning, and execution phases.
 | [planning](rex/docs/planning-overview.md) | Three-level planning hierarchy |
 ";
 
-pub enum AgentOs {
-    Claude,
-    Cursor,
-}
-
-pub fn init(agent_os: Option<AgentOs>) -> Result<(), Box<dyn std::error::Error>> {
+pub fn init() -> Result<(), Box<dyn std::error::Error>> {
     println!();
     println!("  {}", style("Rex Init").bold().cyan());
     println!("  {}", style("\u{2500}".repeat(40)).dim());
     println!();
 
-    // 1. Determine agent OS (from flag or interactive prompt)
-    let agent_os = match agent_os {
-        Some(os) => os,
-        None => {
-            let theme = ColorfulTheme::default();
-            let idx = Select::with_theme(&theme)
-                .with_prompt("  Agent OS")
-                .items(&["Claude Code", "Cursor"])
-                .default(0)
-                .interact()?;
-            if idx == 0 {
-                AgentOs::Claude
-            } else {
-                AgentOs::Cursor
-            }
-        }
-    };
-
-    let (config_dir_name, root_file_name) = match agent_os {
-        AgentOs::Claude => (".claude", "CLAUDE.md"),
-        AgentOs::Cursor => (".cursor", "AGENTS.md"),
-    };
-
     let cwd = std::env::current_dir()?;
-    let config_dir = cwd.join(config_dir_name);
+    let config_dir = cwd.join(".claude");
     let skills_dir = config_dir.join("skills");
     let hooks_dir = config_dir.join("hooks");
     let rex_dir = cwd.join("rex");
     let docs_dir = rex_dir.join("docs");
-    let root_file = cwd.join(root_file_name);
+    let root_file = cwd.join("CLAUDE.md");
 
     let mut created = Vec::new();
     let mut skipped = Vec::new();
@@ -117,15 +72,8 @@ pub fn init(agent_os: Option<AgentOs>) -> Result<(), Box<dyn std::error::Error>>
         }
     }
 
-    // 4. Write hook/settings configuration (format differs by agent OS)
-    match agent_os {
-        AgentOs::Claude => {
-            write_claude_settings(&config_dir, config_dir_name, &mut created, &mut skipped)?;
-        }
-        AgentOs::Cursor => {
-            write_cursor_hooks(&config_dir, config_dir_name, &mut created, &mut skipped)?;
-        }
-    }
+    // 4. Write hook/settings configuration
+    write_claude_settings(&config_dir, &mut created, &mut skipped)?;
 
     // 5. Copy rex/docs/*
     fs::create_dir_all(&docs_dir)?;
@@ -143,14 +91,14 @@ pub fn init(agent_os: Option<AgentOs>) -> Result<(), Box<dyn std::error::Error>>
         skipped.push("rex/projects.json (already exists)".into());
     }
 
-    // 7. Create or update CLAUDE.md / AGENTS.md
+    // 7. Create or update CLAUDE.md
     if !root_file.exists() {
         fs::write(&root_file, ROOT_FILE_CONTENT)?;
-        created.push(root_file_name.into());
+        created.push("CLAUDE.md".into());
     } else {
         let existing = fs::read_to_string(&root_file)?;
         if existing.contains("rex/docs/README.md") {
-            skipped.push(format!("{root_file_name} (rex section already present)"));
+            skipped.push("CLAUDE.md (rex section already present)".into());
         } else {
             let mut content = existing;
             if !content.ends_with('\n') {
@@ -159,7 +107,7 @@ pub fn init(agent_os: Option<AgentOs>) -> Result<(), Box<dyn std::error::Error>>
             content.push('\n');
             content.push_str(ROOT_FILE_CONTENT);
             fs::write(&root_file, content)?;
-            created.push(format!("{root_file_name} (appended rex section)"));
+            created.push("CLAUDE.md (appended rex section)".into());
         }
     }
 
@@ -187,14 +135,10 @@ pub fn init(agent_os: Option<AgentOs>) -> Result<(), Box<dyn std::error::Error>>
         }
     }
     println!();
-    let os_name = match agent_os {
-        AgentOs::Claude => "Claude Code",
-        AgentOs::Cursor => "Cursor",
-    };
     println!(
         "  {} Rex harness initialized for {}.",
         style("\u{2713}").green().bold(),
-        style(os_name).cyan().bold()
+        style("Claude Code").cyan().bold()
     );
     println!(
         "  {} See {} for the full process.",
@@ -212,7 +156,6 @@ pub fn init(agent_os: Option<AgentOs>) -> Result<(), Box<dyn std::error::Error>>
 
 fn write_claude_settings(
     config_dir: &Path,
-    config_dir_name: &str,
     created: &mut Vec<String>,
     skipped: &mut Vec<String>,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -220,16 +163,14 @@ fn write_claude_settings(
     if !settings_path.exists() {
         fs::create_dir_all(config_dir)?;
         fs::write(&settings_path, CLAUDE_SETTINGS_JSON)?;
-        created.push(format!("{config_dir_name}/settings.json"));
+        created.push(".claude/settings.json".into());
     } else {
         let merged = merge_claude_settings(&settings_path)?;
         if let Some(new_content) = merged {
             fs::write(&settings_path, new_content)?;
-            created.push(format!("{config_dir_name}/settings.json (merged hooks)"));
+            created.push(".claude/settings.json (merged hooks)".into());
         } else {
-            skipped.push(format!(
-                "{config_dir_name}/settings.json (hooks already present)"
-            ));
+            skipped.push(".claude/settings.json (hooks already present)".into());
         }
     }
     Ok(())
@@ -255,91 +196,6 @@ fn merge_claude_settings(
     let existing_obj = existing
         .as_object_mut()
         .ok_or("settings.json is not an object")?;
-
-    if let Some(rex_hooks) = rex.get("hooks") {
-        if let Some(existing_hooks) = existing_obj.get_mut("hooks") {
-            let existing_hooks_obj = existing_hooks
-                .as_object_mut()
-                .ok_or("hooks is not an object")?;
-            if let Some(rex_hooks_obj) = rex_hooks.as_object() {
-                for (event, handlers) in rex_hooks_obj {
-                    if !existing_hooks_obj.contains_key(event) {
-                        existing_hooks_obj.insert(event.clone(), handlers.clone());
-                    } else if let (Some(existing_arr), Some(new_arr)) = (
-                        existing_hooks_obj
-                            .get_mut(event)
-                            .and_then(|v| v.as_array_mut()),
-                        handlers.as_array(),
-                    ) {
-                        for handler in new_arr {
-                            existing_arr.push(handler.clone());
-                        }
-                    }
-                }
-            }
-        } else {
-            existing_obj.insert("hooks".into(), rex_hooks.clone());
-        }
-    }
-
-    let result = serde_json::to_string_pretty(&existing)? + "\n";
-    Ok(Some(result))
-}
-
-// ---------------------------------------------------------------------------
-// Cursor: hooks in a separate .cursor/hooks.json
-// ---------------------------------------------------------------------------
-
-fn write_cursor_hooks(
-    config_dir: &Path,
-    config_dir_name: &str,
-    created: &mut Vec<String>,
-    skipped: &mut Vec<String>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let hooks_path = config_dir.join("hooks.json");
-    if !hooks_path.exists() {
-        fs::create_dir_all(config_dir)?;
-        fs::write(&hooks_path, CURSOR_HOOKS_JSON)?;
-        created.push(format!("{config_dir_name}/hooks.json"));
-    } else {
-        let merged = merge_cursor_hooks(&hooks_path)?;
-        if let Some(new_content) = merged {
-            fs::write(&hooks_path, new_content)?;
-            created.push(format!("{config_dir_name}/hooks.json (merged hooks)"));
-        } else {
-            skipped.push(format!(
-                "{config_dir_name}/hooks.json (hooks already present)"
-            ));
-        }
-    }
-    Ok(())
-}
-
-/// Merge rex hooks into an existing Cursor hooks.json.
-/// Cursor format uses flat hook objects under lowercase event keys:
-///
-/// ```json
-/// { "version": 1, "hooks": { "stop": [{ "type": "command", "command": "...", "timeout": 30 }] } }
-/// ```
-fn merge_cursor_hooks(
-    existing_path: &Path,
-) -> Result<Option<String>, Box<dyn std::error::Error>> {
-    let existing_str = fs::read_to_string(existing_path)?;
-    if existing_str.contains("commit-and-push") {
-        return Ok(None);
-    }
-
-    let mut existing: serde_json::Value = serde_json::from_str(&existing_str)?;
-    let rex: serde_json::Value = serde_json::from_str(CURSOR_HOOKS_JSON)?;
-
-    let existing_obj = existing
-        .as_object_mut()
-        .ok_or("hooks.json is not an object")?;
-
-    // Ensure version field exists
-    existing_obj
-        .entry("version")
-        .or_insert(serde_json::Value::Number(1.into()));
 
     if let Some(rex_hooks) = rex.get("hooks") {
         if let Some(existing_hooks) = existing_obj.get_mut("hooks") {
