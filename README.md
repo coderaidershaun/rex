@@ -5,7 +5,7 @@
 <h1 align="center">Rex-Cli</h1>
 
 <p align="center">
-  A Rust CLI for harness management — structure, plan, and execute Rust exclusive projects with AI agents.
+  A CLI for Rust harness management — structure, plan, and execute Rust exclusive projects with AI agents.
 </p>
 
 <p align="center">
@@ -21,26 +21,17 @@
 cargo install rex-cli
 ```
 
-### 2. Initialize
-
-Set up the rex harness in your project directory:
-
-```bash
-cd /path/to/your/project
-rex init
-```
-
-This scaffolds all skills, hooks, settings, and documentation into `.claude/` and `rex/`.
-
-### 3. Create a Project
+### 2. Create a Project
 
 ```bash
 rex project create
 ```
 
-Interactive prompts walk you through project ID, complexity, title, category, and which onboarding/design items to include. You'll also be asked whether to initialize the rex harness **inside** the project directory — creating a fully self-contained project with its own `rex/projects.json`, skills, and hooks.
+Interactive prompts walk you through project ID, complexity, title, category, and which onboarding/design items to include. You'll be asked whether to initialize the rex harness **inside** the project directory — creating a fully self-contained project with its own skills, hooks, and `rex/projects.json`. No separate `rex init` step needed.
 
-### 4. Run the Operator
+If you prefer to initialize the harness first (e.g., at a monorepo root), you can run `rex init` before creating a project.
+
+### 3. Run the Operator
 
 From within **Claude Code** or **Cursor**, invoke the rex operator skill:
 
@@ -50,7 +41,7 @@ From within **Claude Code** or **Cursor**, invoke the rex operator skill:
 
 The operator takes it from there — walking you through onboarding, design, planning, and build phases step by step. Each invocation processes one work item, then stops.
 
-### 5. Autorun (Headless Autopilot)
+### 4. Autorun (Headless Autopilot)
 
 Run the entire project autonomously with Telegram notifications for status updates and human input prompts.
 
