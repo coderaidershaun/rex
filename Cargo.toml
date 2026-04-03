@@ -15,6 +15,10 @@ exclude = ["rex/projects.json", "rex/<insert-project-id>/", "skills-lock.json", 
 name = "rex"
 path = "src/bin/main.rs"
 
+[[bin]]
+name = "rex-autorun"
+path = "src/bin/autorun.rs"
+
 [lib]
 name = "rex_cli"
 path = "src/lib.rs"
@@ -28,3 +32,11 @@ console = "0.15"
 inquire = "0.9.4"
 crossterm = "0.29"
 include_dir = "0.7"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "time", "signal", "fs"] }
+reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+dotenvy = "0.15"
+libc = "0.2"

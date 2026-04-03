@@ -61,7 +61,10 @@ This returns a JSON object describing the next actionable item from `project-sta
 }
 ```
 
-If all items are completed, report this and stop.
+If all items are completed, report this and stop. **If `REX_AUTORUN=1` is set**, output the following JSON as your final line:
+```
+{"status": "project_done", "message": "All items in project-status.json are completed."}
+```
 
 **After getting the item, check its `phase` field.** If the phase is `"execution"`, follow the **Execution Phase** path described in Step 3c. For all other phases (onboarding, design, planning, user-support), continue with the standard flow at Step 3b.
 
@@ -173,6 +176,32 @@ Capture the output — you'll pass this context to the agent(s) so they understa
 ---
 
 ## Step 6: Prepare the dispatch
+
+### Headless mode check (REX_AUTORUN=1)
+
+If the environment variable `REX_AUTORUN=1` is set, this session is running inside the rex-autorun headless harness. There is no human at the terminal.
+
+**Check this BEFORE determining dispatch mode.** For items that would normally use **direct invoke** (phase is `"onboarding"` or `"user-support"`, or the item name is `"user-acceptance"`):
+
+1. **Do NOT invoke the skill.** Do NOT proceed to Step 7.
+2. Instead, determine the first question the skill would ask. Read the skill's SKILL.md to understand what it needs from the user. Use the `inputs` files and the skill's instructions to formulate the question.
+3. Output the following JSON as your **FINAL line** and **STOP immediately**:
+
+   ```
+   {"status": "needs_input", "message": "<the exact question for the user>"}
+   ```
+
+4. Do not output anything after this JSON. Do not continue to Step 7, 8, 9, 10, 11, or 12.
+
+**When the session is resumed** (via `--resume <id> -p "<reply>"`), the user's reply arrives as the `-p` prompt. Pick up from where you left off:
+- The reply is the user's answer to your last question.
+- Now invoke the skill via the Skill tool, providing the user's answer as context.
+- If the skill needs more input from the user, output another `needs_input` JSON and stop again.
+- Repeat this cycle until the skill completes, then proceed to Step 8.
+
+**For non-interactive items** (sub-agent dispatch), `REX_AUTORUN=1` has no effect — proceed normally through the standard dispatch flow below.
+
+---
 
 ### Determine dispatch mode
 
@@ -518,6 +547,11 @@ Operator pausing — completed 3 tasks this session (execution task limit).
 Re-invoke the operator to continue.
 ```
 
+**If `REX_AUTORUN=1` is set**, also output the following JSON as your final line:
+```
+{"status": "completed", "message": "Execution task limit reached (3 tasks). Last task: <task-id>."}
+```
+
 This prevents runaway execution. A maximum of **3 tasks** may be completed per operator invocation during execution phase. This limit applies ONLY to execution phase tasks — it does not apply to other phases.
 
 **Otherwise**, the operator should **loop back to Step 3** to get the next work item and keep processing. Do not stop. Print a brief status line and continue:
@@ -527,6 +561,8 @@ Completed: <item-name> (<phase>). Continuing to next item...
 ```
 
 This is the default for most items. The operator keeps going until it hits an item with `stop-on-finish: true`, runs out of items, or reaches the execution task limit.
+
+**Note:** Do NOT output a `{"status": ...}` JSON here — you are continuing, not stopping.
 
 ### If `stop-on-finish` is `true` — stop
 
@@ -554,9 +590,19 @@ Operator complete (stop-on-finish).
 - Output(s): <list of task output files>
 ```
 
+**If `REX_AUTORUN=1` is set**, also output the following JSON as your final line:
+```
+{"status": "completed", "message": "Completed: <item-name> (<phase>). Stop-on-finish."}
+```
+
 ### If the item was left in-progress — always stop
 
 If the item was not marked complete (agent said don't mark complete, or execution has remaining tasks), always stop regardless of `stop-on-finish`. The item needs another invocation.
+
+**If `REX_AUTORUN=1` is set**, also output the following JSON as your final line:
+```
+{"status": "completed", "message": "Item <item-name> left in-progress. Needs re-invocation."}
+```
 
 ---
 
@@ -634,6 +680,7 @@ rex checklist set-context "<text>"
 - **Blocking dispatch.** Never launch agents in the background. Always wait for completion. This is critical for headless/automated operation.
 - **Respect the lock.** If the project is locked, stop immediately. No exceptions, no "let me just check one thing."
 - **Respect agent responses.** If an agent says not to mark complete, don't mark complete.
+- **Headless mode (REX_AUTORUN=1).** When this env var is set: (1) short-circuit interactive items at Step 6 with `needs_input` JSON instead of invoking the skill, (2) output a terminal `{"status": ...}` JSON as the final line whenever the operator stops (Step 3 all-complete, Step 12 stop/pause, or error). See the headless mode sections in Steps 3, 6, and 12.
 - **Pass full context.** Agents should receive the project object and recent history so they have everything they need.
 - **Execution uses `rex task next`, not the item itself.** During execution, the planning tree drives what gets worked on. If the task has its own `agent` field, use it. Otherwise, fall back to the execution item's `agent` config. The task always provides the work, inputs, and outputs.
 - **Task-level agent overrides execution-level agent.** When a task returned by `rex task next` includes an `agent` object, use the task's `agent.model`, `agent.effort`, `agent.skills`, and `agent.count` instead of the execution item's. This is how per-task skill and model assignment works.
