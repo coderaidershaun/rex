@@ -237,11 +237,12 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
                             match op_result {
                                 Ok(r) if r.status == OperatorStatus::ProjectDone => {
                                     tg.notify(&format!(
-                                        "🏁 <b>Project complete!</b>  ·  <code>{pid}</code>\n\
+                                        "🏁 <b>Project complete!</b>  ·  <code>{pid}</code>{itag}\n\
                                          {DIV}\n\
                                          {stats}\n\
                                          📊 <code>{inv}</code> invocations  ·  💰 <code>${cost:.2}</code>",
                                         pid = escape_html(&project_id),
+                                        itag = item_tag(&r.item),
                                         stats = output.telegram_stats(),
                                         inv = recovered_stats.invocations_completed,
                                         cost = recovered_stats.total_cost_usd,
@@ -510,13 +511,14 @@ async fn main_loop(
                         OperatorStatus::Completed => {
                             stats.items_completed += 1;
                             tg.notify_with_buttons(&format!(
-                                "✅ <b>Completed #{n}</b>  ·  <code>{pid}</code>\n\
+                                "✅ <b>Completed #{n}</b>  ·  <code>{pid}</code>{itag}\n\
                                  {DIV}\n\
                                  {msg}\n\
                                  {DIV}\n\
                                  {stats}\n\
                                  💰 <code>${cost:.2}</code>  ·  ⏱ <code>{dur}s</code>",
                                 pid = escape_html(project_id),
+                                itag = item_tag(&result.item),
                                 msg = escape_html(&result.message),
                                 stats = output.telegram_stats(),
                                 cost = cost,
@@ -533,11 +535,12 @@ async fn main_loop(
                         OperatorStatus::ProjectDone => {
                             let duration = format_duration_since(&stats.started_at);
                             tg.notify(&format!(
-                                "🏁 <b>Project complete!</b>  ·  <code>{pid}</code>\n\
+                                "🏁 <b>Project complete!</b>  ·  <code>{pid}</code>{itag}\n\
                                  {DIV}\n\
                                  {stats}\n\
                                  📊 <code>{inv}</code> invocations  ·  💰 <code>${cost:.2}</code>  ·  ⏱ <code>{duration}</code>",
                                 pid = escape_html(project_id),
+                                itag = item_tag(&result.item),
                                 stats = output.telegram_stats(),
                                 inv = stats.invocations_completed,
                                 cost = stats.total_cost_usd,
@@ -558,6 +561,7 @@ async fn main_loop(
                             // Multi-round input loop: ask → wait → resume → check.
                             // Loops here until the session returns something other
                             // than NeedsInput, preserving conversation context.
+                            let current_item = result.item;
                             let mut current_question = result.message;
                             let mut current_session_id = output.session_id.clone();
 
@@ -587,13 +591,14 @@ async fn main_loop(
 
                                 // Send question to Telegram with force_reply
                                 let msg = format!(
-                                    "💬 <b>Input needed</b>  ·  <code>{pid}</code>\n\
+                                    "💬 <b>Input needed</b>  ·  <code>{pid}</code>{itag}\n\
                                      {DIV}\n\
                                      <blockquote>{q}</blockquote>\n\
                                      {DIV}\n\
                                      {stats}\n\n\
                                      <i>Reply to this message with your answer</i>",
                                     pid = escape_html(project_id),
+                                    itag = item_tag(&current_item),
                                     q = escape_html(&current_question),
                                     stats = output.telegram_stats(),
                                 );
@@ -784,13 +789,14 @@ async fn main_loop(
                                     OperatorStatus::Completed => {
                                         stats.items_completed += 1;
                                         tg.notify_with_buttons(&format!(
-                                            "✅ <b>Completed #{n}</b>  ·  <code>{pid}</code>\n\
+                                            "✅ <b>Completed #{n}</b>  ·  <code>{pid}</code>{itag}\n\
                                              {DIV}\n\
                                              {msg}\n\
                                              {DIV}\n\
                                              {rstats}\n\
                                              💰 <code>${cost:.2}</code>  ·  ⏱ <code>{dur}s</code>",
                                             pid = escape_html(project_id),
+                                            itag = item_tag(&resume_op.item),
                                             msg = escape_html(&resume_op.message),
                                             rstats = resume_output.telegram_stats(),
                                             cost = resume_output.effective_cost(),
@@ -805,11 +811,12 @@ async fn main_loop(
                                     OperatorStatus::ProjectDone => {
                                         let duration = format_duration_since(&stats.started_at);
                                         tg.notify(&format!(
-                                            "🏁 <b>Project complete!</b>  ·  <code>{pid}</code>\n\
+                                            "🏁 <b>Project complete!</b>  ·  <code>{pid}</code>{itag}\n\
                                              {DIV}\n\
                                              {rstats}\n\
                                              📊 <code>{inv}</code> invocations  ·  💰 <code>${cost:.2}</code>  ·  ⏱ <code>{duration}</code>",
                                             pid = escape_html(project_id),
+                                            itag = item_tag(&resume_op.item),
                                             rstats = resume_output.telegram_stats(),
                                             inv = stats.invocations_completed,
                                             cost = stats.total_cost_usd,
@@ -826,12 +833,13 @@ async fn main_loop(
                                     OperatorStatus::Error => {
                                         error!("operator error after resume: {}", resume_op.message);
                                         tg.notify(&format!(
-                                            "⚠️ <b>Error</b>  ·  <code>{pid}</code>\n\
+                                            "⚠️ <b>Error</b>  ·  <code>{pid}</code>{itag}\n\
                                              {DIV}\n\
                                              {rstats}\n\
                                              {DIV}\n\
                                              {msg}",
                                             pid = escape_html(project_id),
+                                            itag = item_tag(&resume_op.item),
                                             rstats = resume_output.telegram_stats(),
                                             msg = escape_html(&resume_op.message),
                                         )).await;
@@ -854,12 +862,13 @@ async fn main_loop(
                             });
 
                             tg.notify(&format!(
-                                "⚠️ <b>Error</b>  ·  <code>{pid}</code>\n\
+                                "⚠️ <b>Error</b>  ·  <code>{pid}</code>{itag}\n\
                                  {DIV}\n\
                                  {stats}\n\
                                  {DIV}\n\
                                  {msg}",
                                 pid = escape_html(project_id),
+                                itag = item_tag(&result.item),
                                 stats = output.telegram_stats(),
                                 msg = escape_html(&result.message),
                             )).await;
@@ -994,6 +1003,16 @@ fn log_event(log_path: &Path, event: &LogEvent) {
         return;
     };
     let _ = writeln!(file, "{line}");
+}
+
+/// Format the optional item tag for Telegram messages.
+/// Returns `"  ·  <code>{item}</code>"` when non-empty, or `""`.
+fn item_tag(item: &str) -> String {
+    if item.is_empty() {
+        String::new()
+    } else {
+        format!("  ·  <code>{}</code>", escape_html(item))
+    }
 }
 
 /// Pick a random acknowledgment response using subsecond nanos as entropy.

@@ -63,7 +63,7 @@ This returns a JSON object describing the next actionable item from `project-sta
 
 If all items are completed, report this and stop. **If `REX_AUTORUN=1` is set**, output the following JSON as your final line:
 ```
-{"status": "project_done", "message": "All items in project-status.json are completed."}
+{"status": "project_done", "message": "All items in project-status.json are completed.", "item": ""}
 ```
 
 **After getting the item, check its `phase` field.** If the phase is `"execution"`, follow the **Execution Phase** path described in Step 3c. For all other phases (onboarding, design, planning, user-support), continue with the standard flow at Step 3b.
@@ -188,7 +188,7 @@ If the environment variable `REX_AUTORUN=1` is set, this session is running insi
 3. Output the following JSON as your **FINAL line** and **STOP immediately**:
 
    ```
-   {"status": "needs_input", "message": "<the exact question for the user>"}
+   {"status": "needs_input", "message": "<the exact question for the user>", "item": "<item-name>"}
    ```
 
 4. Do not output anything after this JSON. Do not continue to Step 7, 8, 9, 10, 11, or 12.
@@ -549,7 +549,7 @@ Re-invoke the operator to continue.
 
 **If `REX_AUTORUN=1` is set**, also output the following JSON as your final line:
 ```
-{"status": "completed", "message": "Execution task limit reached (3 tasks). Last task: <task-id>."}
+{"status": "completed", "message": "Execution task limit reached (3 tasks). Last task: <task-id>.", "item": "<task-id>"}
 ```
 
 This prevents runaway execution. A maximum of **3 tasks** may be completed per operator invocation during execution phase. This limit applies ONLY to execution phase tasks — it does not apply to other phases.
@@ -592,7 +592,7 @@ Operator complete (stop-on-finish).
 
 **If `REX_AUTORUN=1` is set**, also output the following JSON as your final line:
 ```
-{"status": "completed", "message": "Completed: <item-name> (<phase>). Stop-on-finish."}
+{"status": "completed", "message": "Completed: <item-name> (<phase>). Stop-on-finish.", "item": "<item-name>"}
 ```
 
 ### If the item was left in-progress — always stop
@@ -601,7 +601,7 @@ If the item was not marked complete (agent said don't mark complete, or executio
 
 **If `REX_AUTORUN=1` is set**, also output the following JSON as your final line:
 ```
-{"status": "completed", "message": "Item <item-name> left in-progress. Needs re-invocation."}
+{"status": "completed", "message": "Item <item-name> left in-progress. Needs re-invocation.", "item": "<item-name>"}
 ```
 
 ---
@@ -678,3 +678,4 @@ rex checklist set-context "<text>"
 - **Task-level agent overrides execution-level agent.** When a task returned by `rex task next` includes an `agent` object, use the task's `agent.model`, `agent.effort`, `agent.skills`, and `agent.count` instead of the execution item's. This is how per-task skill and model assignment works.
 - **Mark tasks complete via CLI.** Always run `rex task upsert --id <id> --status completed` when a task is done. Only mark the execution item complete when all tasks are finished.
 - **Execution task limit: 3 per invocation.** During execution phase, the operator must stop after completing 3 tasks in a single session. Track `tasks_completed_this_session` — increment it each time a task is marked complete. When it reaches 3, stop and report, even if `stop-on-finish` is `false`. This limit applies ONLY to execution phase tasks.
+- **Always include `"item"` in JSON output.** Every `{"status": ...}` JSON line MUST include an `"item"` field set to the current work item name (e.g. `"goal"`, `"architecture"`, `"user-acceptance"`) or task ID (e.g. `"t-token-endpoint"`) for execution phase. This is displayed in Telegram notifications so the user knows what topic the message relates to. Use `""` only when no specific item applies (e.g. project_done when all items are already complete).

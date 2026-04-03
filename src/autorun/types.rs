@@ -10,6 +10,9 @@ pub struct OperatorResult {
     pub status: OperatorStatus,
     #[serde(default)]
     pub message: String,
+    /// Current work item name (e.g. "goal", "architecture", "t-token-endpoint").
+    #[serde(default)]
+    pub item: String,
 }
 
 #[derive(Debug, Deserialize, PartialEq, Eq)]
