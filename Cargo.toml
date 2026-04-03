@@ -1,13 +1,13 @@
 [package]
 name = "rex-cli"
-version = "0.1.20"
+version = "0.1.21"
 edition = "2024"
 authors = ["Shaun McDonogh"]
 description = "Rust CLI for harness management"
 license = "MIT"
 repository = "https://github.com/coderaidershaun/rex"
 readme = "README.md"
-keywords = ["cli", "harness", "project-management", "agent", "workflow"]
+keywords = ["cli", "harness", "auto-harness", "project-management", "agent", "workflow"]
 categories = ["command-line-utilities", "development-tools"]
 exclude = ["rex/projects.json", "rex/<insert-project-id>/", "skills-lock.json", ".claude/settings.local.json"]
 
