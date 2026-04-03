@@ -151,7 +151,8 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
 
             // Wait for reply (with reply-to matching)
             let human_timeout = Duration::from_secs(args.human_timeout_days * 86400);
-            match tg.wait_for_reply(recovery_msg_id, &project_id, human_timeout).await {
+            let recovery_query = build_query_response(&project_id, &stats, invocation_count);
+            match tg.wait_for_reply(recovery_msg_id, &project_id, human_timeout, &recovery_query).await {
                 Ok(TelegramPollResult::Reply(reply)) => {
                     send_ack(&tg, &project_id).await;
 
@@ -187,9 +188,10 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
                     };
                     let pgid = spawned.pgid;
 
+                    let recovery_q2 = build_query_response(&project_id, &stats, invocation_count);
                     let invoke_result = tokio::select! {
                         result = claude::await_claude(spawned, timeout) => result,
-                        _ = tg.poll_for_kill(&project_id) => {
+                        _ = tg.poll_for_kill(&project_id, &recovery_q2) => {
                             claude::kill_process_group(pgid).await;
                             Err(RexError::Killed)
                         }
@@ -452,9 +454,10 @@ async fn main_loop(
         let _ = state::write_state_atomic(state_path, &with_pid);
 
         // Race await_claude against /kill command from Telegram
+        let query_resp = build_query_response(project_id, stats, n);
         let invoke_result = tokio::select! {
             result = claude::await_claude(spawned, timeout) => result,
-            _ = tg.poll_for_kill(project_id) => {
+            _ = tg.poll_for_kill(project_id, &query_resp) => {
                 claude::kill_process_group(pgid).await;
                 Err(RexError::Killed)
             }
@@ -585,7 +588,8 @@ async fn main_loop(
 
                                 // Wait for reply (with reply-to matching)
                                 let human_timeout = Duration::from_secs(args.human_timeout_days * 86400);
-                                let reply = match tg.wait_for_reply(question_msg_id, project_id, human_timeout).await {
+                                let input_query = build_query_response(project_id, stats, n);
+                                let reply = match tg.wait_for_reply(question_msg_id, project_id, human_timeout, &input_query).await {
                                     Ok(TelegramPollResult::Reply(r)) => r,
                                     Ok(TelegramPollResult::Kill) => {
                                         return Ok(handle_kill(tg, project_id, log_path, state_path).await);
@@ -649,9 +653,10 @@ async fn main_loop(
                                 let _ = state::write_state_atomic(state_path, &resume_running);
 
                                 // Race await_claude against /kill command
+                                let resume_query = build_query_response(project_id, stats, n);
                                 let resume_result = tokio::select! {
                                     result = claude::await_claude(spawned, timeout) => result,
-                                    _ = tg.poll_for_kill(project_id) => {
+                                    _ = tg.poll_for_kill(project_id, &resume_query) => {
                                         claude::kill_process_group(resume_pgid).await;
                                         Err(RexError::Killed)
                                     }
@@ -1079,8 +1084,12 @@ async fn attempt_auth_refresh(
 
     // Wait for user to confirm they've authorized (10 min timeout)
     let auth_timeout = Duration::from_secs(600);
+    let auth_query = format!(
+        "<b>[{pid}]</b>\nWaiting for auth refresh — no stats available yet.",
+        pid = escape_html(project_id),
+    );
     let result = tg
-        .wait_for_reply(msg_id, project_id, auth_timeout)
+        .wait_for_reply(msg_id, project_id, auth_timeout, &auth_query)
         .await;
 
     // Clean up auth process
@@ -1104,6 +1113,64 @@ async fn attempt_auth_refresh(
             Ok(false)
         }
     }
+}
+
+/// Build the response for a `/query` command.
+///
+/// Includes current project stats and scans for other running autoruns.
+fn build_query_response(
+    project_id: &str,
+    stats: &RunStats,
+    invocation_count: u32,
+) -> String {
+    let uptime = format_duration_since(&stats.started_at);
+
+    let mut msg = format!(
+        "<b>[{pid}] Autorun Status</b>\n━━━━━━━━━━━━━━━━━━━━\n\
+         <b>Uptime:</b> {uptime}\n\
+         <b>Invocations:</b> {inv} ({items} items completed)\n\
+         <b>Cost:</b> ${cost:.2}",
+        pid = escape_html(project_id),
+        inv = invocation_count,
+        items = stats.items_completed,
+        cost = stats.total_cost_usd,
+    );
+
+    // Scan for other running autoruns via ProjectRegistry
+    if let Ok(registry) = crate::models::project::ProjectRegistry::load() {
+        let mut others = Vec::new();
+
+        // Check all projects (active + inactive) for state files
+        let all_projects: Vec<_> = registry
+            .active
+            .iter()
+            .chain(registry.inactive.iter())
+            .filter(|p| p.id != project_id)
+            .collect();
+
+        for proj in &all_projects {
+            let state_file =
+                std::path::Path::new(&proj.directory).join(".rex-autorun.json");
+            if let Some(state) = super::state::read_state(&state_file) {
+                let dur = format_duration_since(&state.stats.started_at);
+                others.push(format!(
+                    "  <b>{}</b> — {dur} (#{} inv, ${:.2})",
+                    escape_html(&proj.id),
+                    state.invocation_count,
+                    state.stats.total_cost_usd,
+                ));
+            }
+        }
+
+        if others.is_empty() {
+            msg.push_str("\n\n<i>No other autoruns detected.</i>");
+        } else {
+            msg.push_str("\n\n<b>Other autoruns:</b>\n");
+            msg.push_str(&others.join("\n"));
+        }
+    }
+
+    msg
 }
 
 /// Format a human-readable duration from an ISO 8601 start time to now.

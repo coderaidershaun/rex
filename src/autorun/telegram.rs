@@ -136,11 +136,13 @@ impl TelegramClient {
     ///
     /// Only accepts messages that are replies to `expected_message_id`.
     /// Non-matching messages are logged and skipped.
+    /// `/query` commands are answered inline and polling continues.
     pub async fn wait_for_reply(
         &mut self,
         expected_message_id: i64,
         project_id: &str,
         timeout: Duration,
+        query_response: &str,
     ) -> RexResult<TelegramPollResult> {
         let deadline = tokio::time::Instant::now() + timeout;
         info!(
@@ -226,6 +228,22 @@ impl TelegramClient {
                     continue;
                 }
 
+                // Check for /query command (no reply-to required)
+                if let Some(target) = text.strip_prefix("/query") {
+                    let target = target.trim();
+                    if target.is_empty() || target == project_id {
+                        info!("received /query command, sending stats");
+                        self.notify(query_response).await;
+                        continue;
+                    }
+                    debug!(
+                        target_project = target,
+                        our_project = project_id,
+                        "ignoring /query for different project"
+                    );
+                    continue;
+                }
+
                 // Check reply-to matching
                 let reply_to_msg_id =
                     msg["reply_to_message"]["message_id"].as_i64();
@@ -260,8 +278,13 @@ impl TelegramClient {
     /// Poll for a `/kill` command during Claude execution.
     ///
     /// Returns `Ok(())` when a matching `/kill` is found.
-    /// All non-kill messages are consumed and discarded (offset advances).
-    pub async fn poll_for_kill(&mut self, project_id: &str) -> RexResult<()> {
+    /// `/query` commands are answered inline and polling continues.
+    /// All other messages are consumed and discarded (offset advances).
+    pub async fn poll_for_kill(
+        &mut self,
+        project_id: &str,
+        query_response: &str,
+    ) -> RexResult<()> {
         loop {
             let body = serde_json::json!({
                 "offset": self.update_offset,
@@ -322,6 +345,13 @@ impl TelegramClient {
                                 "received /kill command during claude execution"
                             );
                             return Ok(());
+                        }
+                    }
+                    if let Some(target) = text.strip_prefix("/query") {
+                        let target = target.trim();
+                        if target.is_empty() || target == project_id {
+                            info!("received /query during claude execution");
+                            self.notify(query_response).await;
                         }
                     }
                 }
