@@ -7,10 +7,14 @@ use rex_cli::models::project::Complexity;
 use rex_cli::models::project_status::Status;
 
 #[derive(Parser)]
-#[command(name = "rex", about = "Rex project management CLI", version)]
+#[command(name = "rex", about = "Rex project management CLI", version, after_long_help = COMMANDS_HELP)]
 struct Cli {
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
+
+    /// List all commands and subcommands
+    #[arg(long)]
+    commands: bool,
 }
 
 #[derive(Subcommand)]
@@ -516,13 +520,112 @@ enum HistoryAction {
 }
 
 // ---------------------------------------------------------------------------
+// Full command reference (shown by --commands and --help)
+// ---------------------------------------------------------------------------
+
+const COMMANDS_HELP: &str = "\
+All commands:
+
+  rex init                                  Initialize the rex harness in the current directory
+
+  rex project create                        Create a new project interactively
+  rex project get-active                    Display the current active project
+  rex project remove <id>                   Remove a project
+  rex project activate <id>                 Activate an inactive project
+  rex project next-item                     Get the next actionable item from project status
+  rex project lock                          Lock the active project
+  rex project unlock                        Unlock the active project
+  rex project update-status <item> <status> Update the status of a project item
+  rex project update-title <title>          Update the active project's title
+  rex project update-subtitle <subtitle>    Update the active project's subtitle
+  rex project update-description <desc>     Update the active project's description
+  rex project update-directory <path>       Update the active project's directory
+  rex project update-category <category>    Update the active project's category
+  rex project update-complexity <complexity> Update the active project's complexity
+
+  rex checklist init [--date <YYYY-MM-DD>]  Initialize an empty checklist for the active project
+  rex checklist add --category <cat> --id <id> --title <t> --description <d> [--phase <p>]
+                                            Add a new checklist item
+  rex checklist list [--category <cat>] [--phase <p>] [--complete] [--incomplete]
+                                            List checklist items with optional filters
+  rex checklist get <id>                    Get a specific checklist item
+  rex checklist update <id> [--title <t>] [--description <d>] [--phase <p>]
+                                            Update a checklist item
+  rex checklist complete <id>               Mark a checklist item as complete
+  rex checklist uncomplete <id>             Mark a checklist item as incomplete
+  rex checklist remove <id>                 Remove a checklist item
+  rex checklist set-context <text>          Set the checklist context text
+
+  rex milestone upsert --id <id> [--title <t>] [--description <d>] [--status <s>]
+                                            Create or update a milestone
+  rex milestone get <id>                    Get a milestone by ID
+  rex milestone list [--status <s>]         List milestones
+  rex milestone remove <id>                 Remove a milestone
+
+  rex objective upsert --id <id> [--milestone <m>] [--title <t>] [--description <d>] [--status <s>]
+                                            Create or update an objective
+  rex objective get <id>                    Get an objective by ID
+  rex objective list [--milestone <m>] [--status <s>]
+                                            List objectives
+  rex objective remove <id>                 Remove an objective
+
+  rex task upsert --id <id> [--objective <o>] [--title <t>] [--description <d>] [--status <s>]
+                                            Create or update a task
+  rex task get <id>                         Get a task by ID
+  rex task list [--objective <o>] [--status <s>]
+                                            List tasks
+  rex task remove <id>                      Remove a task
+  rex task next                             Get the next task based on dependency order and priority
+
+  rex mono init --name <name>               Create a Cargo workspace monorepo with rex harness and git
+  rex mono empty --name <name>              Create an empty Cargo workspace (no rex or claude folders)
+
+  rex history insert-recent --id <id> --timestamp <ts> --summary <s> [--entity <e>...] [--file <f>...]
+                                            Insert a new recent history entry
+  rex history remove-from-recent <id>       Remove a recent history entry
+  rex history insert-compacted --id <id> --timestamp <ts> --summary <s> [--entity <e>...] [--file <f>...]
+                                            Insert a compacted archived entry
+  rex history remove-from-compacted <id>    Remove an archived history entry
+  rex history get-recent                    Get recent history entries as JSON
+  rex history list                          List all history (recent and archived) as JSON";
+
+fn print_commands() {
+    println!();
+    println!("  {}  v{}", style("Rex CLI").bold().cyan(), env!("CARGO_PKG_VERSION"));
+    println!("  {}", style("\u{2500}".repeat(40)).dim());
+    println!();
+    for line in COMMANDS_HELP.lines().skip(1) {
+        if line.is_empty() {
+            println!();
+        } else {
+            println!("  {line}");
+        }
+    }
+    println!();
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
 fn main() {
     let cli = Cli::parse();
 
-    let result = match cli.command {
+    if cli.commands {
+        print_commands();
+        return;
+    }
+
+    let command = match cli.command {
+        Some(cmd) => cmd,
+        None => {
+            // No subcommand given — show help
+            Cli::parse_from(["rex", "--help"]);
+            return;
+        }
+    };
+
+    let result = match command {
         // -- Init -----------------------------------------------------------
         Commands::Init => rex_cli::commands::init::init(),
 
