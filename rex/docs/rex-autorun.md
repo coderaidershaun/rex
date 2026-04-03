@@ -64,7 +64,7 @@ rex-autorun
 rex-autorun --project-dir /Users/me/Code/my-rex-project
 
 # Lower budget limits for a test run
-rex-autorun --max-budget-usd 10.0 --max-total-budget-usd 50.0
+rex-autorun --max-budget-usd 50.0 --max-total-budget-usd 300.0
 
 # Give Claude more time per invocation and allow more retries
 rex-autorun --process-timeout 120 --max-retries 10

@@ -409,206 +409,187 @@ async fn main_loop(
                             return Ok(ExitCode::from(0));
                         }
                         OperatorStatus::NeedsInput => {
-                            info!(session_id = %output.session_id, "needs user input");
+                            // Multi-round input loop: ask → wait → resume → check.
+                            // Loops here until the session returns something other
+                            // than NeedsInput, preserving conversation context.
+                            let mut current_question = result.message;
+                            let mut current_session_id = output.session_id.clone();
 
-                            // Save pending_input state
-                            let pending_state = AutorunState {
-                                phase: AutorunPhase::PendingInput,
-                                session_id: Some(output.session_id.clone()),
-                                claude_pid: None,
-                                claude_pgid: None,
-                                pending_question: Some(result.message.clone()),
-                                telegram_message_id: None,
-                                telegram_update_offset: Some(tg.update_offset),
-                                invocation_count: n,
-                                updated_at: now_iso(),
-                                stats: stats.clone(),
-                            };
-                            if let Err(e) = state::write_state_atomic(state_path, &pending_state) {
-                                error!("failed to write pending_input state: {e}");
-                            }
+                            loop {
+                                info!(session_id = %current_session_id, "needs user input");
 
-                            log_event(log_path, &LogEvent::NeedsInput {
-                                question: result.message.clone(),
-                                session_id: output.session_id.clone(),
-                                timestamp: now_iso(),
-                            });
+                                // Persist pending state (survives crash)
+                                let pending_state = AutorunState {
+                                    phase: AutorunPhase::PendingInput,
+                                    session_id: Some(current_session_id.clone()),
+                                    claude_pid: None,
+                                    claude_pgid: None,
+                                    pending_question: Some(current_question.clone()),
+                                    telegram_message_id: None,
+                                    telegram_update_offset: Some(tg.update_offset),
+                                    invocation_count: n,
+                                    updated_at: now_iso(),
+                                    stats: stats.clone(),
+                                };
+                                let _ = state::write_state_atomic(state_path, &pending_state);
 
-                            // Send question to Telegram
-                            let msg = format!(
-                                "[{project_id}] Input needed:\n\n{}\n\n(Reply to this message with your answer)",
-                                result.message,
-                            );
-                            match tg.send_message(&msg).await {
-                                Ok(msg_id) => {
-                                    // Update state with telegram message ID
+                                log_event(log_path, &LogEvent::NeedsInput {
+                                    question: current_question.clone(),
+                                    session_id: current_session_id.clone(),
+                                    timestamp: now_iso(),
+                                });
+
+                                // Send question to Telegram
+                                let msg = format!(
+                                    "[{project_id}] Input needed:\n\n{current_question}\n\n(Reply to this message with your answer)",
+                                );
+                                if let Ok(msg_id) = tg.send_message(&msg).await {
                                     let mut updated = pending_state;
                                     updated.telegram_message_id = Some(msg_id);
                                     updated.telegram_update_offset = Some(tg.update_offset);
                                     let _ = state::write_state_atomic(state_path, &updated);
                                 }
-                                Err(e) => {
-                                    error!("failed to send question to telegram: {e}");
-                                    // Question is persisted in state, will be re-sent on recovery
-                                }
-                            }
 
-                            // Wait for reply
-                            let human_timeout = Duration::from_secs(args.human_timeout_days * 86400);
-                            match tg.wait_for_reply(human_timeout).await {
-                                Ok(reply) => {
-                                    info!(reply_len = reply.len(), "got user reply, resuming session");
-
-                                    log_event(log_path, &LogEvent::InputReceived {
-                                        reply_length: reply.len(),
-                                        timestamp: now_iso(),
-                                    });
-
-                                    state::delete_state(state_path);
-
-                                    // Resume the session with the user's reply
-                                    let resume_result = async {
-                                        let spawned = claude::spawn_claude(
-                                            project_dir,
-                                            &reply,
-                                            Some(&output.session_id),
-                                            &session_name,
-                                            args.max_turns,
-                                            args.max_budget_usd,
-                                        )?;
-                                        claude::await_claude(spawned, timeout).await
+                                // Wait for reply
+                                let human_timeout = Duration::from_secs(args.human_timeout_days * 86400);
+                                let reply = match tg.wait_for_reply(human_timeout).await {
+                                    Ok(r) => r,
+                                    Err(e) => {
+                                        error!("human reply timeout: {e}");
+                                        tg.notify(&format!("[{project_id}] Timeout waiting for reply — shutting down")).await;
+                                        state::delete_state(state_path);
+                                        return Ok(ExitCode::from(2));
                                     }
-                                    .await;
+                                };
 
-                                    match resume_result {
-                                        Ok((resume_output, _pgid)) => {
-                                            let resume_cost = resume_output.cost.total_cost;
-                                            stats.total_cost_usd += resume_cost;
-                                            stats.invocations_completed += 1;
+                                info!(reply_len = reply.len(), "got user reply, resuming session");
+                                log_event(log_path, &LogEvent::InputReceived {
+                                    reply_length: reply.len(),
+                                    timestamp: now_iso(),
+                                });
+                                state::delete_state(state_path);
 
-                                            let resume_op = claude::parse_operator_result(&resume_output.result);
+                                // Resume session — spawn with PID tracking + await
+                                let spawned = match claude::spawn_claude(
+                                    project_dir,
+                                    &reply,
+                                    Some(&current_session_id),
+                                    &session_name,
+                                    args.max_turns,
+                                    args.max_budget_usd,
+                                ) {
+                                    Ok(s) => s,
+                                    Err(e) => {
+                                        error!("failed to spawn resume: {e}");
+                                        tg.notify(&format!("[{project_id}] Error spawning resume: {e}")).await;
+                                        return Ok(ExitCode::from(1));
+                                    }
+                                };
 
-                                            log_event(log_path, &LogEvent::InvocationCompleted {
-                                                n,
-                                                status: match &resume_op {
-                                                    Ok(r) => format!("{:?}", r.status),
-                                                    Err(_) => "parse_error".to_string(),
-                                                },
-                                                message: match &resume_op {
-                                                    Ok(r) => r.message.clone(),
-                                                    Err(e) => e.to_string(),
-                                                },
-                                                session_id: resume_output.session_id.clone(),
-                                                cost_usd: resume_cost,
-                                                duration_ms: resume_output.duration_ms,
-                                                timestamp: now_iso(),
-                                            });
+                                // Write PID to state for orphan cleanup
+                                let resume_running = AutorunState {
+                                    phase: AutorunPhase::Running,
+                                    session_id: Some(current_session_id.clone()),
+                                    claude_pid: Some(spawned.pid),
+                                    claude_pgid: Some(spawned.pgid),
+                                    pending_question: None,
+                                    telegram_message_id: None,
+                                    telegram_update_offset: Some(tg.update_offset),
+                                    invocation_count: n,
+                                    updated_at: now_iso(),
+                                    stats: stats.clone(),
+                                };
+                                let _ = state::write_state_atomic(state_path, &resume_running);
 
-                                            match resume_op {
-                                                Ok(r) if r.status == OperatorStatus::ProjectDone => {
-                                                    let duration = format_duration_since(&stats.started_at);
-                                                    tg.notify(&format!(
-                                                        "[{project_id}] Project complete!\nTotal invocations: {} | Total cost: ${:.2} | Duration: {duration}",
-                                                        stats.invocations_completed,
-                                                        stats.total_cost_usd,
-                                                    )).await;
-                                                    state::delete_state(state_path);
-                                                    return Ok(ExitCode::from(0));
-                                                }
-                                                Ok(r) if r.status == OperatorStatus::NeedsInput => {
-                                                    // Another question — loop back through
-                                                    // Write new pending state and re-ask
-                                                    info!("skill needs another input round");
-                                                    // Decrement invocation_count so the outer loop
-                                                    // increments it back — but actually we should
-                                                    // handle multi-round input inline. For simplicity,
-                                                    // continue the outer loop which will invoke fresh.
-                                                    // The resumed session already emitted needs_input,
-                                                    // but we consumed it. We need to handle this
-                                                    // recursively or re-enter the needs_input flow.
-                                                    //
-                                                    // For now, send the new question and loop.
-                                                    let new_msg = format!(
-                                                        "[{project_id}] Follow-up input needed:\n\n{}\n\n(Reply to this message with your answer)",
-                                                        r.message,
-                                                    );
-
-                                                    let new_pending = AutorunState {
-                                                        phase: AutorunPhase::PendingInput,
-                                                        session_id: Some(resume_output.session_id.clone()),
-                                                        claude_pid: None,
-                                                        claude_pgid: None,
-                                                        pending_question: Some(r.message.clone()),
-                                                        telegram_message_id: None,
-                                                        telegram_update_offset: Some(tg.update_offset),
-                                                        invocation_count: n,
-                                                        updated_at: now_iso(),
-                                                        stats: stats.clone(),
-                                                    };
-                                                    let _ = state::write_state_atomic(state_path, &new_pending);
-
-                                                    tg.notify(&new_msg).await;
-
-                                                    // We need to wait again — but rather than deep recursion,
-                                                    // continue the outer loop with the session to resume set.
-                                                    // For v1, just do a fresh invocation which will
-                                                    // re-read the project state.
-                                                    state::delete_state(state_path);
-                                                    tokio::time::sleep(Duration::from_secs(5)).await;
-                                                    continue;
-                                                }
-                                                Ok(r) if r.status == OperatorStatus::Completed => {
-                                                    stats.items_completed += 1;
-                                                    tg.notify(&format!(
-                                                        "[{project_id}] Completed: {}\nCost: ${resume_cost:.2} | Invocation: #{n}",
-                                                        r.message,
-                                                    )).await;
-                                                    state::delete_state(state_path);
-                                                    tokio::time::sleep(Duration::from_secs(5)).await;
-                                                    continue;
-                                                }
-                                                Ok(r) => {
-                                                    // OperatorStatus::Error
-                                                    error!("operator error after resume: {}", r.message);
-                                                    tg.notify(&format!("[{project_id}] Error: {}", r.message)).await;
-                                                    state::delete_state(state_path);
-                                                    return Ok(ExitCode::from(1));
-                                                }
-                                                Err(e) => {
-                                                    error!("failed to parse resume result: {e}");
-                                                    tg.notify(&format!("[{project_id}] Error parsing resume result: {e}")).await;
-                                                    state::delete_state(state_path);
-                                                    return Ok(ExitCode::from(1));
-                                                }
-                                            }
-                                        }
-                                        Err(e) => {
-                                            error!("resume invocation failed: {e}");
-                                            let err_str = e.to_string();
-                                            if is_retryable(&err_str) && consecutive_errors < args.max_retries {
-                                                consecutive_errors += 1;
-                                                let delay = retry_delay(consecutive_errors);
-                                                tg.notify(&format!(
-                                                    "[{project_id}] Error (resume): {err_str}\nRetrying in {delay}s (attempt {consecutive_errors}/{})",
-                                                    args.max_retries,
-                                                )).await;
-                                                tokio::time::sleep(Duration::from_secs(delay)).await;
-                                                state::delete_state(state_path);
-                                                continue;
-                                            }
-                                            tg.notify(&format!("[{project_id}] Error (resume): {err_str}")).await;
+                                let resume_output = match claude::await_claude(spawned, timeout).await {
+                                    Ok((output, _pgid)) => output,
+                                    Err(e) => {
+                                        let err_str = e.to_string();
+                                        if is_retryable(&err_str) && consecutive_errors < args.max_retries {
+                                            consecutive_errors += 1;
+                                            let delay = retry_delay(consecutive_errors);
+                                            tg.notify(&format!(
+                                                "[{project_id}] Error (resume): {err_str}\nRetrying in {delay}s (attempt {consecutive_errors}/{})",
+                                                args.max_retries,
+                                            )).await;
+                                            tokio::time::sleep(Duration::from_secs(delay)).await;
                                             state::delete_state(state_path);
-                                            return Ok(ExitCode::from(1));
+                                            // Break to outer loop for fresh invocation
+                                            break;
                                         }
+                                        tg.notify(&format!("[{project_id}] Error (resume): {err_str}")).await;
+                                        state::delete_state(state_path);
+                                        return Ok(ExitCode::from(1));
+                                    }
+                                };
+
+                                stats.total_cost_usd += resume_output.cost.total_cost;
+                                stats.invocations_completed += 1;
+
+                                let resume_op = match claude::parse_operator_result(&resume_output.result) {
+                                    Ok(r) => r,
+                                    Err(e) => {
+                                        error!("failed to parse resume result: {e}");
+                                        tg.notify(&format!("[{project_id}] Error parsing resume result: {e}")).await;
+                                        state::delete_state(state_path);
+                                        return Ok(ExitCode::from(1));
+                                    }
+                                };
+
+                                log_event(log_path, &LogEvent::InvocationCompleted {
+                                    n,
+                                    status: format!("{:?}", resume_op.status),
+                                    message: resume_op.message.clone(),
+                                    session_id: resume_output.session_id.clone(),
+                                    cost_usd: resume_output.cost.total_cost,
+                                    duration_ms: resume_output.duration_ms,
+                                    timestamp: now_iso(),
+                                });
+
+                                match resume_op.status {
+                                    OperatorStatus::NeedsInput => {
+                                        // Another question — stay in this inner loop
+                                        info!("skill needs another input round");
+                                        current_question = resume_op.message;
+                                        current_session_id = resume_output.session_id;
+                                        continue;
+                                    }
+                                    OperatorStatus::Completed => {
+                                        stats.items_completed += 1;
+                                        tg.notify(&format!(
+                                            "[{project_id}] Completed: {}\nCost: ${:.2} | Invocation: #{n}",
+                                            resume_op.message, stats.total_cost_usd,
+                                        )).await;
+                                        state::delete_state(state_path);
+                                        info!(n, "invocation completed, cooling down 5s");
+                                        tokio::time::sleep(Duration::from_secs(5)).await;
+                                        break; // back to outer loop
+                                    }
+                                    OperatorStatus::ProjectDone => {
+                                        let duration = format_duration_since(&stats.started_at);
+                                        tg.notify(&format!(
+                                            "[{project_id}] Project complete!\nTotal invocations: {} | Total cost: ${:.2} | Duration: {duration}",
+                                            stats.invocations_completed, stats.total_cost_usd,
+                                        )).await;
+                                        log_event(log_path, &LogEvent::ProjectDone {
+                                            total_cost_usd: stats.total_cost_usd,
+                                            total_invocations: stats.invocations_completed,
+                                            total_duration: duration,
+                                            timestamp: now_iso(),
+                                        });
+                                        state::delete_state(state_path);
+                                        return Ok(ExitCode::from(0));
+                                    }
+                                    OperatorStatus::Error => {
+                                        error!("operator error after resume: {}", resume_op.message);
+                                        tg.notify(&format!("[{project_id}] Error: {}", resume_op.message)).await;
+                                        state::delete_state(state_path);
+                                        return Ok(ExitCode::from(1));
                                     }
                                 }
-                                Err(e) => {
-                                    error!("human reply timeout: {e}");
-                                    tg.notify(&format!("[{project_id}] Timeout waiting for reply — shutting down")).await;
-                                    state::delete_state(state_path);
-                                    return Ok(ExitCode::from(2));
-                                }
                             }
+                            // Broke out of inner loop — continue outer loop
+                            continue;
                         }
                         OperatorStatus::Error => {
                             error!("operator returned error: {}", result.message);
