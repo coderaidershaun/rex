@@ -120,6 +120,42 @@ impl TelegramClient {
         self.send_with_body(&body).await
     }
 
+    /// Send a message with inline Reply + Stats + Kill buttons. Returns the `message_id`.
+    pub async fn send_with_buttons(&self, text: &str) -> RexResult<i64> {
+        let body = serde_json::json!({
+            "chat_id": self.chat_id,
+            "text": text,
+            "parse_mode": "HTML",
+            "reply_markup": {
+                "inline_keyboard": [[
+                    { "text": "💬 Reply", "callback_data": "reply" },
+                    { "text": "📊 Stats", "callback_data": "query" },
+                    { "text": "🛑 Kill", "callback_data": "kill" },
+                ]]
+            },
+        });
+        self.send_with_body(&body).await
+    }
+
+    /// Send a force-reply prompt (used when the Reply button is pressed).
+    /// Returns the `message_id` of the prompt.
+    pub async fn send_reply_prompt(&self, project_id: &str) -> RexResult<i64> {
+        let text = format!(
+            "💬 <b>Reply</b>  ·  <code>{}</code>\n\
+             <i>Type your message below</i>",
+            super::types::escape_html(project_id),
+        );
+        let body = serde_json::json!({
+            "chat_id": self.chat_id,
+            "text": text,
+            "parse_mode": "HTML",
+            "reply_markup": {
+                "force_reply": true,
+            },
+        });
+        self.send_with_body(&body).await
+    }
+
     /// Send a question with `ForceReply` markup, prompting the user's client
     /// to reply directly. Returns the `message_id`.
     pub async fn send_question(&self, text: &str) -> RexResult<i64> {
@@ -141,7 +177,7 @@ impl TelegramClient {
     /// `/query` commands are answered inline and polling continues.
     pub async fn wait_for_reply(
         &mut self,
-        expected_message_id: i64,
+        mut expected_message_id: i64,
         project_id: &str,
         timeout: Duration,
         query_response: &str,
@@ -164,7 +200,7 @@ impl TelegramClient {
             let body = serde_json::json!({
                 "offset": self.update_offset,
                 "timeout": 1,
-                "allowed_updates": ["message"],
+                "allowed_updates": ["message", "callback_query"],
             });
 
             let resp = self
@@ -202,6 +238,39 @@ impl TelegramClient {
             for update in updates {
                 if let Some(uid) = update["update_id"].as_i64() {
                     self.update_offset = uid + 1;
+                }
+
+                // Handle callback queries (inline button presses)
+                if let Some(cb) = update.get("callback_query") {
+                    let cb_chat_id = cb["message"]["chat"]["id"].as_i64().unwrap_or(0);
+                    if cb_chat_id != self.chat_id {
+                        continue;
+                    }
+                    let data = cb["data"].as_str().unwrap_or("");
+                    let cb_id = cb["id"].as_str().unwrap_or("");
+                    self.answer_callback_query(cb_id).await;
+
+                    match data {
+                        "kill" => {
+                            info!("received kill button press for project {project_id}");
+                            return Ok(TelegramPollResult::Kill);
+                        }
+                        "query" => {
+                            info!("received stats button press, sending stats");
+                            self.notify(query_response).await;
+                        }
+                        "reply" => {
+                            info!("received reply button press, sending force-reply prompt");
+                            if let Ok(prompt_id) = self.send_reply_prompt(project_id).await {
+                                // Update expected_message_id so we accept replies to the prompt
+                                expected_message_id = prompt_id;
+                            }
+                        }
+                        _ => {
+                            debug!(data, "ignoring unknown callback data");
+                        }
+                    }
+                    continue;
                 }
 
                 let msg = &update["message"];
@@ -291,7 +360,7 @@ impl TelegramClient {
             let body = serde_json::json!({
                 "offset": self.update_offset,
                 "timeout": 1,
-                "allowed_updates": ["message"],
+                "allowed_updates": ["message", "callback_query"],
             });
 
             let resp = self
@@ -333,6 +402,36 @@ impl TelegramClient {
                     self.update_offset = uid + 1;
                 }
 
+                // Handle callback queries (inline button presses)
+                if let Some(cb) = update.get("callback_query") {
+                    let cb_chat_id = cb["message"]["chat"]["id"].as_i64().unwrap_or(0);
+                    if cb_chat_id != self.chat_id {
+                        continue;
+                    }
+                    let data = cb["data"].as_str().unwrap_or("");
+                    let cb_id = cb["id"].as_str().unwrap_or("");
+                    self.answer_callback_query(cb_id).await;
+
+                    match data {
+                        "kill" => {
+                            info!("received kill button press during claude execution");
+                            return Ok(());
+                        }
+                        "query" => {
+                            info!("received stats button press during claude execution");
+                            self.notify(query_response).await;
+                        }
+                        "reply" => {
+                            info!("received reply button press during claude execution");
+                            let _ = self.send_reply_prompt(project_id).await;
+                        }
+                        _ => {
+                            debug!(data, "ignoring unknown callback data");
+                        }
+                    }
+                    continue;
+                }
+
                 let msg = &update["message"];
                 let chat_id = msg["chat"]["id"].as_i64().unwrap_or(0);
                 if chat_id != self.chat_id {
@@ -366,6 +465,27 @@ impl TelegramClient {
         if let Err(e) = self.send_message(text).await {
             error!("failed to send telegram notification: {e}");
         }
+    }
+
+    /// Fire-and-forget notification with inline Stats + Kill buttons.
+    pub async fn notify_with_buttons(&self, text: &str) {
+        if let Err(e) = self.send_with_buttons(text).await {
+            error!("failed to send telegram notification with buttons: {e}");
+        }
+    }
+
+    /// Acknowledge a callback query (removes the "loading" spinner on the button).
+    async fn answer_callback_query(&self, callback_query_id: &str) {
+        let body = serde_json::json!({
+            "callback_query_id": callback_query_id,
+        });
+        let _ = self
+            .http
+            .post(self.api_url("answerCallbackQuery"))
+            .json(&body)
+            .timeout(Duration::from_secs(10))
+            .send()
+            .await;
     }
 }
 

@@ -85,13 +85,12 @@ impl ClaudeOutput {
         (total as f64 / entry.context_window as f64) * 100.0
     }
 
-    /// Formatted header line for Telegram messages (HTML).
-    pub fn telegram_header(&self) -> String {
+    /// Formatted stats line for Telegram messages (HTML).
+    pub fn telegram_stats(&self) -> String {
         format!(
-            "<b>{}</b>  |  {}  |  {:.1}% context",
-            escape_html(self.model_name()),
-            self.speed(),
-            self.context_percent(),
+            "⚡ <code>{speed}</code>  ·  📊 <code>{ctx:.1}%</code> context",
+            speed = self.speed(),
+            ctx = self.context_percent(),
         )
     }
 }
@@ -137,6 +136,9 @@ pub struct ModelUsageEntry {
     #[serde(default, rename = "costUSD")]
     pub cost_usd: f64,
 }
+
+/// Divider line for Telegram messages.
+pub const DIV: &str = "⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯";
 
 /// Escape HTML special characters for Telegram HTML parse mode.
 pub fn escape_html(s: &str) -> String {
