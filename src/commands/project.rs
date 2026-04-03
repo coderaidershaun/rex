@@ -239,43 +239,112 @@ pub fn create() -> RexResult<()> {
         );
     }
 
+    // --- Initialize rex inside project? ---
+    let has_outer_harness = Path::new("rex/projects.json").exists();
+    let init_inside = Confirm::with_theme(&theme)
+        .with_prompt("  Initialize rex harness inside the project directory?")
+        .default(!has_outer_harness)
+        .interact()?;
+
+    if init_inside {
+        let exe = std::env::current_exe()?;
+        let rex_status = Command::new(&exe)
+            .arg("init")
+            .current_dir(&project.directory)
+            .stdin(std::process::Stdio::inherit())
+            .stdout(std::process::Stdio::inherit())
+            .stderr(std::process::Stdio::inherit())
+            .status()?;
+        if !rex_status.success() {
+            return Err(RexError::Subprocess {
+                command: "rex init".into(),
+                detail: "non-zero exit".into(),
+            });
+        }
+    }
+
     // --- Persist ---
-    let mut registry = ProjectRegistry::load()?;
-    let prev_active_id = registry.active.as_ref().map(|p| p.id.clone());
     let category = project.category.clone();
-    registry.set_active(project);
+    let project_directory = project.directory.clone();
 
-    // Create rex/<project-id>/ directory, subdirectories, and project-status.json
-    let project_dir = format!("rex/{id}");
-    for sub in &["onboarding", "user-support", "planning", "design", "execution", "uat"] {
-        fs::create_dir_all(format!("{project_dir}/{sub}"))?;
-    }
+    if init_inside {
+        let base = Path::new(&project_directory);
 
-    let status = ProjectStatus::new(&id, &tab_result.selected_items, &design_result.selected_items, &category);
-    status.save(Path::new(&project_dir))?;
+        // Fresh registry for the inner harness
+        let mut inner_registry = ProjectRegistry::default();
+        inner_registry.set_active(project);
 
-    registry.save()?;
+        // Create <base>/rex/{id}/ subdirectories and project-status.json
+        let project_meta_dir = base.join(format!("rex/{id}"));
+        for sub in &["onboarding", "user-support", "planning", "design", "execution", "uat"] {
+            fs::create_dir_all(project_meta_dir.join(sub))?;
+        }
 
-    // --- Success output ---
-    println!();
-    println!(
-        "  {} Project \"{}\" created and set as active.",
-        style("\u{2713}").green().bold(),
-        id
-    );
-    println!(
-        "  {} Created project directory: {}/",
-        style("\u{2713}").green().bold(),
-        project_dir
-    );
-    if let Some(prev_id) = prev_active_id {
+        let status = ProjectStatus::new(&id, &tab_result.selected_items, &design_result.selected_items, &category);
+        status.save(&project_meta_dir)?;
+
+        // Write registry directly to <base>/rex/projects.json
+        let registry_path = base.join("rex/projects.json");
+        let json = serde_json::to_string_pretty(&inner_registry)
+            .map_err(|e| RexError::JsonSerialize { context: "projects.json".into(), source: e })?;
+        fs::write(&registry_path, format!("{json}\n"))
+            .map_err(|e| RexError::FileWrite { path: registry_path.display().to_string(), source: e })?;
+
+        // --- Success output ---
+        println!();
         println!(
-            "  {} Previous active project \"{}\" moved to inactive.",
-            style("\u{2139}").blue().bold(),
-            prev_id
+            "  {} Project \"{}\" created with rex harness inside {}",
+            style("\u{2713}").green().bold(),
+            id,
+            &project_directory
         );
+        println!(
+            "  {} Created project metadata: rex/{id}/",
+            style("\u{2713}").green().bold(),
+        );
+        println!(
+            "  {} cd {} && rex project next-item",
+            style("\u{2192}").cyan(),
+            &project_directory
+        );
+        println!();
+    } else {
+        let mut registry = ProjectRegistry::load()?;
+        let prev_active_id = registry.active.as_ref().map(|p| p.id.clone());
+        registry.set_active(project);
+
+        // Create rex/<project-id>/ directory, subdirectories, and project-status.json
+        let project_dir = format!("rex/{id}");
+        for sub in &["onboarding", "user-support", "planning", "design", "execution", "uat"] {
+            fs::create_dir_all(format!("{project_dir}/{sub}"))?;
+        }
+
+        let status = ProjectStatus::new(&id, &tab_result.selected_items, &design_result.selected_items, &category);
+        status.save(Path::new(&project_dir))?;
+
+        registry.save()?;
+
+        // --- Success output ---
+        println!();
+        println!(
+            "  {} Project \"{}\" created and set as active.",
+            style("\u{2713}").green().bold(),
+            id
+        );
+        println!(
+            "  {} Created project directory: {}/",
+            style("\u{2713}").green().bold(),
+            project_dir
+        );
+        if let Some(prev_id) = prev_active_id {
+            println!(
+                "  {} Previous active project \"{}\" moved to inactive.",
+                style("\u{2139}").blue().bold(),
+                prev_id
+            );
+        }
+        println!();
     }
-    println!();
 
     Ok(())
 }
