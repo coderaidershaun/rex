@@ -290,7 +290,7 @@ Each work item in `project-status.json` specifies how its agent(s) should be dis
 
 | Command | Purpose |
 |---------|---------|
-| `rex project create` | Interactive project creation with scaffolding (includes option to init rex inside project) |
+| `rex project create [--with-git-repo <public\|private>]` | Interactive project creation with scaffolding (includes option to init rex inside project) |
 | `rex project get-active` | Display the currently active project |
 | `rex project activate <id>` | Switch to a different project |
 | `rex project remove <id>` | Remove a project (optionally delete source) |
@@ -362,7 +362,7 @@ All three levels share the same command pattern and list modification flags:
 
 | Command | Purpose |
 |---------|---------|
-| `rex mono --name <name> [--no-harness]` | Create a Cargo workspace monorepo (bare workspace with --no-harness) |
+| `rex mono --name <name> [--no-harness] [--with-git-repo <public\|private>]` | Create a Cargo workspace monorepo (bare workspace with --no-harness) |
 
 ## project-status.json Structure
 

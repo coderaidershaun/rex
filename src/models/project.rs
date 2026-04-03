@@ -67,6 +67,30 @@ impl fmt::Display for Complexity {
     }
 }
 
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum RepoVisibility {
+    Public,
+    Private,
+}
+
+impl RepoVisibility {
+    pub fn gh_flag(&self) -> &'static str {
+        match self {
+            Self::Public => "--public",
+            Self::Private => "--private",
+        }
+    }
+}
+
+impl fmt::Display for RepoVisibility {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Public => write!(f, "public"),
+            Self::Private => write!(f, "private"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Project {
     pub id: String,

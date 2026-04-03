@@ -2,8 +2,7 @@ use clap::{Args, Parser, Subcommand};
 use console::style;
 use rex_cli::models::checklist::{ChecklistCategory, Phase};
 use rex_cli::models::planning::{ListMods, PlanningStatus};
-use rex_cli::models::project::Category;
-use rex_cli::models::project::Complexity;
+use rex_cli::models::project::{Category, Complexity, RepoVisibility};
 use rex_cli::models::project_status::Status;
 
 #[derive(Parser)]
@@ -136,7 +135,11 @@ impl From<ListModArgs> for ListMods {
 #[derive(Subcommand)]
 enum ProjectAction {
     /// Create a new project interactively
-    Create,
+    Create {
+        /// Create a GitHub repository (public or private) using the gh CLI
+        #[arg(long, value_enum)]
+        with_git_repo: Option<RepoVisibility>,
+    },
     /// Display the current active project
     GetActive,
     /// Remove a project
@@ -435,6 +438,9 @@ struct MonoArgs {
     /// Create an empty workspace (no rex harness or claude folders)
     #[arg(long)]
     no_harness: bool,
+    /// Create a GitHub repository (public or private) using the gh CLI
+    #[arg(long, value_enum)]
+    with_git_repo: Option<RepoVisibility>,
 }
 
 // ---------------------------------------------------------------------------
@@ -491,7 +497,8 @@ All commands:
 
   rex init                                  Initialize the rex harness in the current directory
 
-  rex project create                        Create a new project interactively
+  rex project create [--with-git-repo <public|private>]
+                                            Create a new project interactively
   rex project get-active                    Display the current active project
   rex project remove <id>                   Remove a project
   rex project activate <id>                 Activate an inactive project
@@ -537,7 +544,8 @@ All commands:
   rex task remove <id>                      Remove a task
   rex task next                             Get the next task based on dependency order and priority
 
-  rex mono --name <name> [--no-harness]     Create a Cargo workspace monorepo with git
+  rex mono --name <name> [--no-harness] [--with-git-repo <public|private>]
+                                            Create a Cargo workspace monorepo with git
 
   rex history insert --id <id> --timestamp <ts> --summary <s> [--entity <e>...] [--file <f>...] [--archived]
                                             Insert a history entry (recent by default, archived with --archived)
@@ -606,7 +614,7 @@ fn main() {
 
         // -- Project --------------------------------------------------------
         Commands::Project { action } => match action {
-            ProjectAction::Create => rex_cli::commands::project::create(),
+            ProjectAction::Create { with_git_repo } => rex_cli::commands::project::create(with_git_repo),
             ProjectAction::GetActive => rex_cli::commands::project::get_active(),
             ProjectAction::Remove { id } => rex_cli::commands::project::remove(&id),
             ProjectAction::Activate { id } => rex_cli::commands::project::activate(&id),
@@ -724,7 +732,7 @@ fn main() {
         },
 
         // -- Mono -----------------------------------------------------------
-        Commands::Mono(args) => rex_cli::commands::mono::create(&args.name, args.no_harness),
+        Commands::Mono(args) => rex_cli::commands::mono::create(&args.name, args.no_harness, args.with_git_repo),
 
         // -- History --------------------------------------------------------
         Commands::History { action } => match action {

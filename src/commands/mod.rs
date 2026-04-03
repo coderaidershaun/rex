@@ -1,4 +1,5 @@
 pub mod checklist;
+pub mod git;
 pub mod history;
 pub mod init;
 pub mod milestone;

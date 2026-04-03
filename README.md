@@ -108,6 +108,38 @@ Rex manages projects through a structured pipeline:
 
 Rex gives AI agents the scaffolding they need to build real software — tracking state across sessions, enforcing phase gates, and keeping work on the rails.
 
+## Quickstart Example — Monorepo with Individual Projects
+
+Create a private monorepo on GitHub (without the rex harness at the workspace level), then add projects that each have their own self-contained rex harness:
+
+```bash
+# 1. Create a bare workspace with a private GitHub repo
+rex mono --name my-platform --no-harness --with-git-repo private
+
+# 2. Move into the workspace
+cd my-platform
+
+# 3. Create your first project — rex harness lives inside the project
+rex project create
+# When prompted:
+#   - Project ID: api-server
+#   - Directory: libs/api-server
+#   - "Initialize rex harness inside the project directory?" → Yes
+
+# 4. Create a second project
+rex project create
+# When prompted:
+#   - Project ID: shared-types
+#   - Directory: libs/shared-types
+#   - "Initialize rex harness inside the project directory?" → Yes
+
+# 5. Run the operator from inside a project directory
+cd libs/api-server
+# Then invoke /rex-operator from Claude Code or Cursor
+```
+
+Each project under `libs/` has its own `.claude/`, `rex/`, and `CLAUDE.md` — fully independent harnesses that can be worked on in separate agent sessions. The workspace `Cargo.toml` automatically includes all crates under `libs/*`.
+
 ## CLI Reference
 
 ### Project Management
@@ -115,7 +147,7 @@ Rex gives AI agents the scaffolding they need to build real software — trackin
 | Command | Description |
 |---|---|
 | `rex init` | Initialize the harness in the current directory |
-| `rex project create` | Create a new project interactively |
+| `rex project create [--with-git-repo <public\|private>]` | Create a new project interactively |
 | `rex project get-active` | Show the current active project |
 | `rex project activate <ID>` | Switch to a different project |
 | `rex project remove <ID>` | Remove a project |
@@ -161,7 +193,7 @@ Rex gives AI agents the scaffolding they need to build real software — trackin
 
 | Command | Description |
 |---|---|
-| `rex mono --name <NAME> [--no-harness]` | Create a Cargo workspace monorepo |
+| `rex mono --name <NAME> [--no-harness] [--with-git-repo <public\|private>]` | Create a Cargo workspace monorepo |
 
 Run `rex --help`, `rex --commands`, or `rex <command> --help` for full usage details.
 

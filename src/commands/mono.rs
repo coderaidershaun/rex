@@ -1,9 +1,11 @@
+use crate::commands::git;
 use crate::errors::{RexError, RexResult};
+use crate::models::project::RepoVisibility;
 use console::style;
 use std::fs;
 use std::process::Command;
 
-pub fn create(name: &str, no_harness: bool) -> RexResult<()> {
+pub fn create(name: &str, no_harness: bool, with_git_repo: Option<RepoVisibility>) -> RexResult<()> {
     let label = if no_harness {
         "Rex Mono (empty)"
     } else {
@@ -72,6 +74,11 @@ pub fn create(name: &str, no_harness: bool) -> RexResult<()> {
         "  {} Initialized git repository",
         style("\u{2713}").green().bold(),
     );
+
+    // 5b. Create GitHub repo if requested
+    if let Some(visibility) = with_git_repo {
+        git::create_github_repo(name, visibility, &repo_dir)?;
+    }
 
     // 6. Run rex init inside the new directory (unless --no-harness)
     if !no_harness {

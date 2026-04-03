@@ -1,6 +1,7 @@
+use crate::commands::git;
 use crate::errors::{RexError, RexResult};
 use crate::models::planning::{PlanningStatus, PlanningStore};
-use crate::models::project::{Category, Complexity, Project, ProjectRegistry};
+use crate::models::project::{Category, Complexity, Project, ProjectRegistry, RepoVisibility};
 use crate::models::project_status::{ProjectStatus, Status};
 use crate::ui::design_select::design_select;
 use crate::ui::tab_select::tab_select;
@@ -101,7 +102,7 @@ fn resolve_directory(
     }
 }
 
-pub fn create() -> RexResult<()> {
+pub fn create(with_git_repo: Option<RepoVisibility>) -> RexResult<()> {
     let theme = ColorfulTheme::default();
 
     println!();
@@ -248,6 +249,27 @@ pub fn create() -> RexResult<()> {
             style("\u{2713}").green().bold(),
             &project.directory
         );
+    }
+
+    // --- Create GitHub repo if requested ---
+    if let Some(visibility) = with_git_repo {
+        let project_path = Path::new(&project.directory);
+        let initialized = git::ensure_git_init(project_path)?;
+        if initialized {
+            println!(
+                "  {} Initialized git repository",
+                style("\u{2713}").green().bold(),
+            );
+        }
+        let gitignore_path = project_path.join(".gitignore");
+        if !gitignore_path.exists() {
+            fs::write(&gitignore_path, "/target\n.env\n.env.*\n")?;
+            println!(
+                "  {} Created .gitignore",
+                style("\u{2713}").green().bold(),
+            );
+        }
+        git::create_github_repo(&project.id, visibility, project_path)?;
     }
 
     // --- Initialize rex inside project? ---

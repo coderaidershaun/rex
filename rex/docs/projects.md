@@ -37,12 +37,13 @@ When a project is created, a metadata directory is also created at `rex/<project
 
 All commands that edit a project (`update`, `update-status`) operate on the **active** project. Use `get-active` to check which project is active, and `activate` to switch.
 
-### `rex project create`
+### `rex project create [--with-git-repo <public|private>]`
 
 Interactively creates a new project and sets it as **active**.
 
 ```
 rex project create
+rex project create --with-git-repo private
 ```
 
 **Prompts (in order):**
@@ -56,6 +57,9 @@ rex project create
 7. **User Name** — optional, press Enter to skip.
 8. **Category & Onboarding/Design Items** — interactive tab-selection widget for category (`binary`, `library`, `refactor`) and which onboarding/design steps to include.
 9. **Summary & Confirm** — review all fields. Options: Create, Go back (returns to step 8), Cancel.
+
+If `--with-git-repo` is passed, git is initialized in the project directory (if not already a git repo), a `.gitignore` is created if missing, and a GitHub repository is created via the `gh` CLI and added as the `origin` remote. Requires the [GitHub CLI](https://cli.github.com/) to be installed and authenticated.
+
 10. **Initialize rex inside project?** — whether to run `rex init` inside the project directory, creating a self-contained project with its own harness. Defaults to Yes when no outer harness exists, No when one does.
 
 **Behavior on confirm — init inside project (Yes):**
