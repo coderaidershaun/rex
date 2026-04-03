@@ -1,5 +1,5 @@
-//! Integration test: sends separator style comparisons + full message flow
-//! via teloxide, then waits for a reply.
+//! Integration test: sends realistic autorun Telegram messages using teloxide
+//! with inline keyboards and rich formatting, then waits for a reply.
 //!
 //! Run with: cargo test --test test_auth_refresh -- --nocapture --include-ignored
 
@@ -34,6 +34,8 @@ async fn flush_updates(token: &str) -> Option<i64> {
     None
 }
 
+const DIVIDER: &str = "━━━━━━━━━━━━━━━━━━━━━";
+
 #[tokio::test]
 #[ignore]
 async fn test_agent_messages_via_telegram() {
@@ -52,90 +54,111 @@ async fn test_agent_messages_via_telegram() {
     let mut tg = TelegramClient::new(token, chat_id_raw, flushed_offset);
     let delay = Duration::from_millis(800);
 
-    // ── Separator comparison ─────────────────────────────────────────────
-    // Send the same message with different separator styles
-
-    let separators: &[(&str, &str)] = &[
-        ("A: No separator (just spacing)", ""),
-        ("B: Thin line ─", "\n─────────────\n"),
-        ("C: Dotted ·", "\n· · · · · · · · · · · ·\n"),
-        ("D: Em dash —", "\n———————————\n"),
-        ("E: Blockquote body", "BLOCKQUOTE"),
-    ];
-
-    for (label, sep) in separators {
-        let msg = if *sep == "BLOCKQUOTE" {
-            format!(
-                "✅ <b>Completed #3</b>  ·  <code>{pid}</code>\n\n\
-                 <blockquote>Implemented orderbook matching engine with price-time priority\n\n\
-                 ⚡ 67.3 tok/s  ·  📊 42.1% context\n\
-                 💰 $0.47  ·  ⏱ 38s</blockquote>\n\n\
-                 <i>{label}</i>",
-                pid = escape_html(project_id),
-                label = label,
-            )
-        } else if sep.is_empty() {
-            format!(
-                "✅ <b>Completed #3</b>  ·  <code>{pid}</code>\n\n\
-                 Implemented orderbook matching engine with price-time priority\n\n\
-                 ⚡ <code>67.3 tok/s</code>  ·  📊 <code>42.1%</code> context\n\
-                 💰 <code>$0.47</code>  ·  ⏱ <code>38s</code>\n\n\
-                 <i>{label}</i>",
-                pid = escape_html(project_id),
-                label = label,
-            )
-        } else {
-            format!(
-                "✅ <b>Completed #3</b>  ·  <code>{pid}</code>{sep}\
-                 Implemented orderbook matching engine with price-time priority\n\n\
-                 ⚡ <code>67.3 tok/s</code>  ·  📊 <code>42.1%</code> context\n\
-                 💰 <code>$0.47</code>  ·  ⏱ <code>38s</code>\n\n\
-                 <i>{label}</i>",
-                pid = escape_html(project_id),
-                sep = sep,
-                label = label,
-            )
-        };
-
-        bot.send_message(chat_id, &msg)
-            .parse_mode(ParseMode::Html)
-            .await
-            .expect("failed to send separator sample");
-        tokio::time::sleep(delay).await;
-    }
-
-    // ── Now send a full needs_input question so we can verify reply works ─
-    let question = "Which separator style do you prefer? Reply A, B, C, D, or E.";
-    let question_msg = format!(
-        "💬 <b>Input needed</b>  ·  <code>{pid}</code>\n\n\
-         <blockquote>{q}</blockquote>\n\
-         <i>Reply to this message</i>",
+    // 1. STARTUP
+    let startup_msg = format!(
+        "🚀 <b>Autorun started</b>  ·  <code>{pid}</code>\n\
+         {div}\n\
+         📂 <b>Project:</b> Orderbook Engine\n\
+         📁 <b>Directory:</b> <code>/srv/projects/orderbook</code>\n\
+         🤖 <b>Model:</b> claude-sonnet-4-5",
         pid = escape_html(project_id),
+        div = DIVIDER,
+    );
+    bot.send_message(chat_id, &startup_msg)
+        .parse_mode(ParseMode::Html)
+        .await
+        .expect("failed to send startup");
+    tokio::time::sleep(delay).await;
+
+    // 2. COMPLETION with inline buttons
+    let completion_msg = format!(
+        "✅ <b>Completed #3</b>  ·  <code>{pid}</code>\n\
+         {div}\n\
+         Implemented orderbook matching engine with price-time priority\n\n\
+         ⚡ <code>67.3 tok/s</code>  ·  📊 <code>42.1%</code> context\n\
+         💰 <code>$0.47</code>  ·  ⏱ <code>38s</code>",
+        pid = escape_html(project_id),
+        div = DIVIDER,
+    );
+    let keyboard = InlineKeyboardMarkup::new(vec![vec![
+        InlineKeyboardButton::callback("📊 Stats", "query"),
+        InlineKeyboardButton::callback("🛑 Kill", "kill"),
+    ]]);
+    bot.send_message(chat_id, &completion_msg)
+        .parse_mode(ParseMode::Html)
+        .reply_markup(keyboard)
+        .await
+        .expect("failed to send completion");
+    tokio::time::sleep(delay).await;
+
+    // 3. NEEDS_INPUT question
+    let question = "The WebSocket feed requires authentication. Should I use \
+                    API key auth (simpler, less secure) or OAuth2 (more complex, \
+                    production-grade)? Also, do you want reconnection logic with \
+                    exponential backoff, or just fail-fast on disconnect?";
+    let question_msg = format!(
+        "💬 <b>Input needed</b>  ·  <code>{pid}</code>\n\
+         {div}\n\
+         ⚡ <code>71.0 tok/s</code>  ·  📊 <code>55.8%</code> context\n\n\
+         <blockquote>{q}</blockquote>\n\
+         <i>Reply to this message with your answer</i>",
+        pid = escape_html(project_id),
+        div = DIVIDER,
         q = escape_html(question),
     );
-
     let sent = bot
         .send_message(chat_id, &question_msg)
         .parse_mode(ParseMode::Html)
-        .reply_markup(ReplyMarkup::ForceReply(
-            teloxide::types::ForceReply::new(),
-        ))
+        .reply_markup(ReplyMarkup::ForceReply(teloxide::types::ForceReply::new()))
         .await
         .expect("failed to send question");
     let msg_id = sent.id.0 as i64;
 
-    let query_response = "Waiting for your separator preference...";
+    // 4. Wait for reply (1 min)
+    let query_response = format!(
+        "📊 <b>Stats</b>  ·  <code>{pid}</code>\n\
+         {div}\n\
+         🔄 Invocation <code>#4</code>\n\
+         💰 Cost so far: <code>$1.23</code>\n\
+         ⏱ Uptime: <code>12m</code>",
+        pid = escape_html(project_id),
+        div = DIVIDER,
+    );
     let result = tg
-        .wait_for_reply(msg_id, project_id, Duration::from_secs(60), query_response)
+        .wait_for_reply(msg_id, project_id, Duration::from_secs(60), &query_response)
         .await;
 
     match result {
         Ok(rex_cli::autorun::telegram::TelegramPollResult::Reply(reply)) => {
             eprintln!("=== Got reply: {reply} ===");
-            bot.send_message(chat_id, &format!("👍 <b>Noted: {}</b>", escape_html(&reply)))
+
+            // Ack
+            let ack_msg = format!(
+                "👍 <b>Got it — resuming</b>  ·  <code>{pid}</code>",
+                pid = escape_html(project_id),
+            );
+            bot.send_message(chat_id, &ack_msg)
                 .parse_mode(ParseMode::Html)
                 .await
                 .expect("failed to send ack");
+            tokio::time::sleep(delay).await;
+
+            // 5. PROJECT DONE
+            let done_msg = format!(
+                "🏁 <b>Project complete!</b>  ·  <code>{pid}</code>\n\
+                 {div}\n\n\
+                 🔄 Invocations: <code>7</code>\n\
+                 💰 Total cost:  <code>$2.34</code>\n\
+                 ⏱ Duration:    <code>14m 22s</code>\n\
+                 🤖 Model:       <code>claude-sonnet-4-5</code>",
+                pid = escape_html(project_id),
+                div = DIVIDER,
+            );
+            bot.send_message(chat_id, &done_msg)
+                .parse_mode(ParseMode::Html)
+                .await
+                .expect("failed to send done");
+
             eprintln!("\n=== TEST PASSED ===");
         }
         Ok(rex_cli::autorun::telegram::TelegramPollResult::Kill) => {
