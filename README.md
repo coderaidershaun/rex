@@ -62,7 +62,13 @@ TELEGRAM_CHAT_ID=your-numeric-chat-id
 Then start autorun:
 
 ```bash
+# Foreground (from the project root)
 rex-autorun
+
+# Background with nohup (recommended for unattended runs)
+# Always use --project-dir with an absolute path so the process
+# finds the correct project regardless of working directory.
+nohup rex-autorun --project-dir /absolute/path/to/project > /dev/null 2>&1 &
 ```
 
 Autorun options:

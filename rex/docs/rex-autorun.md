@@ -23,9 +23,14 @@ To find your chat ID: send any message to your bot, then visit `https://api.tele
 ```bash
 # From the rex project root (where you ran rex init)
 rex-autorun
+
+# Or run in the background with nohup (recommended for unattended runs).
+# Always use --project-dir with an absolute path so the process
+# finds the correct project regardless of working directory.
+nohup rex-autorun --project-dir /absolute/path/to/project > /dev/null 2>&1 &
 ```
 
-That's it. The binary loads the active project from `rex/projects.json`, starts invoking the operator, and sends you Telegram messages for status updates and questions.
+The binary loads the active project from `rex/projects.json`, starts invoking the operator, and sends you Telegram messages for status updates and questions.
 
 ---
 
@@ -71,6 +76,10 @@ rex-autorun --process-timeout 120 --max-retries 10
 
 # Custom log file location
 rex-autorun --log-file /tmp/autorun.log
+
+# Background with nohup — use --project-dir so the process doesn't
+# depend on the shell's working directory
+nohup rex-autorun --project-dir /Users/me/Code/my-rex-project > /dev/null 2>&1 &
 ```
 
 ---
@@ -313,7 +322,7 @@ Each line in `.rex-autorun.log` is a JSON object with an `event` field:
 
 - **Start small.** Use `--max-total-budget-usd 50.0` for your first run to cap spend while you verify it works.
 - **Watch the log.** `tail -f .rex-autorun.log | jq .` gives a live view of what's happening.
-- **Run in the background.** `nohup rex-autorun > /dev/null 2>&1 &` lets it run unattended. Check `.rex-autorun.log` for progress.
+- **Run in the background.** `nohup rex-autorun --project-dir /absolute/path/to/project > /dev/null 2>&1 &` — always pass `--project-dir` with an absolute path when using nohup, so the process finds the correct project regardless of working directory. Check `.rex-autorun.log` for progress.
 - **Stop cleanly.** Send `/kill <project-id>` via Telegram, or SIGTERM/Ctrl+C locally. The binary cleans up the Claude process group and state file before exiting.
 - **Check status.** Send `/query <project-id>` via Telegram to see uptime, cost, and whether other autoruns are running.
 - **Resume after crash.** Just run `rex-autorun` again. It reads `.rex-autorun.json` and picks up where it left off.
