@@ -2,6 +2,11 @@
 
 All notable changes to **rex-cli** are documented here.
 
+## 0.1.28 — 2026-04-03
+
+- **Interactive Telegram chat sessions** — New `/chat` command lets you ask questions about the running project mid-session. Each chat spawns a parallel Claude instance scoped to the project directory, with inline Reply and Restart buttons for multi-turn conversation — all without interrupting the active autorun work item.
+- **Telegram message editing and chat routing** — `TelegramClient` gains `edit_message`, `edit_message_with_chat_buttons`, `send_chat_reply_prompt`, and `send_with_chat_buttons` methods. The main poller now routes callback queries and force-reply messages to the correct chat session via a `ChatManager`.
+
 ## 0.1.27 — 2026-04-03
 
 - **Telegram message formatting overhaul** — Align all autorun notifications with the rich formatting from integration tests: emoji-prefixed titles, `⎯` dividers via shared `DIV` constant, `<blockquote>` for questions, and a consistent `EMOJI <b>Title</b>  ·  <code>{pid}</code>` header on every message without exception.
