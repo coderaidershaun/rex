@@ -521,6 +521,7 @@ enum HistoryAction {
 
 // ---------------------------------------------------------------------------
 // Full command reference (shown by --commands and --help)
+// NOTE: Update COMMANDS_HELP whenever commands are added, removed, or renamed.
 // ---------------------------------------------------------------------------
 
 const COMMANDS_HELP: &str = "\
