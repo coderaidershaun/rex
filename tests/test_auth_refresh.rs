@@ -34,7 +34,8 @@ async fn flush_updates(token: &str) -> Option<i64> {
     None
 }
 
-const DIVIDER: &str = "━━━━━━━━━━━━━━━━━━━━━";
+const HEADER_DIV: &str = "▪▪▪";
+const FOOTER_DIV: &str = "⎯⎯⎯";
 
 #[tokio::test]
 #[ignore]
@@ -57,12 +58,12 @@ async fn test_agent_messages_via_telegram() {
     // 1. STARTUP
     let startup_msg = format!(
         "🚀 <b>Autorun started</b>  ·  <code>{pid}</code>\n\
-         {div}\n\
+         {hd}\n\
          📂 <b>Project:</b> Orderbook Engine\n\
          📁 <b>Directory:</b> <code>/srv/projects/orderbook</code>\n\
          🤖 <b>Model:</b> claude-sonnet-4-5",
         pid = escape_html(project_id),
-        div = DIVIDER,
+        hd = HEADER_DIV,
     );
     bot.send_message(chat_id, &startup_msg)
         .parse_mode(ParseMode::Html)
@@ -73,12 +74,14 @@ async fn test_agent_messages_via_telegram() {
     // 2. COMPLETION with inline buttons
     let completion_msg = format!(
         "✅ <b>Completed #3</b>  ·  <code>{pid}</code>\n\
-         {div}\n\
-         Implemented orderbook matching engine with price-time priority\n\n\
+         {hd}\n\
+         Implemented orderbook matching engine with price-time priority\n\
+         {fd}\n\
          ⚡ <code>67.3 tok/s</code>  ·  📊 <code>42.1%</code> context\n\
          💰 <code>$0.47</code>  ·  ⏱ <code>38s</code>",
         pid = escape_html(project_id),
-        div = DIVIDER,
+        hd = HEADER_DIV,
+        fd = FOOTER_DIV,
     );
     let keyboard = InlineKeyboardMarkup::new(vec![vec![
         InlineKeyboardButton::callback("📊 Stats", "query"),
@@ -98,12 +101,14 @@ async fn test_agent_messages_via_telegram() {
                     exponential backoff, or just fail-fast on disconnect?";
     let question_msg = format!(
         "💬 <b>Input needed</b>  ·  <code>{pid}</code>\n\
-         {div}\n\
-         ⚡ <code>71.0 tok/s</code>  ·  📊 <code>55.8%</code> context\n\n\
+         {hd}\n\
          <blockquote>{q}</blockquote>\n\
+         {fd}\n\
+         ⚡ <code>71.0 tok/s</code>  ·  📊 <code>55.8%</code> context\n\n\
          <i>Reply to this message with your answer</i>",
         pid = escape_html(project_id),
-        div = DIVIDER,
+        hd = HEADER_DIV,
+        fd = FOOTER_DIV,
         q = escape_html(question),
     );
     let sent = bot
@@ -117,12 +122,12 @@ async fn test_agent_messages_via_telegram() {
     // 4. Wait for reply (1 min)
     let query_response = format!(
         "📊 <b>Stats</b>  ·  <code>{pid}</code>\n\
-         {div}\n\
+         {hd}\n\
          🔄 Invocation <code>#4</code>\n\
          💰 Cost so far: <code>$1.23</code>\n\
          ⏱ Uptime: <code>12m</code>",
         pid = escape_html(project_id),
-        div = DIVIDER,
+        hd = HEADER_DIV,
     );
     let result = tg
         .wait_for_reply(msg_id, project_id, Duration::from_secs(60), &query_response)
@@ -146,13 +151,13 @@ async fn test_agent_messages_via_telegram() {
             // 5. PROJECT DONE
             let done_msg = format!(
                 "🏁 <b>Project complete!</b>  ·  <code>{pid}</code>\n\
-                 {div}\n\n\
+                 {hd}\n\
                  🔄 Invocations: <code>7</code>\n\
                  💰 Total cost:  <code>$2.34</code>\n\
                  ⏱ Duration:    <code>14m 22s</code>\n\
                  🤖 Model:       <code>claude-sonnet-4-5</code>",
                 pid = escape_html(project_id),
-                div = DIVIDER,
+                hd = HEADER_DIV,
             );
             bot.send_message(chat_id, &done_msg)
                 .parse_mode(ParseMode::Html)
