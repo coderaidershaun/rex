@@ -131,7 +131,9 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
             );
 
             let msg = format!(
-                "[{project_id}] (recovered) Still waiting for your reply:\n\n{question}\n\n(Reply to this message with your answer)"
+                "<b>[{pid}] Awaiting reply (recovered)</b>\n━━━━━━━━━━━━━━━━━━━━\n{q}\n\n<i>Reply to this message with your answer</i>",
+                pid = escape_html(&project_id),
+                q = escape_html(&question),
             );
             tg.notify(&msg).await;
 
@@ -165,7 +167,7 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
                     }.await
                     {
                         Ok((output, _pgid)) => {
-                            let cost = output.cost.total_cost;
+                            let cost = output.effective_cost();
                             let mut recovered_stats = stats;
                             recovered_stats.total_cost_usd += cost;
                             recovered_stats.invocations_completed += 1;
@@ -183,7 +185,7 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
                                     Ok(r) => r.message.clone(),
                                     Err(e) => e.to_string(),
                                 },
-                                session_id: output.session_id,
+                                session_id: output.session_id.clone(),
                                 cost_usd: cost,
                                 duration_ms: output.duration_ms,
                                 timestamp: now_iso(),
@@ -192,9 +194,11 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
                             match op_result {
                                 Ok(r) if r.status == OperatorStatus::ProjectDone => {
                                     tg.notify(&format!(
-                                        "[{project_id}] Project complete!\nTotal invocations: {} | Total cost: ${:.2}",
-                                        recovered_stats.invocations_completed,
-                                        recovered_stats.total_cost_usd,
+                                        "{header}\n━━━━━━━━━━━━━━━━━━━━\n<b>[{pid}] Project complete!</b>\nInvocations: {inv}  |  Cost: ${cost:.2}",
+                                        header = output.telegram_header(),
+                                        pid = escape_html(&project_id),
+                                        inv = recovered_stats.invocations_completed,
+                                        cost = recovered_stats.total_cost_usd,
                                     )).await;
                                     state::delete_state(&state_path);
                                     return Ok(ExitCode::from(0));
@@ -207,14 +211,21 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
                         }
                         Err(e) => {
                             error!("resume invocation failed: {e}");
-                            tg.notify(&format!("[{project_id}] Error on resume: {e}")).await;
+                            tg.notify(&format!(
+                                "<b>[{pid}] Error on resume</b>\n{err}",
+                                pid = escape_html(&project_id),
+                                err = escape_html(&e.to_string()),
+                            )).await;
                             (stats, invocation_count, Some(tg.update_offset))
                         }
                     }
                 }
                 Err(e) => {
                     error!("human reply timeout: {e}");
-                    tg.notify(&format!("[{project_id}] Timeout waiting for reply — shutting down")).await;
+                    tg.notify(&format!(
+                        "<b>[{pid}] Timeout waiting for reply</b>\nShutting down",
+                        pid = escape_html(&project_id),
+                    )).await;
                     state::delete_state(&state_path);
                     return Ok(ExitCode::from(2));
                 }
@@ -231,7 +242,10 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
         timestamp: now_iso(),
     });
     tg.notify(&format!(
-        "[{project_id}] Autorun started\nProject: {project_title}\nDirectory: {project_directory}"
+        "<b>[{pid}] Autorun started</b>\n<b>Project:</b> {pt}\n<b>Directory:</b> {pd}",
+        pid = escape_html(&project_id),
+        pt = escape_html(&project_title),
+        pd = escape_html(&project_directory),
     )).await;
 
     // Signal handling + main loop
@@ -240,13 +254,13 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
     let main_result = tokio::select! {
         _ = tokio::signal::ctrl_c() => {
             info!("SIGINT received — shutting down");
-            tg.notify(&format!("[{project_id}] Autorun stopped (SIGINT)")).await;
+            tg.notify(&format!("<b>[{pid}] Autorun stopped</b> (SIGINT)", pid = escape_html(&project_id))).await;
             state::delete_state(&state_path);
             Ok(ExitCode::from(4))
         }
         _ = sigterm.recv() => {
             info!("SIGTERM received — shutting down");
-            tg.notify(&format!("[{project_id}] Autorun stopped (SIGTERM)")).await;
+            tg.notify(&format!("<b>[{pid}] Autorun stopped</b> (SIGTERM)", pid = escape_html(&project_id))).await;
             state::delete_state(&state_path);
             Ok(ExitCode::from(4))
         }
@@ -290,8 +304,10 @@ async fn main_loop(
                 "total budget exceeded"
             );
             tg.notify(&format!(
-                "[{project_id}] Budget limit reached (${:.2} / ${:.2}) — stopping",
-                stats.total_cost_usd, args.max_total_budget_usd,
+                "<b>[{pid}] Budget limit reached</b>\n${used:.2} / ${limit:.2} — stopping",
+                pid = escape_html(project_id),
+                used = stats.total_cost_usd,
+                limit = args.max_total_budget_usd,
             ))
             .await;
             state::delete_state(state_path);
@@ -349,7 +365,7 @@ async fn main_loop(
         match invoke_result {
             Ok((output, _pgid)) => {
                 consecutive_errors = 0;
-                let cost = output.cost.total_cost;
+                let cost = output.effective_cost();
                 stats.total_cost_usd += cost;
                 stats.invocations_completed += 1;
 
@@ -376,9 +392,12 @@ async fn main_loop(
                         OperatorStatus::Completed => {
                             stats.items_completed += 1;
                             tg.notify(&format!(
-                                "[{project_id}] Completed: {}\nCost: ${cost:.2} | Duration: {}s | Invocation: #{n}",
-                                result.message,
-                                output.duration_ms / 1000,
+                                "{header}\n━━━━━━━━━━━━━━━━━━━━\n<b>[{pid}] Completed #{n}</b>\n{msg}\n\n<b>Cost:</b> ${cost:.2}  |  <b>Duration:</b> {dur}s",
+                                header = output.telegram_header(),
+                                pid = escape_html(project_id),
+                                msg = escape_html(&result.message),
+                                cost = cost,
+                                dur = output.duration_ms / 1000,
                             ))
                             .await;
 
@@ -390,9 +409,11 @@ async fn main_loop(
                         OperatorStatus::ProjectDone => {
                             let duration = format_duration_since(&stats.started_at);
                             tg.notify(&format!(
-                                "[{project_id}] Project complete!\nTotal invocations: {} | Total cost: ${:.2} | Duration: {duration}",
-                                stats.invocations_completed,
-                                stats.total_cost_usd,
+                                "{header}\n━━━━━━━━━━━━━━━━━━━━\n<b>[{pid}] Project complete!</b>\nInvocations: {inv}  |  Cost: ${cost:.2}  |  Duration: {duration}",
+                                header = output.telegram_header(),
+                                pid = escape_html(project_id),
+                                inv = stats.invocations_completed,
+                                cost = stats.total_cost_usd,
                             ))
                             .await;
 
@@ -439,7 +460,10 @@ async fn main_loop(
 
                                 // Send question to Telegram
                                 let msg = format!(
-                                    "[{project_id}] Input needed:\n\n{current_question}\n\n(Reply to this message with your answer)",
+                                    "{header}\n━━━━━━━━━━━━━━━━━━━━\n<b>[{pid}] Input needed</b>\n\n{q}\n\n<i>Reply to this message with your answer</i>",
+                                    header = output.telegram_header(),
+                                    pid = escape_html(project_id),
+                                    q = escape_html(&current_question),
                                 );
                                 if let Ok(msg_id) = tg.send_message(&msg).await {
                                     let mut updated = pending_state;
@@ -454,7 +478,10 @@ async fn main_loop(
                                     Ok(r) => r,
                                     Err(e) => {
                                         error!("human reply timeout: {e}");
-                                        tg.notify(&format!("[{project_id}] Timeout waiting for reply — shutting down")).await;
+                                        tg.notify(&format!(
+                                            "<b>[{pid}] Timeout waiting for reply</b>\nShutting down",
+                                            pid = escape_html(project_id),
+                                        )).await;
                                         state::delete_state(state_path);
                                         return Ok(ExitCode::from(2));
                                     }
@@ -479,7 +506,11 @@ async fn main_loop(
                                     Ok(s) => s,
                                     Err(e) => {
                                         error!("failed to spawn resume: {e}");
-                                        tg.notify(&format!("[{project_id}] Error spawning resume: {e}")).await;
+                                        tg.notify(&format!(
+                                            "<b>[{pid}] Error spawning resume</b>\n{err}",
+                                            pid = escape_html(project_id),
+                                            err = escape_html(&e.to_string()),
+                                        )).await;
                                         return Ok(ExitCode::from(1));
                                     }
                                 };
@@ -507,28 +538,38 @@ async fn main_loop(
                                             consecutive_errors += 1;
                                             let delay = retry_delay(consecutive_errors);
                                             tg.notify(&format!(
-                                                "[{project_id}] Error (resume): {err_str}\nRetrying in {delay}s (attempt {consecutive_errors}/{})",
-                                                args.max_retries,
+                                                "<b>[{pid}] Error (resume)</b>\n{err}\n\nRetrying in {delay}s (attempt {consecutive_errors}/{max})",
+                                                pid = escape_html(project_id),
+                                                err = escape_html(&err_str),
+                                                max = args.max_retries,
                                             )).await;
                                             tokio::time::sleep(Duration::from_secs(delay)).await;
                                             state::delete_state(state_path);
                                             // Break to outer loop for fresh invocation
                                             break;
                                         }
-                                        tg.notify(&format!("[{project_id}] Error (resume): {err_str}")).await;
+                                        tg.notify(&format!(
+                                            "<b>[{pid}] Error (resume)</b>\n{err}",
+                                            pid = escape_html(project_id),
+                                            err = escape_html(&err_str),
+                                        )).await;
                                         state::delete_state(state_path);
                                         return Ok(ExitCode::from(1));
                                     }
                                 };
 
-                                stats.total_cost_usd += resume_output.cost.total_cost;
+                                stats.total_cost_usd += resume_output.effective_cost();
                                 stats.invocations_completed += 1;
 
                                 let resume_op = match claude::parse_operator_result(&resume_output.result) {
                                     Ok(r) => r,
                                     Err(e) => {
                                         error!("failed to parse resume result: {e}");
-                                        tg.notify(&format!("[{project_id}] Error parsing resume result: {e}")).await;
+                                        tg.notify(&format!(
+                                            "<b>[{pid}] Error parsing resume</b>\n{err}",
+                                            pid = escape_html(project_id),
+                                            err = escape_html(&e.to_string()),
+                                        )).await;
                                         state::delete_state(state_path);
                                         return Ok(ExitCode::from(1));
                                     }
@@ -539,7 +580,7 @@ async fn main_loop(
                                     status: format!("{:?}", resume_op.status),
                                     message: resume_op.message.clone(),
                                     session_id: resume_output.session_id.clone(),
-                                    cost_usd: resume_output.cost.total_cost,
+                                    cost_usd: resume_output.effective_cost(),
                                     duration_ms: resume_output.duration_ms,
                                     timestamp: now_iso(),
                                 });
@@ -555,8 +596,12 @@ async fn main_loop(
                                     OperatorStatus::Completed => {
                                         stats.items_completed += 1;
                                         tg.notify(&format!(
-                                            "[{project_id}] Completed: {}\nCost: ${:.2} | Invocation: #{n}",
-                                            resume_op.message, stats.total_cost_usd,
+                                            "{header}\n━━━━━━━━━━━━━━━━━━━━\n<b>[{pid}] Completed #{n}</b>\n{msg}\n\n<b>Cost:</b> ${cost:.2}  |  <b>Duration:</b> {dur}s",
+                                            header = resume_output.telegram_header(),
+                                            pid = escape_html(project_id),
+                                            msg = escape_html(&resume_op.message),
+                                            cost = resume_output.effective_cost(),
+                                            dur = resume_output.duration_ms / 1000,
                                         )).await;
                                         state::delete_state(state_path);
                                         info!(n, "invocation completed, cooling down 5s");
@@ -566,8 +611,11 @@ async fn main_loop(
                                     OperatorStatus::ProjectDone => {
                                         let duration = format_duration_since(&stats.started_at);
                                         tg.notify(&format!(
-                                            "[{project_id}] Project complete!\nTotal invocations: {} | Total cost: ${:.2} | Duration: {duration}",
-                                            stats.invocations_completed, stats.total_cost_usd,
+                                            "{header}\n━━━━━━━━━━━━━━━━━━━━\n<b>[{pid}] Project complete!</b>\nInvocations: {inv}  |  Cost: ${cost:.2}  |  Duration: {duration}",
+                                            header = resume_output.telegram_header(),
+                                            pid = escape_html(project_id),
+                                            inv = stats.invocations_completed,
+                                            cost = stats.total_cost_usd,
                                         )).await;
                                         log_event(log_path, &LogEvent::ProjectDone {
                                             total_cost_usd: stats.total_cost_usd,
@@ -580,7 +628,12 @@ async fn main_loop(
                                     }
                                     OperatorStatus::Error => {
                                         error!("operator error after resume: {}", resume_op.message);
-                                        tg.notify(&format!("[{project_id}] Error: {}", resume_op.message)).await;
+                                        tg.notify(&format!(
+                                            "{header}\n━━━━━━━━━━━━━━━━━━━━\n<b>[{pid}] Error</b>\n{msg}",
+                                            header = resume_output.telegram_header(),
+                                            pid = escape_html(project_id),
+                                            msg = escape_html(&resume_op.message),
+                                        )).await;
                                         state::delete_state(state_path);
                                         return Ok(ExitCode::from(1));
                                     }
@@ -599,7 +652,12 @@ async fn main_loop(
                                 timestamp: now_iso(),
                             });
 
-                            tg.notify(&format!("[{project_id}] Error: {}", result.message)).await;
+                            tg.notify(&format!(
+                                "{header}\n━━━━━━━━━━━━━━━━━━━━\n<b>[{pid}] Error</b>\n{msg}",
+                                header = output.telegram_header(),
+                                pid = escape_html(project_id),
+                                msg = escape_html(&result.message),
+                            )).await;
                             state::delete_state(state_path);
                             return Ok(ExitCode::from(1));
                         }
@@ -615,7 +673,12 @@ async fn main_loop(
                             timestamp: now_iso(),
                         });
 
-                        tg.notify(&format!("[{project_id}] Error: failed to parse operator result: {e}")).await;
+                        tg.notify(&format!(
+                            "{header}\n━━━━━━━━━━━━━━━━━━━━\n<b>[{pid}] Parse error</b>\n{err}",
+                            header = output.telegram_header(),
+                            pid = escape_html(project_id),
+                            err = escape_html(&e.to_string()),
+                        )).await;
                         state::delete_state(state_path);
                         return Ok(ExitCode::from(1));
                     }
@@ -641,8 +704,10 @@ async fn main_loop(
                         "retryable error, backing off"
                     );
                     tg.notify(&format!(
-                        "[{project_id}] Error: {err_str}\nRetrying in {delay}s (attempt {consecutive_errors}/{})",
-                        args.max_retries,
+                        "<b>[{pid}] Error</b>\n{err}\n\nRetrying in {delay}s (attempt {consecutive_errors}/{max})",
+                        pid = escape_html(project_id),
+                        err = escape_html(&err_str),
+                        max = args.max_retries,
                     ))
                     .await;
                     state::delete_state(state_path);
@@ -651,7 +716,11 @@ async fn main_loop(
                 }
 
                 error!("non-retryable or max retries exhausted: {err_str}");
-                tg.notify(&format!("[{project_id}] Fatal error: {err_str}")).await;
+                tg.notify(&format!(
+                    "<b>[{pid}] Fatal error</b>\n{err}",
+                    pid = escape_html(project_id),
+                    err = escape_html(&err_str),
+                )).await;
                 state::delete_state(state_path);
 
                 if consecutive_errors > args.max_retries {

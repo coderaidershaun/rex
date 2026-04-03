@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 /// Parsed from the last JSON object in Claude's `result` text.
@@ -25,7 +27,73 @@ pub struct ClaudeOutput {
     #[serde(default)]
     pub cost: ClaudeCost,
     #[serde(default)]
+    pub total_cost_usd: f64,
+    #[serde(default)]
     pub duration_ms: u64,
+    #[serde(default)]
+    pub usage: ClaudeUsage,
+    #[serde(default, rename = "modelUsage")]
+    pub model_usage: HashMap<String, ModelUsageEntry>,
+    #[serde(default)]
+    pub fast_mode_state: String,
+}
+
+impl ClaudeOutput {
+    /// Effective cost — prefers top-level `total_cost_usd` over nested `cost.total_cost`.
+    pub fn effective_cost(&self) -> f64 {
+        if self.total_cost_usd > 0.0 {
+            self.total_cost_usd
+        } else {
+            self.cost.total_cost
+        }
+    }
+
+    /// Model name extracted from `modelUsage` keys.
+    pub fn model_name(&self) -> &str {
+        self.model_usage
+            .keys()
+            .next()
+            .map(|s| s.as_str())
+            .unwrap_or("unknown")
+    }
+
+    /// Speed / thinking mode (e.g. "standard", "fast").
+    pub fn speed(&self) -> &str {
+        if !self.usage.speed.is_empty() {
+            &self.usage.speed
+        } else if self.fast_mode_state == "on" {
+            "fast"
+        } else {
+            "standard"
+        }
+    }
+
+    /// Context window usage as a percentage.
+    pub fn context_percent(&self) -> f64 {
+        if let Some(entry) = self.model_usage.values().next() {
+            if entry.context_window > 0 {
+                let total = entry.input_tokens
+                    + entry.output_tokens
+                    + entry.cache_read_input_tokens
+                    + entry.cache_creation_input_tokens;
+                (total as f64 / entry.context_window as f64) * 100.0
+            } else {
+                0.0
+            }
+        } else {
+            0.0
+        }
+    }
+
+    /// Formatted header line for Telegram messages (HTML).
+    pub fn telegram_header(&self) -> String {
+        format!(
+            "<b>{}</b>  |  {}  |  {:.1}% context",
+            escape_html(self.model_name()),
+            self.speed(),
+            self.context_percent(),
+        )
+    }
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -36,6 +104,45 @@ pub struct ClaudeCost {
     pub output_tokens: u64,
     #[serde(default)]
     pub total_cost: f64,
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub struct ClaudeUsage {
+    #[serde(default)]
+    pub input_tokens: u64,
+    #[serde(default)]
+    pub output_tokens: u64,
+    #[serde(default)]
+    pub cache_creation_input_tokens: u64,
+    #[serde(default)]
+    pub cache_read_input_tokens: u64,
+    #[serde(default)]
+    pub speed: String,
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub struct ModelUsageEntry {
+    #[serde(default, rename = "inputTokens")]
+    pub input_tokens: u64,
+    #[serde(default, rename = "outputTokens")]
+    pub output_tokens: u64,
+    #[serde(default, rename = "cacheReadInputTokens")]
+    pub cache_read_input_tokens: u64,
+    #[serde(default, rename = "cacheCreationInputTokens")]
+    pub cache_creation_input_tokens: u64,
+    #[serde(default, rename = "contextWindow")]
+    pub context_window: u64,
+    #[serde(default, rename = "maxOutputTokens")]
+    pub max_output_tokens: u64,
+    #[serde(default, rename = "costUSD")]
+    pub cost_usd: f64,
+}
+
+/// Escape HTML special characters for Telegram HTML parse mode.
+pub fn escape_html(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
 }
 
 /// Persisted to `.rex-autorun.json` for crash recovery.

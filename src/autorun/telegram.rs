@@ -33,6 +33,7 @@ impl TelegramClient {
         let body = serde_json::json!({
             "chat_id": self.chat_id,
             "text": text,
+            "parse_mode": "HTML",
         });
 
         let mut attempt = 0u32;
