@@ -198,6 +198,8 @@ enum ProjectAction {
     Lock,
     /// Unlock the active project
     Unlock,
+    /// Get project completion percentage (JSON output)
+    GetCompletionPercent,
 }
 
 // ---------------------------------------------------------------------------
@@ -543,6 +545,7 @@ All commands:
   rex project update-directory <path>       Update the active project's directory
   rex project update-category <category>    Update the active project's category
   rex project update-complexity <complexity> Update the active project's complexity
+  rex project get-completion-percent        Get project completion percentage (JSON)
 
   rex checklist init [--date <YYYY-MM-DD>]  Initialize an empty checklist for the active project
   rex checklist add --category <cat> --id <id> --title <t> --description <d> [--phase <p>]
@@ -658,6 +661,9 @@ fn main() {
             ProjectAction::NextItem => rex_cli::commands::project::next_item(),
             ProjectAction::Lock => rex_cli::commands::project::lock(),
             ProjectAction::Unlock => rex_cli::commands::project::unlock(),
+            ProjectAction::GetCompletionPercent => {
+                rex_cli::commands::project::get_completion_percent()
+            }
         },
 
         // -- Checklist ------------------------------------------------------

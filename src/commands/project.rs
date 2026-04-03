@@ -1,4 +1,5 @@
 use crate::errors::{RexError, RexResult};
+use crate::models::planning::{PlanningStatus, PlanningStore};
 use crate::models::project::{Category, Complexity, Project, ProjectRegistry};
 use crate::models::project_status::{ProjectStatus, Status};
 use crate::ui::design_select::design_select;
@@ -789,6 +790,74 @@ pub fn get_active() -> RexResult<()> {
             println!();
         }
     }
+
+    Ok(())
+}
+
+pub fn get_completion_percent() -> RexResult<()> {
+    let registry = ProjectRegistry::load()?;
+    let project = registry
+        .active
+        .ok_or_else(|| RexError::NotFound("No active project.".into()))?;
+
+    let project_dir = format!("rex/{}", project.id);
+    let project_status = ProjectStatus::load(Path::new(&project_dir))?;
+
+    // Gather all project-status items across every phase.
+    let all_items: Vec<&Status> = project_status
+        .user_support
+        .iter()
+        .chain(&project_status.onboarding)
+        .chain(&project_status.design)
+        .chain(&project_status.planning)
+        .chain(&project_status.execution)
+        .map(|s| &s.status)
+        .collect();
+
+    let project_complete = all_items.iter().all(|s| {
+        matches!(s, Status::Completed | Status::NotRequired)
+    });
+
+    let (items_percent, tasks_percent) = if project_complete {
+        (100.0_f64, 100.0_f64)
+    } else {
+        // project-items-percent: completed / actionable (excluding not-required)
+        let actionable = all_items
+            .iter()
+            .filter(|s| !matches!(s, Status::NotRequired))
+            .count();
+        let completed = all_items
+            .iter()
+            .filter(|s| matches!(s, Status::Completed))
+            .count();
+        let items_pct = if actionable == 0 {
+            100.0
+        } else {
+            (completed as f64 / actionable as f64) * 100.0
+        };
+
+        // project-tasks-percent: completed / total from planning.json
+        let store = PlanningStore::load(Path::new(&project_dir))?;
+        let total_tasks = store.tasks.len();
+        let completed_tasks = store
+            .tasks
+            .iter()
+            .filter(|t| matches!(t.status, PlanningStatus::Completed))
+            .count();
+        let tasks_pct = if total_tasks == 0 {
+            0.0
+        } else {
+            (completed_tasks as f64 / total_tasks as f64) * 100.0
+        };
+
+        (items_pct, tasks_pct)
+    };
+
+    let output = serde_json::json!({
+        "project-items-percent": (items_percent * 100.0).round() / 100.0,
+        "project-tasks-percent": (tasks_percent * 100.0).round() / 100.0
+    });
+    println!("{}", serde_json::to_string_pretty(&output)?);
 
     Ok(())
 }

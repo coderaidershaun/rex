@@ -304,6 +304,7 @@ Each work item in `project-status.json` specifies how its agent(s) should be dis
 | `rex project update-category <category>` | Update category (binary / library / refactor) |
 | `rex project update-complexity <complexity>` | Update complexity (low / medium / high) |
 | `rex project next-item` | Get next incomplete item as JSON |
+| `rex project get-completion-percent` | Get project completion percentage as JSON (items + tasks) |
 
 ### Checklist
 

@@ -112,6 +112,7 @@ Rex gives AI agents the scaffolding they need to build real software — trackin
 | `rex project update-status <ITEM> <STATUS>` | Update a work item's status |
 | `rex project update-category <CATEGORY>` | Set category (binary/library/refactor) |
 | `rex project update-complexity <COMPLEXITY>` | Set complexity (low/medium/high) |
+| `rex project get-completion-percent` | Get project completion percentage (JSON) |
 
 ### Planning Tree
 
