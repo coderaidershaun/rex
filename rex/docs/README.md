@@ -51,6 +51,16 @@ This copies all skills, hooks, settings, and documentation into the current dire
 
 See [init.md](init.md) for full details on configuration format differences between Claude Code and Cursor.
 
+## Headless Autopilot (rex-autorun)
+
+For fully unattended operation, the `rex-autorun` binary drives a project to completion without a human at the terminal. It invokes the operator in headless mode via `claude -p`, loops automatically, and relays questions to Telegram when user input is needed.
+
+```bash
+rex-autorun
+```
+
+See [rex-autorun.md](rex-autorun.md) for full documentation — prerequisites, all CLI options, environment variables, exit codes, crash recovery, and Telegram integration.
+
 ## Phase Overview
 
 ### Phase 0: Project Creation
