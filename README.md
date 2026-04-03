@@ -75,10 +75,21 @@ Autorun options:
 | `--max-turns <N>` | `200` | Max agentic turns per invocation |
 | `--process-timeout-mins <N>` | `60` | Max minutes per Claude process |
 | `--max-retries <N>` | `5` | Max retries for transient failures |
-| `--human-timeout-days <N>` | `7` | Max days to wait for Telegram reply |
+| `--human-timeout-days <N>` | `1` | Max days to wait for Telegram reply |
 | `--log-file <PATH>` | `.rex-autorun.log` | Path to JSONL log file |
 
-Autorun recovers from crashes automatically, respects budget limits, and exits cleanly when the project is done.
+#### Telegram Commands
+
+While autorun is running, you can send commands to your Telegram bot:
+
+| Command | Description |
+|---------|-------------|
+| `/kill <project-id>` | Terminate the autorun session for the given project |
+| `/query <project-id>` | Show live stats (uptime, cost, invocations) and list other running autoruns |
+
+Autorun uses reply-to matching — questions are sent with Telegram's ForceReply, and only direct replies to the question message are accepted. Stray messages are safely ignored.
+
+Autorun recovers from crashes automatically, respects budget limits, handles expired auth tokens (sends re-auth URL via Telegram), and exits cleanly when the project is done.
 
 ## How It Works
 
