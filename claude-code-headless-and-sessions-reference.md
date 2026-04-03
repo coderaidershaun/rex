@@ -269,6 +269,34 @@ claude -p "Summarize this project" --output-format json
 claude -p "Summarize" --output-format json | jq -r '.result'
 ```
 
+### JSON response structure
+The `--output-format json` response includes these top-level fields:
+```json
+{
+  "result": "The analysis text...",
+  "cost": {
+    "input_tokens": 1234,
+    "output_tokens": 567,
+    "total_cost": 0.01
+  },
+  "session_id": "abc123-...",
+  "duration_ms": 5432
+}
+```
+
+When using `--json-schema`, the validated structured output goes in the `structured_output` field (not `result`).
+
+### Parsing JSON in scripts
+```bash
+RESULT=$(claude -p "Check for bugs" --output-format json)
+BUGS=$(echo "$RESULT" | jq -r '.result')
+COST=$(echo "$RESULT" | jq '.cost.total_cost')
+SESSION=$(echo "$RESULT" | jq -r '.session_id')
+echo "Bugs: $BUGS"
+echo "Cost: $COST"
+echo "Session: $SESSION"
+```
+
 ### Structured output with JSON Schema
 ```bash
 claude -p "Extract function names from auth.py" \
