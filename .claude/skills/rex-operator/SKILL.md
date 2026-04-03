@@ -473,7 +473,7 @@ Insert a history entry for what was just done:
 ### Standard phases
 
 ```bash
-rex history insert-recent \
+rex history insert \
   --id "session-<item-name>-<timestamp-short>" \
   --timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   --summary "<brief description of what the agent accomplished>" \
@@ -484,7 +484,7 @@ rex history insert-recent \
 ### Execution phase
 
 ```bash
-rex history insert-recent \
+rex history insert \
   --id "session-<task-id>-<timestamp-short>" \
   --timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   --summary "<brief description of what the agent accomplished on the task>" \
@@ -618,12 +618,7 @@ rex project create
 rex project remove <id>
 rex project activate <id>
 rex project update-status <item> <status>
-rex project update-title "<title>"
-rex project update-subtitle "<subtitle>"
-rex project update-description "<description>"
-rex project update-category <binary|library|refactor>
-rex project update-complexity <low|medium|high>
-rex project update-directory "<path>"
+rex project update [--title "<title>"] [--subtitle "<subtitle>"] [--description "<description>"] [--category <binary|library|refactor>] [--complexity <low|medium|high>] [--directory "<path>"]
 
 # Planning
 rex milestone upsert --id <id> [--title --description --status] [--add-reference ...] [--add-upstream ...]
@@ -645,10 +640,8 @@ rex task next
 # History
 rex history list
 rex history get-recent
-rex history insert-recent --id <id> --timestamp <iso8601> --summary "<text>" [--entity ...] [--file ...] [--session <id>]
-rex history remove-from-recent <id>
-rex history insert-compacted --id <id> --timestamp <iso8601> --summary "<text>" [--entity ...] [--file ...] [--session <id>]
-rex history remove-from-compacted <id>
+rex history insert --id <id> --timestamp <iso8601> --summary "<text>" [--entity ...] [--file ...] [--session <id>] [--archived]
+rex history remove <id> [--archived]
 
 # Checklist
 rex checklist init [--date <YYYY-MM-DD>]
@@ -662,7 +655,6 @@ rex checklist remove <id>
 rex checklist set-context "<text>"
 ```
 
-**Important:** There is no `rex project update` command. Title, subtitle, and description must be updated with separate commands (`update-title`, `update-subtitle`, `update-description`).
 ---
 
 ## Rules

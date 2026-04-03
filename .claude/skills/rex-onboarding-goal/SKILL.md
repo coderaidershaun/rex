@@ -90,16 +90,13 @@ Any framing choices — why a particular angle was chosen, what was deliberately
 After the goal is confirmed, review the active project's current title, subtitle, and description (from `rex project get-active`). If any of them are placeholder values like "Complete later", or if they're vague or no longer accurate given what you've learned about the goal, update them using these CLI commands:
 
 ```
-rex project update-title "New title here"
-rex project update-subtitle "New subtitle here"
-rex project update-description "New description here"
+rex project update --title "New title here" --subtitle "New subtitle here" --description "New description here"
 ```
 
 **If the user changed their mind about the project type or complexity** during the conversation (e.g., "actually this should be a binary, not a library" or "this is more complex than I thought"), update those too:
 
 ```
-rex project update-category binary
-rex project update-complexity high
+rex project update --category binary --complexity high
 ```
 
 Valid categories: `binary`, `library`, `refactor`. Valid complexities: `low`, `medium`, `high`.

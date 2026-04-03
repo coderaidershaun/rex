@@ -43,7 +43,7 @@ For each entry being archived:
 2. **Insert the compacted entry:**
 
 ```bash
-rex history insert-compacted \
+rex history insert --archived \
   --id "compact-<original-id>" \
   --timestamp "<original-timestamp>" \
   --summary "<condensed summary>"  \
@@ -56,10 +56,10 @@ Include `--entity` flags for any entities from the original entry. You can omit 
 3. **Remove the original from recent:**
 
 ```bash
-rex history remove-from-recent <original-id>
+rex history remove <original-id>
 ```
 
-Process entries one at a time: insert-compacted, then remove-from-recent, then move to the next entry. This prevents data loss if something fails partway through.
+Process entries one at a time: insert --archived, then remove, then move to the next entry. This prevents data loss if something fails partway through.
 
 ---
 

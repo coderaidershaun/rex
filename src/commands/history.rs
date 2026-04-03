@@ -32,100 +32,69 @@ fn build_entry(
     }
 }
 
-pub fn insert_recent(
+pub fn insert(
     id: &str,
     timestamp: &str,
     summary: &str,
     entities: Vec<String>,
     files: Vec<String>,
     session: Option<String>,
+    archived: bool,
 ) -> RexResult<()> {
     let (project_dir, mut history) = load_history()?;
+    let section_name = if archived { "archived" } else { "recent" };
+    let section = if archived {
+        &history.archived
+    } else {
+        &history.recent
+    };
 
-    if history.recent.iter().any(|e| e.id == id) {
+    if section.iter().any(|e| e.id == id) {
         return Err(RexError::AlreadyExists(format!(
-            "Recent entry \"{id}\" already exists."
+            "{} entry \"{id}\" already exists.",
+            if archived { "Archived" } else { "Recent" }
         )));
     }
 
     let entry = build_entry(id, timestamp, summary, entities, files, session);
-    history.recent.push(entry.clone());
+    if archived {
+        history.archived.push(entry.clone());
+    } else {
+        history.recent.push(entry.clone());
+    }
     history.save(Path::new(&project_dir))?;
 
     eprintln!(
-        "\n  {} Inserted recent entry \"{id}\".\n",
+        "\n  {} Inserted {section_name} entry \"{id}\".\n",
         style("\u{2713}").green().bold(),
     );
     println!("{}", serde_json::to_string_pretty(&entry)?);
     Ok(())
 }
 
-pub fn remove_from_recent(id: &str) -> RexResult<()> {
+pub fn remove(id: &str, archived: bool) -> RexResult<()> {
     let (project_dir, mut history) = load_history()?;
+    let section_name = if archived { "archived" } else { "recent" };
+    let section = if archived {
+        &mut history.archived
+    } else {
+        &mut history.recent
+    };
 
-    let before = history.recent.len();
-    history.recent.retain(|e| e.id != id);
+    let before = section.len();
+    section.retain(|e| e.id != id);
 
-    if history.recent.len() == before {
+    if section.len() == before {
         return Err(RexError::NotFound(format!(
-            "Recent entry \"{id}\" not found."
+            "{} entry \"{id}\" not found.",
+            if archived { "Archived" } else { "Recent" }
         )));
     }
 
     history.save(Path::new(&project_dir))?;
 
     eprintln!(
-        "\n  {} Removed recent entry \"{id}\".\n",
-        style("\u{2713}").green().bold(),
-    );
-    println!("{{\"removed\": \"{id}\"}}");
-    Ok(())
-}
-
-pub fn insert_compacted(
-    id: &str,
-    timestamp: &str,
-    summary: &str,
-    entities: Vec<String>,
-    files: Vec<String>,
-    session: Option<String>,
-) -> RexResult<()> {
-    let (project_dir, mut history) = load_history()?;
-
-    if history.archived.iter().any(|e| e.id == id) {
-        return Err(RexError::AlreadyExists(format!(
-            "Archived entry \"{id}\" already exists."
-        )));
-    }
-
-    let entry = build_entry(id, timestamp, summary, entities, files, session);
-    history.archived.push(entry.clone());
-    history.save(Path::new(&project_dir))?;
-
-    eprintln!(
-        "\n  {} Inserted archived entry \"{id}\".\n",
-        style("\u{2713}").green().bold(),
-    );
-    println!("{}", serde_json::to_string_pretty(&entry)?);
-    Ok(())
-}
-
-pub fn remove_from_compacted(id: &str) -> RexResult<()> {
-    let (project_dir, mut history) = load_history()?;
-
-    let before = history.archived.len();
-    history.archived.retain(|e| e.id != id);
-
-    if history.archived.len() == before {
-        return Err(RexError::NotFound(format!(
-            "Archived entry \"{id}\" not found."
-        )));
-    }
-
-    history.save(Path::new(&project_dir))?;
-
-    eprintln!(
-        "\n  {} Removed archived entry \"{id}\".\n",
+        "\n  {} Removed {section_name} entry \"{id}\".\n",
         style("\u{2713}").green().bold(),
     );
     println!("{{\"removed\": \"{id}\"}}");

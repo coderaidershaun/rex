@@ -46,11 +46,8 @@ enum Commands {
         #[command(subcommand)]
         action: TaskAction,
     },
-    /// Create and manage Cargo workspace monorepos
-    Mono {
-        #[command(subcommand)]
-        action: MonoAction,
-    },
+    /// Create a Cargo workspace monorepo with git
+    Mono(MonoArgs),
     /// Manage session history (recent and archived work)
     History {
         #[command(subcommand)]
@@ -152,10 +149,26 @@ enum ProjectAction {
         /// Project ID to activate
         id: String,
     },
-    /// Update the active project's directory
-    UpdateDirectory {
+    /// Update the active project's fields
+    Update {
+        /// New title
+        #[arg(long)]
+        title: Option<String>,
+        /// New subtitle
+        #[arg(long)]
+        subtitle: Option<String>,
+        /// New description
+        #[arg(long)]
+        description: Option<String>,
         /// New directory path
-        directory: String,
+        #[arg(long)]
+        directory: Option<String>,
+        /// New category
+        #[arg(long, value_enum)]
+        category: Option<Category>,
+        /// New complexity
+        #[arg(long, value_enum)]
+        complexity: Option<Complexity>,
     },
     /// Update the status of a project item
     UpdateStatus {
@@ -164,33 +177,6 @@ enum ProjectAction {
         /// New status
         #[arg(value_enum)]
         status: Status,
-    },
-    /// Update the active project's title
-    UpdateTitle {
-        /// New title
-        title: String,
-    },
-    /// Update the active project's subtitle
-    UpdateSubtitle {
-        /// New subtitle
-        subtitle: String,
-    },
-    /// Update the active project's description
-    UpdateDescription {
-        /// New description
-        description: String,
-    },
-    /// Update the active project's category
-    UpdateCategory {
-        /// New category
-        #[arg(value_enum)]
-        category: Category,
-    },
-    /// Update the active project's complexity
-    UpdateComplexity {
-        /// New complexity
-        #[arg(value_enum)]
-        complexity: Complexity,
     },
     /// Get the next actionable item from the project status
     NextItem,
@@ -438,23 +424,17 @@ enum TaskAction {
 }
 
 // ---------------------------------------------------------------------------
-// Mono subcommands
+// Mono args
 // ---------------------------------------------------------------------------
 
-#[derive(Subcommand)]
-enum MonoAction {
-    /// Create a new Cargo workspace monorepo with rex harness and git
-    Init {
-        /// Name of the monorepo directory to create
-        #[arg(long)]
-        name: String,
-    },
-    /// Create an empty Cargo workspace (no rex or claude folders)
-    Empty {
-        /// Name of the monorepo directory to create
-        #[arg(long)]
-        name: String,
-    },
+#[derive(Args)]
+struct MonoArgs {
+    /// Name of the monorepo directory to create
+    #[arg(long)]
+    name: String,
+    /// Create an empty workspace (no rex harness or claude folders)
+    #[arg(long)]
+    no_harness: bool,
 }
 
 // ---------------------------------------------------------------------------
@@ -463,8 +443,8 @@ enum MonoAction {
 
 #[derive(Subcommand)]
 enum HistoryAction {
-    /// Insert a new entry into the recent section
-    InsertRecent {
+    /// Insert a new history entry (recent by default, archived with --archived)
+    Insert {
         /// Unique kebab-case identifier for this entry
         #[arg(long)]
         id: String,
@@ -483,37 +463,17 @@ enum HistoryAction {
         /// Agent session identifier
         #[arg(long)]
         session: Option<String>,
+        /// Insert into the archived section instead of recent
+        #[arg(long)]
+        archived: bool,
     },
-    /// Remove an entry from the recent section
-    RemoveFromRecent {
+    /// Remove a history entry (recent by default, archived with --archived)
+    Remove {
         /// Entry ID to remove
         id: String,
-    },
-    /// Insert a compacted entry into the archived section
-    InsertCompacted {
-        /// Unique kebab-case identifier for this entry
+        /// Remove from the archived section instead of recent
         #[arg(long)]
-        id: String,
-        /// ISO-8601 timestamp (e.g. 2026-04-01T14:30:00Z)
-        #[arg(long)]
-        timestamp: String,
-        /// Compacted summary of the work
-        #[arg(long)]
-        summary: String,
-        /// Entity IDs (milestones/objectives/tasks) affected. Repeatable.
-        #[arg(long = "entity")]
-        entities: Vec<String>,
-        /// Files created or modified. Repeatable.
-        #[arg(long = "file")]
-        files: Vec<String>,
-        /// Agent session identifier
-        #[arg(long)]
-        session: Option<String>,
-    },
-    /// Remove an entry from the archived section
-    RemoveFromCompacted {
-        /// Entry ID to remove
-        id: String,
+        archived: bool,
     },
     /// Get just the recent entries as JSON
     GetRecent,
@@ -538,13 +498,9 @@ All commands:
   rex project next-item                     Get the next actionable item from project status
   rex project lock                          Lock the active project
   rex project unlock                        Unlock the active project
+  rex project update [--title <t>] [--subtitle <s>] [--description <d>] [--directory <p>]
+      [--category <c>] [--complexity <x>]   Update the active project's fields
   rex project update-status <item> <status> Update the status of a project item
-  rex project update-title <title>          Update the active project's title
-  rex project update-subtitle <subtitle>    Update the active project's subtitle
-  rex project update-description <desc>     Update the active project's description
-  rex project update-directory <path>       Update the active project's directory
-  rex project update-category <category>    Update the active project's category
-  rex project update-complexity <complexity> Update the active project's complexity
   rex project get-completion-percent        Get project completion percentage (JSON)
 
   rex checklist init [--date <YYYY-MM-DD>]  Initialize an empty checklist for the active project
@@ -581,15 +537,11 @@ All commands:
   rex task remove <id>                      Remove a task
   rex task next                             Get the next task based on dependency order and priority
 
-  rex mono init --name <name>               Create a Cargo workspace monorepo with rex harness and git
-  rex mono empty --name <name>              Create an empty Cargo workspace (no rex or claude folders)
+  rex mono --name <name> [--no-harness]     Create a Cargo workspace monorepo with git
 
-  rex history insert-recent --id <id> --timestamp <ts> --summary <s> [--entity <e>...] [--file <f>...]
-                                            Insert a new recent history entry
-  rex history remove-from-recent <id>       Remove a recent history entry
-  rex history insert-compacted --id <id> --timestamp <ts> --summary <s> [--entity <e>...] [--file <f>...]
-                                            Insert a compacted archived entry
-  rex history remove-from-compacted <id>    Remove an archived history entry
+  rex history insert --id <id> --timestamp <ts> --summary <s> [--entity <e>...] [--file <f>...] [--archived]
+                                            Insert a history entry (recent by default, archived with --archived)
+  rex history remove <id> [--archived]      Remove a history entry (recent by default, archived with --archived)
   rex history get-recent                    Get recent history entries as JSON
   rex history list                          List all history (recent and archived) as JSON";
 
@@ -639,24 +591,18 @@ fn main() {
             ProjectAction::GetActive => rex_cli::commands::project::get_active(),
             ProjectAction::Remove { id } => rex_cli::commands::project::remove(&id),
             ProjectAction::Activate { id } => rex_cli::commands::project::activate(&id),
-            ProjectAction::UpdateDirectory { directory } => {
-                rex_cli::commands::project::update_directory(&directory)
-            }
+            ProjectAction::Update {
+                title,
+                subtitle,
+                description,
+                directory,
+                category,
+                complexity,
+            } => rex_cli::commands::project::update(
+                title, subtitle, description, directory, category, complexity,
+            ),
             ProjectAction::UpdateStatus { item, status } => {
                 rex_cli::commands::project::update_status(&item, status)
-            }
-            ProjectAction::UpdateTitle { title } => rex_cli::commands::project::update_title(&title),
-            ProjectAction::UpdateSubtitle { subtitle } => {
-                rex_cli::commands::project::update_subtitle(&subtitle)
-            }
-            ProjectAction::UpdateDescription { description } => {
-                rex_cli::commands::project::update_description(&description)
-            }
-            ProjectAction::UpdateCategory { category } => {
-                rex_cli::commands::project::update_category(category)
-            }
-            ProjectAction::UpdateComplexity { complexity } => {
-                rex_cli::commands::project::update_complexity(complexity)
             }
             ProjectAction::NextItem => rex_cli::commands::project::next_item(),
             ProjectAction::Lock => rex_cli::commands::project::lock(),
@@ -759,38 +705,23 @@ fn main() {
         },
 
         // -- Mono -----------------------------------------------------------
-        Commands::Mono { action } => match action {
-            MonoAction::Init { name } => rex_cli::commands::mono::init(&name),
-            MonoAction::Empty { name } => rex_cli::commands::mono::empty(&name)
-        },
+        Commands::Mono(args) => rex_cli::commands::mono::create(&args.name, args.no_harness),
 
         // -- History --------------------------------------------------------
         Commands::History { action } => match action {
-            HistoryAction::InsertRecent {
+            HistoryAction::Insert {
                 id,
                 timestamp,
                 summary,
                 entities,
                 files,
                 session,
-            } => rex_cli::commands::history::insert_recent(
-                &id, &timestamp, &summary, entities, files, session,
+                archived,
+            } => rex_cli::commands::history::insert(
+                &id, &timestamp, &summary, entities, files, session, archived,
             ),
-            HistoryAction::RemoveFromRecent { id } => {
-                rex_cli::commands::history::remove_from_recent(&id)
-            }
-            HistoryAction::InsertCompacted {
-                id,
-                timestamp,
-                summary,
-                entities,
-                files,
-                session,
-            } => rex_cli::commands::history::insert_compacted(
-                &id, &timestamp, &summary, entities, files, session,
-            ),
-            HistoryAction::RemoveFromCompacted { id } => {
-                rex_cli::commands::history::remove_from_compacted(&id)
+            HistoryAction::Remove { id, archived } => {
+                rex_cli::commands::history::remove(&id, archived)
             }
             HistoryAction::GetRecent => rex_cli::commands::history::get_recent(),
             HistoryAction::List => rex_cli::commands::history::list(),

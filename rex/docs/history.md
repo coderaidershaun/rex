@@ -7,7 +7,7 @@ History is stored at `rex/<project-id>/history.json` with two sections:
 - **recent** — detailed entries from the last three agent sessions
 - **archived** — compacted summaries of older work
 
-The intended workflow: agents insert entries into `recent` as they work. When a session ends and the recent list grows beyond three sessions, older entries are compacted (summarized) and moved to `archived` via `insert-compacted` + `remove-from-recent`.
+The intended workflow: agents insert entries into `recent` as they work. When a session ends and the recent list grows beyond three sessions, older entries are compacted (summarized) and moved to `archived` via `insert --archived` + `remove`.
 
 ## JSON Schema
 
@@ -49,10 +49,10 @@ The intended workflow: agents insert entries into `recent` as they work. When a 
 
 ## CLI Commands
 
-### Insert a recent entry
+### Insert a history entry
 
 ```bash
-rex history insert-recent \
+rex history insert \
   --id session-3-auth-impl \
   --timestamp "2026-04-01T14:30:00Z" \
   --summary "Implemented token generation endpoint and email template" \
@@ -63,16 +63,16 @@ rex history insert-recent \
   --session agent-session-003
 ```
 
-### Remove from recent
+### Remove a history entry
 
 ```bash
-rex history remove-from-recent session-3-auth-impl
+rex history remove session-3-auth-impl
 ```
 
-### Insert a compacted (archived) entry
+### Insert an archived entry
 
 ```bash
-rex history insert-compacted \
+rex history insert --archived \
   --id compact-week-1 \
   --timestamp "2026-03-28T00:00:00Z" \
   --summary "Set up project scaffolding, defined auth milestones, completed design review" \
@@ -81,10 +81,10 @@ rex history insert-compacted \
   --entity o-oauth
 ```
 
-### Remove from compacted (archived)
+### Remove an archived entry
 
 ```bash
-rex history remove-from-compacted compact-week-1
+rex history remove --archived compact-week-1
 ```
 
 ### Get recent entries only
@@ -120,7 +120,7 @@ Agent reads recent and archived entries to understand what has been done.
 ### During a session — log work
 
 ```bash
-rex history insert-recent \
+rex history insert \
   --id session-4-reset-ui \
   --timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   --summary "Built the password reset UI form with validation" \
@@ -133,11 +133,11 @@ rex history insert-recent \
 
 ```bash
 # Compact the oldest recent entry into an archived summary
-rex history insert-compacted \
+rex history insert --archived \
   --id compact-session-1 \
   --timestamp "2026-03-25T00:00:00Z" \
   --summary "Initial project setup: scaffolding, dependency config, CI pipeline"
 
 # Remove the detailed recent entry
-rex history remove-from-recent session-1-setup
+rex history remove session-1-setup
 ```

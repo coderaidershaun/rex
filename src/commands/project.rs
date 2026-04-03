@@ -490,139 +490,78 @@ pub fn activate(id: &str) -> RexResult<()> {
     Ok(())
 }
 
-pub fn update_directory(directory: &str) -> RexResult<()> {
-    let mut registry = ProjectRegistry::load()?;
 
-    let project = registry
-        .active
-        .as_mut()
-        .ok_or_else(|| RexError::NotFound("No active project.".into()))?;
-    let id = project.id.clone();
-    let old_directory = project.directory.clone();
-    project.directory = directory.to_owned();
-    registry.save()?;
+pub fn update(
+    title: Option<String>,
+    subtitle: Option<String>,
+    description: Option<String>,
+    directory: Option<String>,
+    category: Option<Category>,
+    complexity: Option<Complexity>,
+) -> RexResult<()> {
+    if title.is_none()
+        && subtitle.is_none()
+        && description.is_none()
+        && directory.is_none()
+        && category.is_none()
+        && complexity.is_none()
+    {
+        return Err(RexError::Validation(
+            "At least one field must be specified. Use --title, --subtitle, --description, --directory, --category, or --complexity.".into(),
+        ));
+    }
 
-    println!(
-        "\n  {} Updated directory for project \"{}\".",
-        style("\u{2713}").green().bold(),
-        id
-    );
-    println!(
-        "  {:<16} {}",
-        style("From:").dim(),
-        old_directory
-    );
-    println!(
-        "  {:<16} {}\n",
-        style("To:").dim(),
-        directory
-    );
-
-    Ok(())
-}
-
-pub fn update_title(title: &str) -> RexResult<()> {
     let mut registry = ProjectRegistry::load()?;
     let project = registry
         .active
         .as_mut()
         .ok_or_else(|| RexError::NotFound("No active project.".into()))?;
     let id = project.id.clone();
-    let old = project.title.clone();
-    project.title = title.to_owned();
+
+    let mut changes: Vec<(&str, String, String)> = Vec::new();
+
+    if let Some(ref t) = title {
+        changes.push(("title", project.title.clone(), t.clone()));
+        project.title = t.clone();
+    }
+    if let Some(ref s) = subtitle {
+        changes.push(("subtitle", project.subtitle.clone(), s.clone()));
+        project.subtitle = s.clone();
+    }
+    if let Some(ref d) = description {
+        changes.push(("description", project.description.clone(), d.clone()));
+        project.description = d.clone();
+    }
+    if let Some(ref dir) = directory {
+        changes.push(("directory", project.directory.clone(), dir.clone()));
+        project.directory = dir.clone();
+    }
+    if let Some(ref c) = category {
+        changes.push(("category", project.category.to_string(), c.to_string()));
+        project.category = c.clone();
+    }
+    if let Some(ref x) = complexity {
+        changes.push(("complexity", project.complexity.to_string(), x.to_string()));
+        project.complexity = x.clone();
+    }
+
     registry.save()?;
 
     println!(
-        "\n  {} Updated title for project \"{}\".",
+        "\n  {} Updated project \"{}\".",
         style("\u{2713}").green().bold(),
         id
     );
-    println!("  {:<16} {}", style("From:").dim(), old);
-    println!("  {:<16} {}\n", style("To:").dim(), title);
-    Ok(())
-}
+    for (field, old, new) in &changes {
+        println!(
+            "  {:<16} {} \u{2192} {}",
+            style(format!("{field}:")).dim(),
+            old,
+            new
+        );
+    }
+    println!();
 
-pub fn update_subtitle(subtitle: &str) -> RexResult<()> {
-    let mut registry = ProjectRegistry::load()?;
-    let project = registry
-        .active
-        .as_mut()
-        .ok_or_else(|| RexError::NotFound("No active project.".into()))?;
-    let id = project.id.clone();
-    let old = project.subtitle.clone();
-    project.subtitle = subtitle.to_owned();
-    registry.save()?;
-
-    println!(
-        "\n  {} Updated subtitle for project \"{}\".",
-        style("\u{2713}").green().bold(),
-        id
-    );
-    println!("  {:<16} {}", style("From:").dim(), old);
-    println!("  {:<16} {}\n", style("To:").dim(), subtitle);
-    Ok(())
-}
-
-pub fn update_category(category: Category) -> RexResult<()> {
-    let mut registry = ProjectRegistry::load()?;
-    let project = registry
-        .active
-        .as_mut()
-        .ok_or_else(|| RexError::NotFound("No active project.".into()))?;
-    let id = project.id.clone();
-    let old = project.category.clone();
-    project.category = category.clone();
-    registry.save()?;
-
-    println!(
-        "\n  {} Updated category for project \"{}\".",
-        style("\u{2713}").green().bold(),
-        id
-    );
-    println!("  {:<16} {}", style("From:").dim(), old);
-    println!("  {:<16} {}\n", style("To:").dim(), category);
-    Ok(())
-}
-
-pub fn update_complexity(complexity: Complexity) -> RexResult<()> {
-    let mut registry = ProjectRegistry::load()?;
-    let project = registry
-        .active
-        .as_mut()
-        .ok_or_else(|| RexError::NotFound("No active project.".into()))?;
-    let id = project.id.clone();
-    let old = project.complexity.clone();
-    project.complexity = complexity.clone();
-    registry.save()?;
-
-    println!(
-        "\n  {} Updated complexity for project \"{}\".",
-        style("\u{2713}").green().bold(),
-        id
-    );
-    println!("  {:<16} {}", style("From:").dim(), old);
-    println!("  {:<16} {}\n", style("To:").dim(), complexity);
-    Ok(())
-}
-
-pub fn update_description(description: &str) -> RexResult<()> {
-    let mut registry = ProjectRegistry::load()?;
-    let project = registry
-        .active
-        .as_mut()
-        .ok_or_else(|| RexError::NotFound("No active project.".into()))?;
-    let id = project.id.clone();
-    let old = project.description.clone();
-    project.description = description.to_owned();
-    registry.save()?;
-
-    println!(
-        "\n  {} Updated description for project \"{}\".",
-        style("\u{2713}").green().bold(),
-        id
-    );
-    println!("  {:<16} {}", style("From:").dim(), old);
-    println!("  {:<16} {}\n", style("To:").dim(), description);
     Ok(())
 }
 

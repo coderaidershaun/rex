@@ -35,7 +35,7 @@ When a project is created, a metadata directory is also created at `rex/<project
 
 ## Commands
 
-All commands that edit a project (`update-directory`, `update-status`) operate on the **active** project. Use `get-active` to check which project is active, and `activate` to switch.
+All commands that edit a project (`update`, `update-status`) operate on the **active** project. Use `get-active` to check which project is active, and `activate` to switch.
 
 ### `rex project create`
 
@@ -147,79 +147,38 @@ rex project activate my-project
 
 ---
 
-### `rex project update-directory <DIRECTORY>`
+### `rex project update [FLAGS]`
 
-Updates the active project's directory path.
+Updates one or more fields of the active project in a single operation.
 
 ```
-rex project update-directory /path/to/new/directory
+rex project update --title "My New Title" --directory /path/to/new/directory
+rex project update --category library --complexity large
+rex project update --subtitle "Brief summary" --description "Detailed description"
 ```
+
+**Flags:**
+
+| Flag              | Value                                  |
+|-------------------|----------------------------------------|
+| `--title`         | New project title                      |
+| `--subtitle`      | New short summary                      |
+| `--description`   | New detailed description               |
+| `--directory`     | New absolute path to working directory |
+| `--category`      | One of `binary`, `library`, `refactor` |
+| `--complexity`    | One of `small`, `medium`, `large`      |
+
+At least one flag is required. Any combination of flags can be used together.
 
 **Behavior:**
 
-- Updates the `directory` field of the active project in `rex/projects.json`.
-- Prints the old and new directory paths.
+- Loads `rex/projects.json` once, applies all requested changes, and saves once.
+- For each updated field, prints the old and new value.
 
 **Error cases:**
 
 - `"No active project."` — if no project is currently active.
-
----
-
-### `rex project update-title <TITLE>`
-
-Updates the active project's title.
-
-```
-rex project update-title "My New Title"
-```
-
-**Behavior:**
-
-- Updates the `title` field of the active project in `rex/projects.json`.
-- Prints the old and new title.
-
-**Error cases:**
-
-- `"No active project."` — if no project is currently active.
-
----
-
-### `rex project update-subtitle <SUBTITLE>`
-
-Updates the active project's subtitle.
-
-```
-rex project update-subtitle "A brief summary of the project"
-```
-
-**Behavior:**
-
-- Updates the `subtitle` field of the active project in `rex/projects.json`.
-- Prints the old and new subtitle.
-
-**Error cases:**
-
-- `"No active project."` — if no project is currently active.
-
----
-
-### `rex project update-description <DESCRIPTION>`
-
-Updates the active project's description.
-
-```
-rex project update-description "Detailed description of what this project does"
-```
-
-**Behavior:**
-
-- Updates the `description` field of the active project in `rex/projects.json`.
-- Prints the old and new description.
-
-**Error cases:**
-
-- `"No active project."` — if no project is currently active.
+- `"At least one field must be specified."` — if no flags are provided.
 
 ---
 
@@ -333,50 +292,34 @@ rex project unlock
 
 ---
 
-### `rex project update-category <CATEGORY>`
+### `rex project get-completion-percent`
 
-Updates the active project's category.
+Returns the completion percentage of the active project as JSON.
 
 ```
-rex project update-category library
+rex project get-completion-percent
 ```
 
-**Arguments:**
+**Output:**
 
-| Argument   | Description                              |
-|------------|------------------------------------------|
-| `CATEGORY` | One of `binary`, `library`, `refactor`   |
+```json
+{
+  "project-items-percent": 33.33,
+  "project-tasks-percent": 50.0
+}
+```
+
+| Field                   | Description                                                                                      |
+|-------------------------|--------------------------------------------------------------------------------------------------|
+| `project-items-percent` | Percentage of project-status items completed out of actionable items (excludes `not-required`).   |
+| `project-tasks-percent` | Percentage of planning tasks completed out of total tasks in `planning.json`.                     |
 
 **Behavior:**
 
-- Updates the `category` field of the active project in `rex/projects.json`.
-- Prints the old and new category.
+- If all project-status items are completed or not-required, both fields return `100.0`.
+- If there are no planning tasks, `project-tasks-percent` is `0.0`.
 
 **Error cases:**
 
 - `"No active project."` — if no project is currently active.
-
----
-
-### `rex project update-complexity <COMPLEXITY>`
-
-Updates the active project's complexity.
-
-```
-rex project update-complexity high
-```
-
-**Arguments:**
-
-| Argument     | Description                          |
-|--------------|--------------------------------------|
-| `COMPLEXITY` | One of `low`, `medium`, `high`       |
-
-**Behavior:**
-
-- Updates the `complexity` field of the active project in `rex/projects.json`.
-- Prints the old and new complexity.
-
-**Error cases:**
-
-- `"No active project."` — if no project is currently active.
+- `"Failed to read project-status.json: ..."` — if the file is missing or unreadable.

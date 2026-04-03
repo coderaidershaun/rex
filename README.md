@@ -105,13 +105,8 @@ Rex gives AI agents the scaffolding they need to build real software — trackin
 | `rex project next-item` | Get the next actionable work item (JSON) |
 | `rex project lock` | Lock the active project |
 | `rex project unlock` | Unlock the active project |
-| `rex project update-title <TITLE>` | Update project title |
-| `rex project update-subtitle <SUBTITLE>` | Update project subtitle |
-| `rex project update-description <DESC>` | Update project description |
-| `rex project update-directory <PATH>` | Change project directory |
+| `rex project update [FLAGS]` | Update project fields (title, subtitle, description, directory, category, complexity) |
 | `rex project update-status <ITEM> <STATUS>` | Update a work item's status |
-| `rex project update-category <CATEGORY>` | Set category (binary/library/refactor) |
-| `rex project update-complexity <COMPLEXITY>` | Set complexity (low/medium/high) |
 | `rex project get-completion-percent` | Get project completion percentage (JSON) |
 
 ### Planning Tree
@@ -149,8 +144,7 @@ Rex gives AI agents the scaffolding they need to build real software — trackin
 
 | Command | Description |
 |---|---|
-| `rex mono init --name <NAME>` | Create a Cargo workspace monorepo with rex harness and git |
-| `rex mono empty --name <NAME>` | Create an empty Cargo workspace (no rex or claude folders) |
+| `rex mono --name <NAME> [--no-harness]` | Create a Cargo workspace monorepo |
 
 Run `rex --help`, `rex --commands`, or `rex <command> --help` for full usage details.
 

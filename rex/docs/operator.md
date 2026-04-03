@@ -17,7 +17,7 @@ The operator is the heartbeat of the rex harness. It processes one work item per
 6.  Prepare agent dispatch     →  Build prompt from item config
 7.  Dispatch agent(s)          →  Agent tool (BLOCKING — never background)
 8.  Check agent response       →  Respect "do not mark complete" signals
-9.  Record history             →  rex history insert-recent ...
+9.  Record history             →  rex history insert ...
 10. Mark item complete         →  rex project update-status <item> completed
 11. Manage history             →  Dispatch agent with rex-manage-history skill
 12. Stop                       →  Report what was done and terminate
@@ -42,7 +42,7 @@ When `rex project next-item` returns the execution item (item: `"run"`, phase: `
     └─ rex task next           →  Check if more tasks remain
     └─ If "NO TASKS"          →  Execution item → completed (step 10)
     └─ If tasks remain         →  Execution item stays in-progress (skip step 10)
-9.  Record history             →  rex history insert-recent (include task/obj/milestone entities)
+9.  Record history             →  rex history insert (include task/obj/milestone entities)
 10. Mark execution complete    →  rex project update-status <item> completed (ONLY if all tasks done)
 11. Manage history             →  Dispatch agent with rex-manage-history skill
 12. Stop                       →  Report task + execution status
@@ -60,7 +60,7 @@ When `rex project next-item` returns the execution item (item: `"run"`, phase: `
 | 5 | `rex history get-recent` | Get recent history for agent context |
 | 8 | `rex task upsert --id <id> --status completed` | Mark task completed (execution phase) |
 | 8 | `rex task next` | Check if more tasks remain (execution phase) |
-| 9 | `rex history insert-recent --id ... --timestamp ... --summary ... --entity ... --file ...` | Record what was done |
+| 9 | `rex history insert --id ... --timestamp ... --summary ... --entity ... --file ...` | Record what was done |
 | 10 | `rex project update-status <item> completed` | Mark execution item complete (only when all tasks done) |
 
 ## Agent Dispatch

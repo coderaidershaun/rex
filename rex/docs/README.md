@@ -217,7 +217,7 @@ The operator (`rex-operator` skill) is the heartbeat. It processes exactly one w
 6.  Build agent prompt              -> From item config (skill, inputs, outputs, effort, model)
 7.  Dispatch agent(s)               -> BLOCKING (never background)
 8.  Check agent response            -> Respect "do not mark complete" signals
-9.  rex history insert-recent       -> Record what was done
+9.  rex history insert              -> Record what was done
 10. rex project update-status       -> Mark item completed
 11. Dispatch rex-manage-history     -> Keep recent history at 3 entries max
 12. Stop and report
@@ -241,7 +241,7 @@ The operator (`rex-operator` skill) is the heartbeat. It processes exactly one w
     rex task next                   -> Check if more tasks remain
     If NO TASKS -> mark execution item completed
     If tasks remain -> execution item stays in-progress
-9.  rex history insert-recent       -> Record task/objective/milestone entities
+9.  rex history insert              -> Record task/objective/milestone entities
 10. rex project update-status       -> Mark execution complete (only if ALL tasks done)
 11. Dispatch rex-manage-history     -> Archive old history
 12. Stop and report
@@ -296,13 +296,8 @@ Each work item in `project-status.json` specifies how its agent(s) should be dis
 | `rex project remove <id>` | Remove a project (optionally delete source) |
 | `rex project lock` | Lock the active project (operator will skip it) |
 | `rex project unlock` | Unlock the active project |
-| `rex project update-directory <dir>` | Change project source directory |
-| `rex project update-title <title>` | Update project title |
-| `rex project update-subtitle <subtitle>` | Update project subtitle |
-| `rex project update-description <desc>` | Update project description |
+| `rex project update [--title <t>] [--subtitle <s>] [--description <d>] [--directory <p>] [--category <c>] [--complexity <x>]` | Update the active project's fields |
 | `rex project update-status <item> <status>` | Update item status (not-started / in-progress / completed / not-required) |
-| `rex project update-category <category>` | Update category (binary / library / refactor) |
-| `rex project update-complexity <complexity>` | Update complexity (low / medium / high) |
 | `rex project next-item` | Get next incomplete item as JSON |
 | `rex project get-completion-percent` | Get project completion percentage as JSON (items + tasks) |
 
@@ -358,10 +353,8 @@ All three levels share the same command pattern and list modification flags:
 
 | Command | Purpose |
 |---------|---------|
-| `rex history insert-recent --id <id> --timestamp <ts> --summary <s> [--entity <e>]... [--file <f>]...` | Add to recent history |
-| `rex history remove-from-recent <id>` | Remove from recent |
-| `rex history insert-compacted --id <id> --timestamp <ts> --summary <s> [--entity <e>]...` | Add to archived history |
-| `rex history remove-from-compacted <id>` | Remove from archived |
+| `rex history insert --id <id> --timestamp <ts> --summary <s> [--entity <e>]... [--file <f>]... [--archived]` | Add history entry (recent by default, archived with --archived) |
+| `rex history remove <id> [--archived]` | Remove history entry (recent by default, archived with --archived) |
 | `rex history get-recent` | Get recent entries as JSON |
 | `rex history list` | Get all history (recent + archived) as JSON |
 
@@ -369,8 +362,7 @@ All three levels share the same command pattern and list modification flags:
 
 | Command | Purpose |
 |---------|---------|
-| `rex mono init --name <name>` | Create a Cargo workspace monorepo with rex harness and git |
-| `rex mono empty --name <name>` | Create an empty Cargo workspace (no rex or claude folders) |
+| `rex mono --name <name> [--no-harness]` | Create a Cargo workspace monorepo (bare workspace with --no-harness) |
 
 ## project-status.json Structure
 
