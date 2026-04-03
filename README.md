@@ -15,27 +15,32 @@
 
 ## Getting Started
 
-### Install
+### 1. Install
 
 ```bash
 cargo install rex-cli
 ```
 
-### Initialize
+### 2. Initialize
 
 Set up the rex harness in your project directory:
 
 ```bash
+cd /path/to/your/project
 rex init
 ```
 
-### Create a Project
+This scaffolds all skills, hooks, settings, and documentation into `.claude/` and `rex/`.
+
+### 3. Create a Project
 
 ```bash
 rex project create
 ```
 
-### Run the Operator
+Interactive prompts walk you through project ID, complexity, title, category, and which onboarding/design items to include.
+
+### 4. Run the Operator
 
 From within **Claude Code** or **Cursor**, invoke the rex operator skill:
 
@@ -43,7 +48,46 @@ From within **Claude Code** or **Cursor**, invoke the rex operator skill:
 /rex-operator
 ```
 
-The operator takes it from there — walking you through onboarding, design, planning, and build phases step by step.
+The operator takes it from there — walking you through onboarding, design, planning, and build phases step by step. Each invocation processes one work item, then stops.
+
+### 5. Autorun (Headless Autopilot)
+
+Run the entire project autonomously with Telegram notifications for status updates and human input prompts.
+
+**Telegram environment variables must be available:**
+
+```bash
+export TELEGRAM_BOT_TOKEN="your-bot-token-from-botfather"
+export TELEGRAM_CHAT_ID="your-numeric-chat-id"
+```
+
+Or create a `.env` file in your project root:
+
+```env
+TELEGRAM_BOT_TOKEN=your-bot-token-from-botfather
+TELEGRAM_CHAT_ID=your-numeric-chat-id
+```
+
+Then start autorun:
+
+```bash
+rex-autorun
+```
+
+Autorun options:
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--project-dir <PATH>` | `.` | Rex project root directory |
+| `--max-budget-usd <AMOUNT>` | `50.0` | Max USD per single Claude invocation |
+| `--max-total-budget-usd <AMOUNT>` | `500.0` | Hard stop for total spend |
+| `--max-turns <N>` | `200` | Max agentic turns per invocation |
+| `--process-timeout-mins <N>` | `60` | Max minutes per Claude process |
+| `--max-retries <N>` | `5` | Max retries for transient failures |
+| `--human-timeout-days <N>` | `7` | Max days to wait for Telegram reply |
+| `--log-file <PATH>` | `.rex-autorun.log` | Path to JSONL log file |
+
+Autorun recovers from crashes automatically, respects budget limits, and exits cleanly when the project is done.
 
 ## How It Works
 
@@ -58,18 +102,62 @@ Rex gives AI agents the scaffolding they need to build real software — trackin
 
 ## CLI Reference
 
+### Project Management
+
 | Command | Description |
 |---|---|
 | `rex init` | Initialize the harness in the current directory |
 | `rex project create` | Create a new project interactively |
 | `rex project get-active` | Show the current active project |
-| `rex project next-item` | Get the next actionable item |
+| `rex project activate <ID>` | Switch to a different project |
+| `rex project remove <ID>` | Remove a project |
+| `rex project next-item` | Get the next actionable work item (JSON) |
+| `rex project lock` | Lock the active project |
+| `rex project unlock` | Unlock the active project |
+| `rex project update-title <TITLE>` | Update project title |
+| `rex project update-subtitle <SUBTITLE>` | Update project subtitle |
+| `rex project update-description <DESC>` | Update project description |
+| `rex project update-directory <PATH>` | Change project directory |
+| `rex project update-status <ITEM> <STATUS>` | Update a work item's status |
+| `rex project update-category <CATEGORY>` | Set category (binary/library/refactor) |
+| `rex project update-complexity <COMPLEXITY>` | Set complexity (low/medium/high) |
+
+### Planning Tree
+
+| Command | Description |
+|---|---|
 | `rex milestone upsert` | Create or update a milestone |
+| `rex milestone get <ID>` | Get a milestone by ID |
+| `rex milestone list` | List milestones |
+| `rex milestone remove <ID>` | Remove a milestone |
 | `rex objective upsert` | Create or update an objective |
+| `rex objective get <ID>` | Get an objective by ID |
+| `rex objective list` | List objectives |
+| `rex objective remove <ID>` | Remove an objective |
 | `rex task upsert` | Create or update a task |
+| `rex task get <ID>` | Get a task by ID |
+| `rex task list` | List tasks |
 | `rex task next` | Get the next task to work on |
+| `rex task remove <ID>` | Remove a task |
+
+### Checklist & History
+
+| Command | Description |
+|---|---|
+| `rex checklist init` | Initialize an empty checklist |
+| `rex checklist add` | Add a checklist item |
 | `rex checklist list` | List checklist items |
-| `rex history list` | View session history |
+| `rex checklist complete <ID>` | Mark a checklist item as done |
+| `rex checklist uncomplete <ID>` | Mark a checklist item as not done |
+| `rex checklist set-context <CTX>` | Set checklist context text |
+| `rex history list` | View all session history |
+| `rex history get-recent` | View recent history entries |
+
+### Monorepo
+
+| Command | Description |
+|---|---|
+| `rex mono init` | Initialize a Cargo workspace monorepo |
 
 Run `rex --help` or `rex <command> --help` for full usage details.
 
