@@ -53,6 +53,14 @@ pub struct Args {
 }
 
 /// Main entry point — the core state machine.
+// Exit codes:
+//   0 — project completed successfully
+//   1 — fatal/non-retryable error
+//   2 — human reply timeout
+//   3 — max retries exhausted
+//   4 — SIGINT/SIGTERM
+//   5 — budget limit reached
+//   6 — killed via /kill command
 pub async fn run(args: Args) -> RexResult<ExitCode> {
     // Resolve project directory to absolute path
     let project_dir = std::fs::canonicalize(&args.project_dir)
@@ -310,7 +318,7 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
     // Signal handling + main loop
     let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
 
-    let main_result = tokio::select! {
+    tokio::select! {
         _ = tokio::signal::ctrl_c() => {
             info!("SIGINT received — shutting down");
             tg.notify(&format!("<b>[{pid}] Autorun stopped</b> (SIGINT)", pid = escape_html(&project_id))).await;
@@ -335,9 +343,7 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
         ) => {
             result
         }
-    };
-
-    main_result
+    }
 }
 
 /// The core invocation loop.
@@ -503,6 +509,7 @@ async fn main_loop(
                             .await;
 
                             state::delete_state(state_path);
+                            // Brief cooldown to avoid hammering the API and let the filesystem settle.
                             info!(n, "invocation completed, cooling down 5s");
                             tokio::time::sleep(Duration::from_secs(5)).await;
                             continue;
@@ -761,6 +768,7 @@ async fn main_loop(
                                             dur = resume_output.duration_ms / 1000,
                                         )).await;
                                         state::delete_state(state_path);
+                                        // Brief cooldown to avoid hammering the API and let the filesystem settle.
                                         info!(n, "invocation completed, cooling down 5s");
                                         tokio::time::sleep(Duration::from_secs(5)).await;
                                         break; // back to outer loop
@@ -1141,14 +1149,13 @@ fn build_query_response(
         let mut others = Vec::new();
 
         // Check all projects (active + inactive) for state files
-        let all_projects: Vec<_> = registry
+        let all_projects = registry
             .active
             .iter()
             .chain(registry.inactive.iter())
-            .filter(|p| p.id != project_id)
-            .collect();
+            .filter(|p| p.id != project_id);
 
-        for proj in &all_projects {
+        for proj in all_projects {
             let state_file =
                 std::path::Path::new(&proj.directory).join(".rex-autorun.json");
             if let Some(state) = super::state::read_state(&state_file) {

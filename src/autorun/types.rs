@@ -1,3 +1,5 @@
+//! Data types, serialization structures, and utilities shared across the autorun module.
+
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
@@ -70,19 +72,17 @@ impl ClaudeOutput {
 
     /// Context window usage as a percentage.
     pub fn context_percent(&self) -> f64 {
-        if let Some(entry) = self.model_usage.values().next() {
-            if entry.context_window > 0 {
-                let total = entry.input_tokens
-                    + entry.output_tokens
-                    + entry.cache_read_input_tokens
-                    + entry.cache_creation_input_tokens;
-                (total as f64 / entry.context_window as f64) * 100.0
-            } else {
-                0.0
-            }
-        } else {
-            0.0
+        let Some(entry) = self.model_usage.values().next() else {
+            return 0.0;
+        };
+        if entry.context_window == 0 {
+            return 0.0;
         }
+        let total = entry.input_tokens
+            + entry.output_tokens
+            + entry.cache_read_input_tokens
+            + entry.cache_creation_input_tokens;
+        (total as f64 / entry.context_window as f64) * 100.0
     }
 
     /// Formatted header line for Telegram messages (HTML).

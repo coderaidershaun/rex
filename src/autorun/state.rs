@@ -1,3 +1,5 @@
+//! Persistent state file management with atomic writes and crash recovery.
+
 use std::io::Write;
 use std::path::Path;
 
@@ -24,9 +26,8 @@ pub fn write_state_atomic(path: &Path, state: &AutorunState) -> RexResult<()> {
 
 /// Load and parse the state file. Returns `None` on missing or corrupt file.
 pub fn read_state(path: &Path) -> Option<AutorunState> {
-    let data = match std::fs::read_to_string(path) {
-        Ok(d) => d,
-        Err(_) => return None,
+    let Ok(data) = std::fs::read_to_string(path) else {
+        return None;
     };
     match serde_json::from_str::<AutorunState>(&data) {
         Ok(state) => Some(state),
@@ -125,10 +126,7 @@ pub fn recover_state(path: &Path) -> RecoveryAction {
 
 /// Check if a process is alive via `kill(pid, 0)`.
 fn is_process_alive(pid: Option<u32>) -> bool {
-    match pid {
-        Some(pid) => unsafe { libc::kill(pid as i32, 0) == 0 },
-        None => false,
-    }
+    pid.map_or(false, |p| unsafe { libc::kill(p as i32, 0) == 0 })
 }
 
 /// Synchronous kill of a process group: SIGTERM, wait briefly, SIGKILL.

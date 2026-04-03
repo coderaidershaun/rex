@@ -1,3 +1,5 @@
+//! Telegram Bot API client with polling, retry logic, and command handling.
+
 use std::time::Duration;
 
 use crate::errors::{RexError, RexResult};
@@ -361,11 +363,8 @@ impl TelegramClient {
 
     /// Fire-and-forget notification. Logs errors internally, never propagates.
     pub async fn notify(&self, text: &str) {
-        match self.send_message(text).await {
-            Ok(_) => {}
-            Err(e) => {
-                error!("failed to send telegram notification: {e}");
-            }
+        if let Err(e) = self.send_message(text).await {
+            error!("failed to send telegram notification: {e}");
         }
     }
 }

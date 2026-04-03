@@ -1,3 +1,5 @@
+//! Claude process spawning, output parsing, and lifecycle management.
+
 use std::path::Path;
 use std::time::Duration;
 

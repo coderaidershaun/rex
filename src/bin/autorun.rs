@@ -1,3 +1,5 @@
+//! Binary entry point for the `rex-autorun` headless autopilot.
+
 use std::process::ExitCode;
 
 use clap::Parser;
