@@ -34,8 +34,7 @@ async fn flush_updates(token: &str) -> Option<i64> {
     None
 }
 
-const HEADER_DIV: &str = "▪▪▪";
-const FOOTER_DIV: &str = "⎯⎯⎯";
+const DIV: &str = "⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯";
 
 #[tokio::test]
 #[ignore]
@@ -63,7 +62,7 @@ async fn test_agent_messages_via_telegram() {
          📁 <b>Directory:</b> <code>/srv/projects/orderbook</code>\n\
          🤖 <b>Model:</b> claude-sonnet-4-5",
         pid = escape_html(project_id),
-        hd = HEADER_DIV,
+        hd = DIV,
     );
     bot.send_message(chat_id, &startup_msg)
         .parse_mode(ParseMode::Html)
@@ -80,8 +79,8 @@ async fn test_agent_messages_via_telegram() {
          ⚡ <code>67.3 tok/s</code>  ·  📊 <code>42.1%</code> context\n\
          💰 <code>$0.47</code>  ·  ⏱ <code>38s</code>",
         pid = escape_html(project_id),
-        hd = HEADER_DIV,
-        fd = FOOTER_DIV,
+        hd = DIV,
+        fd = DIV,
     );
     let keyboard = InlineKeyboardMarkup::new(vec![vec![
         InlineKeyboardButton::callback("📊 Stats", "query"),
@@ -107,8 +106,8 @@ async fn test_agent_messages_via_telegram() {
          ⚡ <code>71.0 tok/s</code>  ·  📊 <code>55.8%</code> context\n\n\
          <i>Reply to this message with your answer</i>",
         pid = escape_html(project_id),
-        hd = HEADER_DIV,
-        fd = FOOTER_DIV,
+        hd = DIV,
+        fd = DIV,
         q = escape_html(question),
     );
     let sent = bot
@@ -127,7 +126,7 @@ async fn test_agent_messages_via_telegram() {
          💰 Cost so far: <code>$1.23</code>\n\
          ⏱ Uptime: <code>12m</code>",
         pid = escape_html(project_id),
-        hd = HEADER_DIV,
+        hd = DIV,
     );
     let result = tg
         .wait_for_reply(msg_id, project_id, Duration::from_secs(60), &query_response)
@@ -157,7 +156,7 @@ async fn test_agent_messages_via_telegram() {
                  ⏱ Duration:    <code>14m 22s</code>\n\
                  🤖 Model:       <code>claude-sonnet-4-5</code>",
                 pid = escape_html(project_id),
-                hd = HEADER_DIV,
+                hd = DIV,
             );
             bot.send_message(chat_id, &done_msg)
                 .parse_mode(ParseMode::Html)
