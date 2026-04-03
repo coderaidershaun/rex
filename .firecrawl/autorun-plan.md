@@ -91,9 +91,12 @@ stateDiagram-v2
     state "Resume Session" as Resume
     Resume --> ParseResult: claude --resume exits
 
-    MoreWork --> NotifyProgress: Telegram notification
-    NotifyProgress --> CoolDown: Brief pause (5s)
-    CoolDown --> Invoke: New invocation
+    MoreWork --> BudgetCheck: Check total spend
+    BudgetCheck --> NotifyProgress: Under budget
+    BudgetCheck --> BudgetStop: Over max_total_budget_usd
+    BudgetStop --> [*]: exit 5
+    NotifyProgress --> CoolDown: Telegram notification
+    CoolDown --> Invoke: Brief pause (5s), new invocation
 
     ProjectDone --> NotifyDone: Telegram: all complete!
     NotifyDone --> CleanExit: Delete state file
@@ -209,7 +212,7 @@ sequenceDiagram
 | 3 | **State persistence** | Survive crashes via `.rex-autorun.json` — recover pending input, clean up orphans |
 | 4 | **Session leak prevention** | Process group management, PID tracking, startup orphan sweep, signal handlers |
 | 5 | **Retry with backoff** | Exponential backoff for transient Claude CLI and Telegram API failures |
-| 6 | **Configurable limits** | Max budget, max turns, process timeout — all with sensible defaults |
+| 6 | **Configurable limits** | Per-invocation budget, **global total budget cap**, max turns, process timeout — all with sensible defaults |
 | 7 | **Structured logging** | JSONL to log file + human-readable to stderr, with timestamps |
 | 8 | **Session tagging** | Every Claude session named `rex-autorun-<project-id>-<N>` for identification |
 | 9 | **Exit codes** | Meaningful exit codes so callers (human or agent) know what happened |
@@ -219,9 +222,49 @@ sequenceDiagram
 
 ## Operator Skill Contract
 
-This is the **only interface** between the autorun binary and Claude's output. The binary sets `REX_AUTORUN=1` as an environment variable and appends a system prompt instructing the operator to output structured JSON as its final line.
+This is the **only interface** between the autorun binary and Claude's output. Two things must work together:
+1. The **operator skill itself** must detect headless mode and short-circuit interactive items
+2. The **binary** must append a system prompt defining the JSON output contract
+
+### Required modification to `/rex-operator` skill (SKILL.md)
+
+The operator skill currently has no awareness of headless mode. Its Step 6 says _"Direct invoke: you execute the skill yourself. The user will talk directly to the skill through you."_ In headless `-p` mode, there is no user — the operator would invoke the interactive skill, the skill would generate a question, and the operator would continue through Steps 8-12, potentially hallucinating a user response or leaving the item in a broken state.
+
+**The skill must be modified to add a headless-mode branch.** Add this check at the **top of Step 6** (before determining dispatch mode):
+
+```
+### Headless mode check (REX_AUTORUN=1)
+
+If the environment variable `REX_AUTORUN=1` is set, this session is running
+inside the rex-autorun headless harness. There is no human at the terminal.
+
+For items that would normally use **direct invoke** (onboarding, user-support,
+user-acceptance):
+
+1. Do NOT invoke the skill.
+2. Do NOT proceed to Step 7.
+3. Instead, determine the first question the skill would ask. Read the skill's
+   SKILL.md to understand what it needs from the user.
+4. Output the following JSON as your FINAL line and STOP:
+
+   {"status": "needs_input", "message": "<the exact question for the user>"}
+
+5. Do not output anything after this JSON. Do not continue to Step 7, 8, 9, etc.
+
+When the session is resumed with the user's reply (via --resume <id> -p "<reply>"),
+pick up from where you left off: the reply is the user's answer. Feed it into the
+skill and continue. If the skill needs more input, output another needs_input JSON
+and stop again. Repeat until the skill completes.
+
+For non-interactive items (sub-agent dispatch), proceed normally — REX_AUTORUN=1
+does not affect them.
+```
+
+This is the **most critical change** in the entire plan. Without it, the autorun binary has no reliable way to intercept interactive items before the operator barrels through its step sequence.
 
 ### Appended system prompt (injected by the binary)
+
+The binary also appends a system prompt to every `claude -p` invocation to define the JSON output format for all terminal states (not just interactive items). **The append system prompt alone is NOT sufficient** — it tells Claude what JSON to output, but does not override the operator skill's explicit step-by-step instructions. The skill modification above is what actually prevents the runaway behavior. The system prompt is belt-and-suspenders.
 
 ```
 You are running inside the rex-autorun headless harness. The environment variable REX_AUTORUN=1 is set.
@@ -251,13 +294,13 @@ Treat it as the user's answer to your last question and continue the skill's flo
 
 ```
 1. Get `result` field from Claude's JSON output
-2. Search BACKWARD from end of `result` for a `{` character
-3. Attempt to parse from that `{` to the matching `}` as OperatorResult
-4. If that fails, search for `{"status":` anywhere in the result text
+2. Search BACKWARD from end of `result` for the literal `{"status":`
+3. From that position, take the substring to the next `}` (inclusive)
+4. Parse that substring as OperatorResult
 5. If all parsing fails, treat the entire invocation as an error
 ```
 
-This backward-search approach is robust against Claude outputting explanatory text before the JSON block. The contract says the JSON is the last line, so searching backward finds it first.
+**Why backward search for `{"status":`:** The `message` field frequently contains braces — code snippets, struct names like `{Config}`, display impls. A naive backward search for `{` would land inside the message content, not the JSON envelope. Searching for the specific `{"status":` pattern is both the primary and only strategy — no fragile fallback chain. Searching backward ensures we find the last occurrence (the operator's terminal output), not an earlier one that might appear in log text.
 
 ---
 
@@ -283,10 +326,11 @@ claude --resume "<session-id>" \
   --output-format json \
   --dangerously-skip-permissions \
   --max-turns 200 \
-  --max-budget-usd 50.00
+  --max-budget-usd 50.00 \
+  --append-system-prompt "<autorun system prompt>"
 ```
 
-Note: `--name` and `--append-system-prompt` are NOT needed on resume — they persist from the original session.
+**Important:** `--append-system-prompt` must be passed on every invocation, including resumes. Sessions persist conversation messages, not CLI flags. The system prompt is reconstructed each invocation from the environment. If the appended prompt is omitted on resume, the JSON output contract is lost and the binary cannot parse the result. This is harmless if it does somehow persist, but fatal if it doesn't.
 
 ### Key flags and why each is used
 
@@ -429,11 +473,39 @@ When a parent `claude` process receives SIGTERM:
 
 Our process group kill ensures that **even if Claude's internal cleanup fails**, all processes in the group (parent + all descendants) receive the signal. This is belt-and-suspenders.
 
+### Timeout kills and project state consistency
+
+When the binary kills a `claude` process due to timeout, the operator may have left items or tasks in `in-progress` status. On the next invocation:
+
+- `rex project next-item` returns the next actionable item. If an item is `in-progress`, the operator's Step 3 will pick it up again (the `next-item` command returns in-progress items before not-started ones).
+- `rex task next` similarly returns in-progress tasks before not-started ones.
+- Partially written output files may exist. The new invocation's sub-agent will overwrite them.
+
+This means timeout kills are **self-healing** — the next invocation naturally retries the interrupted work. The only risk is partially committed code changes (e.g., half a refactor), but this is inherent to killing any coding agent mid-work and is not unique to the autorun. The operator's blocking dispatch model limits this risk: sub-agents complete fully before the operator marks anything complete, so a timeout during sub-agent work means nothing was marked done.
+
 ---
 
 ## State Persistence
 
 Single file: `<rex-project-root>/.rex-autorun.json`
+
+### Atomic writes
+
+All state file writes use the write-to-temp, fsync, rename pattern to prevent corruption on crash:
+
+```rust
+fn write_state_atomic(path: &Path, state: &AutorunState) -> anyhow::Result<()> {
+    let tmp = path.with_extension("json.tmp");
+    let data = serde_json::to_string_pretty(state)?;
+    let mut file = std::fs::File::create(&tmp)?;
+    file.write_all(data.as_bytes())?;
+    file.sync_all()?; // fsync — flush to disk
+    std::fs::rename(&tmp, path)?; // atomic on POSIX
+    Ok(())
+}
+```
+
+With this pattern, the state file is either fully written (rename succeeded) or absent (crash before rename). The `.json.tmp` file is a harmless artifact that gets overwritten on the next write. On startup, delete `.rex-autorun.json.tmp` if it exists.
 
 ### State transitions
 
@@ -455,7 +527,9 @@ Single file: `<rex-project-root>/.rex-autorun.json`
 | `phase: running`, PID alive | Kill process group, start fresh |
 | `phase: running`, PID dead | Process already exited — start fresh |
 | `phase: pending_input`, has session_id | Re-send question to Telegram, wait for reply, resume |
-| `phase: pending_input`, no session_id | Corrupt state — start fresh |
+| `phase: pending_input`, no session_id | Corrupt state — delete file, start fresh |
+| File exists but JSON parse fails | Corrupt file (pre-atomic-write crash) — delete file, start fresh |
+| `.json.tmp` exists, `.json` absent | Crash during write — delete tmp, start fresh |
 | No file | Clean start |
 
 ---
@@ -515,10 +589,14 @@ Directory: /Users/shaun/Code/auth-system
 1. Send question via `sendMessage`, capture returned `message_id`
 2. Long-poll `getUpdates` with `timeout=30` seconds (Telegram server holds the connection)
 3. Loop until a matching reply arrives:
-   - Filter: `update.message.chat.id == TELEGRAM_BOT_USER_ID`
+   - Filter: `update.message.chat.id == TELEGRAM_CHAT_ID`
    - Accept: any text message from that chat while we're in `pending_input` state
 4. Return the reply text
 5. If 7 days pass with no reply, treat as timeout error
+
+### Update offset persistence
+
+The `update_offset` (Telegram's cursor for `getUpdates`) is persisted in `.rex-autorun.json` alongside other state. On startup/recovery, the `TelegramClient` initializes its offset from the state file. This prevents replaying stale messages after a crash — without it, a reply received between crash and restart could be incorrectly matched to a different question on the next `pending_input` cycle.
 
 ### Retry on Telegram API failures
 
@@ -553,6 +631,10 @@ struct Args {
     /// Max USD budget per claude invocation
     #[arg(long, default_value = "50.0")]
     max_budget_usd: f64,
+
+    /// Max total USD budget across ALL invocations (hard stop)
+    #[arg(long, default_value = "500.0")]
+    max_total_budget_usd: f64,
 
     /// Max agentic turns per claude invocation
     #[arg(long, default_value = "200")]
@@ -626,6 +708,8 @@ struct AutorunState {
     claude_pgid: Option<i32>,
     pending_question: Option<String>,
     telegram_message_id: Option<i64>,
+    /// Telegram getUpdates offset — persisted to avoid replaying stale messages after crash
+    telegram_update_offset: Option<i64>,
     invocation_count: u32,
     updated_at: String,  // ISO 8601
     stats: RunStats,
@@ -769,6 +853,7 @@ USAGE:
 OPTIONS:
     --project-dir <PATH>           Rex project root directory [default: .]
     --max-budget-usd <AMOUNT>      Max USD per claude invocation [default: 50.0]
+    --max-total-budget-usd <AMT>   Max USD across ALL invocations — hard stop [default: 500.0]
     --max-turns <N>                Max agentic turns per invocation [default: 200]
     --process-timeout <MINS>       Claude process timeout in minutes [default: 60]
     --max-retries <N>              Retries for transient failures [default: 5]
@@ -779,7 +864,7 @@ OPTIONS:
 
 ENVIRONMENT VARIABLES (required):
     TELEGRAM_BOT_TOKEN             Telegram bot API token
-    TELEGRAM_BOT_USER_ID           Telegram chat ID for the user
+    TELEGRAM_CHAT_ID           Telegram chat ID for the user
 
     These can be set in a .env file in the project root directory.
 
@@ -789,6 +874,7 @@ EXIT CODES:
     2    Human reply timeout exceeded
     3    Max retries exhausted
     4    Signal caught (SIGTERM/SIGINT) — clean shutdown
+    5    Total budget exceeded (--max-total-budget-usd)
 ```
 
 ### Example invocations
@@ -857,9 +943,11 @@ libc = "0.2"
 
 ## Implementation Notes
 
-### The `--append-system-prompt` is the linchpin
+### `--append-system-prompt` must be passed on EVERY invocation
 
-The entire contract between the binary and Claude depends on the appended system prompt instructing Claude to output structured JSON. If Claude doesn't output the JSON (model hallucination, context window overflow, etc.), the binary falls back to treating it as an error. The backward-search parser is designed to be forgiving — it only needs to find the last `{...}` block that matches the `OperatorResult` schema.
+The system prompt is belt-and-suspenders for the operator skill's headless-mode branch. But if the skill modification fails to fire (bug, context window truncation), the system prompt is the last line of defense. It must be present on every `claude` call — both new invocations and resumes. Sessions persist conversation messages, not CLI flags, so the prompt does not carry over from the original session.
+
+If Claude doesn't output the JSON (hallucination, context overflow, etc.), the binary treats it as an error — there is no graceful degradation for missing status JSON.
 
 ### Why not `--json-schema` for structured output?
 
@@ -867,11 +955,11 @@ The `--json-schema` flag forces the entire response into a rigid schema via the 
 
 ### Session resume subtlety
 
-When the operator hits an interactive item, it invokes the skill (e.g., `rex-onboarding-goal`). The skill asks a question. In headless mode, Claude outputs the question as text and exits (since there's no human at the terminal). The `result` contains the question wrapped in the `needs_input` JSON.
+With the operator skill's headless-mode branch (Fix #1), the operator detects the interactive item, determines the question, outputs `needs_input` JSON, and **stops before invoking the skill**. The skill is never called — no half-executed skill state to worry about.
 
-On resume: the user's reply arrives as the `-p` prompt on `--resume`. Claude sees the conversation history (skill asked a question) and the new prompt (user's answer). The appended system prompt tells Claude to "treat the reply as the user's answer to your last question." Claude should naturally continue the skill's flow.
+On resume: the user's reply arrives as the `-p` prompt on `--resume`. The operator sees its own conversation history (it output a `needs_input` JSON) and the new prompt (user's answer). The operator skill's headless-mode branch says: _"When the session is resumed with the user's reply, pick up from where you left off: the reply is the user's answer. Feed it into the skill and continue."_ The operator then invokes the skill, passing the user's answer as context.
 
-If the skill requires multiple rounds of questions, each round results in another `needs_input` → Telegram → reply → resume cycle. This is correct behavior — the binary loops until the skill completes.
+If the skill requires multiple rounds of questions, the operator invokes the skill, the skill asks a follow-up, the operator detects this (still in headless mode), outputs another `needs_input` JSON, and stops. Each round results in another `needs_input` -> Telegram -> reply -> resume cycle until the skill completes.
 
 ### Cooldown between invocations
 
