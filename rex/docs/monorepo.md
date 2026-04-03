@@ -1,16 +1,18 @@
 # Rex Mono
 
-Initialize a Cargo workspace monorepo with the rex harness pre-configured — a single command to create a shared repository for multiple projects.
+Create and manage Cargo workspace monorepos — either with the full rex harness pre-configured, or as an empty workspace for manual setup.
 
-## Usage
+## Commands
+
+### `rex mono init --name <name>`
+
+Creates a Cargo workspace monorepo **with the rex harness** — skills, hooks, docs, and project registry included.
 
 ```bash
 rex mono init --name my-workspace
 ```
 
-## What It Does
-
-Creates a new directory with everything needed to start building multiple Rust crates in one repository:
+**What it does:**
 
 1. **Directory** — creates `<name>/`
 2. **Workspace Cargo.toml** — configures a Cargo workspace with `resolver = "2"` and `members = ["libs/*"]`
@@ -19,7 +21,7 @@ Creates a new directory with everything needed to start building multiple Rust c
 5. **git init** — initializes a git repository
 6. **rex init** — runs the full rex harness initialization inside the new directory (skills, hooks, docs, registry)
 
-### Resulting Structure
+**Resulting structure:**
 
 ```
 my-workspace/
@@ -38,6 +40,35 @@ my-workspace/
   CLAUDE.md
 ```
 
+### `rex mono empty --name <name>`
+
+Creates an **empty** Cargo workspace — no rex harness, no `.claude/` folder, no skills. Just a bare workspace with git initialized.
+
+```bash
+rex mono empty --name my-workspace
+```
+
+**What it does:**
+
+1. **Directory** — creates `<name>/`
+2. **Workspace Cargo.toml** — configures a Cargo workspace with `resolver = "2"` and `members = ["libs/*"]`
+3. **libs/** — empty directory (with `.gitkeep`) where project crates will live
+4. **.gitignore** — includes `/target`, `.env`, and `.env.*`
+5. **git init** — initializes a git repository
+
+**Resulting structure:**
+
+```
+my-workspace/
+  Cargo.toml              # [workspace] with members = ["libs/*"]
+  .gitignore              # /target, .env, .env.*
+  .git/
+  libs/
+    .gitkeep
+```
+
+Use this when you want a workspace without agent orchestration, or when you plan to run `rex init` and `rex project create` separately (e.g., initializing rex inside individual project directories rather than at the workspace root).
+
 ## Adding Projects
 
 Once the monorepo is created, add project crates under `libs/`:
@@ -49,6 +80,8 @@ rex project create
 ```
 
 The workspace `Cargo.toml` already has `members = ["libs/*"]`, so any crate created under `libs/` is automatically included in the workspace.
+
+When using `rex mono empty`, you can initialize the rex harness inside each project directory during `rex project create` — the create command will prompt you to choose whether to run `rex init` inside the project.
 
 ### Shared Dependencies
 

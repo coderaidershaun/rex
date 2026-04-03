@@ -73,6 +73,12 @@ Running `rex init` is safe on directories that already have agent configuration.
 
 This means you can run `rex init` on a repo that already has `.claude/` configuration, custom skills, and existing hooks — rex will add only what's missing.
 
+## Init Via Project Create
+
+When running `rex project create`, you are prompted whether to initialize the rex harness **inside** the project directory. If you choose Yes, `rex init` is run automatically inside the project directory — no separate `rex init` step is needed. This creates a self-contained project with its own `.claude/`, `rex/docs/`, and `rex/projects.json`.
+
+This is useful for monorepos created with `rex mono empty`, where each project under `libs/` can have its own independent harness.
+
 ## After Init
 
 Once initialized, create your first project:

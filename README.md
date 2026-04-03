@@ -38,7 +38,7 @@ This scaffolds all skills, hooks, settings, and documentation into `.claude/` an
 rex project create
 ```
 
-Interactive prompts walk you through project ID, complexity, title, category, and which onboarding/design items to include.
+Interactive prompts walk you through project ID, complexity, title, category, and which onboarding/design items to include. You'll also be asked whether to initialize the rex harness **inside** the project directory — creating a fully self-contained project with its own `rex/projects.json`, skills, and hooks.
 
 ### 4. Run the Operator
 
@@ -157,9 +157,10 @@ Rex gives AI agents the scaffolding they need to build real software — trackin
 
 | Command | Description |
 |---|---|
-| `rex mono init` | Initialize a Cargo workspace monorepo |
+| `rex mono init --name <NAME>` | Create a Cargo workspace monorepo with rex harness and git |
+| `rex mono empty --name <NAME>` | Create an empty Cargo workspace (no rex or claude folders) |
 
-Run `rex --help` or `rex <command> --help` for full usage details.
+Run `rex --help`, `rex --commands`, or `rex <command> --help` for full usage details.
 
 ## License
 

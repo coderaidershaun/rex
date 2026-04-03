@@ -71,11 +71,14 @@ Interactive command that scaffolds a new project. Prompts for:
 - **Directory** (auto-detects matching directories)
 - **Category** (library / binary / refactor)
 - **Design selections** (which optional design/onboarding items to include)
+- **Initialize rex inside project?** — whether to run `rex init` inside the project directory, creating a self-contained project with its own harness, registry, and skills
 
 Creates:
 - `rex/<project-id>/` with subdirectories: `onboarding/`, `design/`, `planning/`, `execution/`, `uat/`, `user-support/`
 - `rex/<project-id>/project-status.json` — the ordered work item manifest
 - Scaffolds project code via `cargo new` if needed
+
+When "init inside" is chosen, the project directory gets its own `.claude/`, `rex/docs/`, `CLAUDE.md`, and `rex/projects.json` — making it fully self-contained. The outer harness registry is not modified.
 
 ### Phase 1: Onboarding (14 items)
 
@@ -281,20 +284,25 @@ Each work item in `project-status.json` specifies how its agent(s) should be dis
 | Command | Purpose |
 |---------|---------|
 | `rex init` | Initialize the rex harness in the current directory |
+| `rex --commands` | List all commands and subcommands |
 
 ### Project Management
 
 | Command | Purpose |
 |---------|---------|
-| `rex project create` | Interactive project creation with scaffolding |
+| `rex project create` | Interactive project creation with scaffolding (includes option to init rex inside project) |
 | `rex project get-active` | Display the currently active project |
 | `rex project activate <id>` | Switch to a different project |
 | `rex project remove <id>` | Remove a project (optionally delete source) |
+| `rex project lock` | Lock the active project (operator will skip it) |
+| `rex project unlock` | Unlock the active project |
 | `rex project update-directory <dir>` | Change project source directory |
 | `rex project update-title <title>` | Update project title |
 | `rex project update-subtitle <subtitle>` | Update project subtitle |
 | `rex project update-description <desc>` | Update project description |
 | `rex project update-status <item> <status>` | Update item status (not-started / in-progress / completed / not-required) |
+| `rex project update-category <category>` | Update category (binary / library / refactor) |
+| `rex project update-complexity <complexity>` | Update complexity (low / medium / high) |
 | `rex project next-item` | Get next incomplete item as JSON |
 
 ### Checklist
@@ -355,6 +363,13 @@ All three levels share the same command pattern and list modification flags:
 | `rex history remove-from-compacted <id>` | Remove from archived |
 | `rex history get-recent` | Get recent entries as JSON |
 | `rex history list` | Get all history (recent + archived) as JSON |
+
+### Monorepo
+
+| Command | Purpose |
+|---------|---------|
+| `rex mono init --name <name>` | Create a Cargo workspace monorepo with rex harness and git |
+| `rex mono empty --name <name>` | Create an empty Cargo workspace (no rex or claude folders) |
 
 ## project-status.json Structure
 

@@ -56,8 +56,18 @@ rex project create
 7. **User Name** — optional, press Enter to skip.
 8. **Category & Onboarding/Design Items** — interactive tab-selection widget for category (`binary`, `library`, `refactor`) and which onboarding/design steps to include.
 9. **Summary & Confirm** — review all fields. Options: Create, Go back (returns to step 8), Cancel.
+10. **Initialize rex inside project?** — whether to run `rex init` inside the project directory, creating a self-contained project with its own harness. Defaults to Yes when no outer harness exists, No when one does.
 
-**Behavior on confirm:**
+**Behavior on confirm — init inside project (Yes):**
+
+- Runs `rex init` inside the project directory, creating `.claude/`, `rex/docs/`, and `CLAUDE.md` there.
+- Creates a **new** `rex/projects.json` inside the project directory with this project as active.
+- Creates `rex/<project-id>/` with subdirectories: `onboarding/`, `user-support/`, `planning/`, `design/`, `execution/`, `uat/`.
+- Creates `rex/<project-id>/project-status.json` with the selected onboarding and design items.
+- The outer `rex/projects.json` (if any) is **not** modified.
+- If the project directory does not exist, it is scaffolded via `cargo new`.
+
+**Behavior on confirm — init inside project (No):**
 
 - If there is already an active project, it is moved to `inactive`.
 - The new project becomes `active`.
@@ -284,3 +294,89 @@ If all items are completed or not required, prints an informational message inst
 - `"No active project."` — if no project is currently active.
 - `"Failed to read project-status.json: ..."` — if the file is missing or unreadable.
 - `"project-status.json has unexpected format."` — if the file is neither an object nor an array.
+
+---
+
+### `rex project lock`
+
+Locks the active project. When locked, agents must not work on the project and the operator will skip it immediately.
+
+```
+rex project lock
+```
+
+**Behavior:**
+
+- Sets `locked: true` on the active project in `rex/projects.json`.
+
+**Error cases:**
+
+- `"No active project."` — if no project is currently active.
+
+---
+
+### `rex project unlock`
+
+Unlocks the active project, allowing the operator and agents to work on it again.
+
+```
+rex project unlock
+```
+
+**Behavior:**
+
+- Sets `locked: false` on the active project in `rex/projects.json`.
+
+**Error cases:**
+
+- `"No active project."` — if no project is currently active.
+
+---
+
+### `rex project update-category <CATEGORY>`
+
+Updates the active project's category.
+
+```
+rex project update-category library
+```
+
+**Arguments:**
+
+| Argument   | Description                              |
+|------------|------------------------------------------|
+| `CATEGORY` | One of `binary`, `library`, `refactor`   |
+
+**Behavior:**
+
+- Updates the `category` field of the active project in `rex/projects.json`.
+- Prints the old and new category.
+
+**Error cases:**
+
+- `"No active project."` — if no project is currently active.
+
+---
+
+### `rex project update-complexity <COMPLEXITY>`
+
+Updates the active project's complexity.
+
+```
+rex project update-complexity high
+```
+
+**Arguments:**
+
+| Argument     | Description                          |
+|--------------|--------------------------------------|
+| `COMPLEXITY` | One of `low`, `medium`, `high`       |
+
+**Behavior:**
+
+- Updates the `complexity` field of the active project in `rex/projects.json`.
+- Prints the old and new complexity.
+
+**Error cases:**
+
+- `"No active project."` — if no project is currently active.
