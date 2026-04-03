@@ -991,7 +991,7 @@ use rex_cli::models::project::ProjectRegistry;
 - **Multi-project broker**: IPC-based broker/operator split for concurrent projects on one Telegram bot
 - **Telegram commands**: `/status`, `/stop`, `/pause`, `/budget`, `/cost`
 - **Web dashboard**: HTTP server showing live project status
-- **Cost alerts**: Notify when cumulative spend exceeds a threshold
+- **Cost alerts**: Telegram notification when approaching budget threshold (the hard stop exists in v1, but no warning before it)
 - **Agent SDK integration**: Replace CLI spawning with `claude_agent_sdk` for tighter control
 - **Webhook mode**: Telegram webhook instead of long-polling (requires a public URL)
 - **Git worktree isolation**: Use `--worktree` for per-invocation filesystem isolation
