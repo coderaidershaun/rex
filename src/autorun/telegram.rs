@@ -223,7 +223,7 @@ impl TelegramClient {
     /// Uses cooperative triage: acquires a file lock to poll Telegram exclusively,
     /// routes cross-project messages via inbox, falls back to inbox when lock
     /// is held by another autorun.
-    pub(crate) async fn wait_for_reply(
+    pub async fn wait_for_reply(
         &mut self,
         mut expected_message_id: i64,
         project_id: &str,
