@@ -245,10 +245,10 @@ Use these `rust-*` skills for standard Rust development work. **Only assign non-
 
 | Task type | Skill | Model | Effort | When to use |
 |-----------|-------|-------|--------|-------------|
-| Complex implementation (new modules, core logic, state machines, multi-file features) | `rust-team-coordinator` | opus | max | The default for any substantial implementation work. It triages internally and orchestrates exploration → architecture → implementation → testing → polish. |
-| Planning & architecture decisions | `rust-planning-and-architecture` | opus | max | Tasks that require choosing between approaches, designing data structures, evaluating concurrency strategies, or making significant structural decisions. |
-| Integration testing | `rust-integration-testing` | opus | max | Writing integration tests that exercise real data flows, real connections, and real failure modes. |
-| Ergonomic refactoring | `rust-ergonomic-refactoring` | opus | max | Cleaning up code for idiomatic style, readability, and ergonomics — especially when touching multiple files or modules. |
+| Planning & architecture decisions | `rust-planning-and-architecture` | opus | max | Tasks that require choosing between approaches, designing data structures, evaluating concurrency strategies, or making significant structural decisions. **The only task type that warrants opus/max.** |
+| Complex implementation (new modules, core logic, state machines, multi-file features) | `rust-team-coordinator` | sonnet | high | The default for any substantial implementation work. It triages internally and orchestrates exploration → architecture → implementation → testing → polish. |
+| Integration testing | `rust-integration-testing` | sonnet | high | Writing integration tests that exercise real data flows, real connections, and real failure modes. |
+| Ergonomic refactoring | `rust-ergonomic-refactoring` | sonnet | high | Cleaning up code for idiomatic style, readability, and ergonomics — especially when touching multiple files or modules. |
 | Unit testing | `rust-unit-testing` | sonnet | high | Writing focused unit tests for specific functions, methods, or modules. |
 | Comments & documentation | `rust-commenting` | sonnet | high | Adding or updating comments on existing code. |
 | Error handling | `rust-errors-management` | sonnet | high | Defining error types, replacing unwraps, setting up thiserror-based error propagation. |
@@ -257,26 +257,26 @@ Use these `rust-*` skills for standard Rust development work. **Only assign non-
 
 #### Custom project skills
 
-During onboarding, custom skills may have been created for project-specific specialist work (e.g., a domain-specific skill for financial calculations, protocol parsing, etc.). Check the onboarding `skill-building.md` output for any custom skills that were created. Assign these to tasks that match their domain. Use the model and effort level appropriate to the task's complexity — typically sonnet/high for straightforward domain work, opus/max for complex domain logic.
+During onboarding, custom skills may have been created for project-specific specialist work (e.g., a domain-specific skill for financial calculations, protocol parsing, etc.). Check the onboarding `skill-building.md` output for any custom skills that were created. Assign these to tasks that match their domain. Use sonnet/high for all domain work — reserve opus/max only for planning and architecture decisions.
 
 #### How to decide
 
-1. **Is the task complex, multi-file, or architecturally significant?** → `rust-team-coordinator` on opus/max. When in doubt, use this — it triages internally and won't over-engineer simple work.
-2. **Is it a focused specialist task?** (just tests, just comments, just error types) → Use the matching specialist skill on sonnet/high.
-3. **Does it require deep design thinking?** (architecture, integration tests, refactoring across modules) → Use the matching specialist skill on opus/max.
-4. **Does it match a custom project skill?** → Use that skill with appropriate model/effort.
+1. **Does it require planning or architecture decisions?** (choosing between approaches, designing data structures, evaluating concurrency strategies) → `rust-planning-and-architecture` on opus/max. This is the **only** task type that uses opus.
+2. **Is it complex, multi-file implementation work?** → `rust-team-coordinator` on sonnet/high. It triages internally and won't over-engineer simple work.
+3. **Is it a focused specialist task?** (tests, comments, error types, refactoring, exploration) → Use the matching specialist skill on sonnet/high.
+4. **Does it match a custom project skill?** → Use that skill on sonnet/high.
 
 #### Example with agent flags
 
 ```bash
-# Complex implementation — rust-team-coordinator on opus/max
+# Complex implementation — rust-team-coordinator on sonnet/high
 rex task upsert \
   --id t-matching-impl \
   --objective o-core-matching \
   --title "Implement the OrderBook with insert, cancel, and match methods" \
   --description "..." \
-  --agent-model opus \
-  --agent-effort max \
+  --agent-model sonnet \
+  --agent-effort high \
   --agent-skill rust-team-coordinator \
   --add-reference design/architecture.md \
   --add-output src/matching/orderbook.rs
@@ -294,14 +294,14 @@ rex task upsert \
   --add-output src/matching/orderbook.rs \
   --add-upstream t-matching-impl
 
-# Integration tests — rust-integration-testing on opus/max
+# Integration tests — rust-integration-testing on sonnet/high
 rex task upsert \
   --id t-api-integration-tests \
   --objective o-api-layer \
   --title "Write integration tests for order submission through the REST API" \
   --description "..." \
-  --agent-model opus \
-  --agent-effort max \
+  --agent-model sonnet \
+  --agent-effort high \
   --agent-skill rust-integration-testing \
   --add-reference design/integration-tests.md \
   --add-output tests/integration/order_api_test.rs \

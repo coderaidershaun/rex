@@ -157,7 +157,7 @@ impl ProjectStatus {
                 agent: Agent {
                     count: 1,
                     effort: "high".into(),
-                    model: "opus".into(),
+                    model: "sonnet".into(),
                     skills: vec!["rex-user-input".into()],
                 },
                 inputs: vec![format!("rex/{project_id}/user-support/requested.md")],
@@ -187,16 +187,8 @@ fn is_required_always(item: &str) -> bool {
 }
 
 /// Returns the default (effort, model) for each onboarding item.
-fn agent_defaults(item: &str) -> (&'static str, &'static str) {
-    match item {
-        "goal" | "scope" => ("high", "opus"),
-        "existing-code" | "libraries-and-sdks" | "research" | "resources" => ("medium", "sonnet"),
-        "user-expertise" | "success-measures" | "known-risks" | "uat" | "environment-variables" => {
-            ("high", "opus")
-        }
-        "idea-generation" | "skill-building" | "checklist" => ("ultrathink", "opus"),
-        _ => ("medium", "sonnet"),
-    }
+fn agent_defaults(_item: &str) -> (&'static str, &'static str) {
+    ("high", "sonnet")
 }
 
 /// Design items that are always required.
@@ -246,16 +238,16 @@ fn design_agent_config(item: &str) -> (u32, &'static str, &'static str, Vec<&'st
         "existing-code-exploration" => (
             3,
             "high",
-            "opus",
+            "sonnet",
             vec!["rex-design-rust-existing-code-exploration"],
         ),
-        "library-review" => (1, "high", "opus", vec!["rex-design-rust-library-review"]),
+        "library-review" => (1, "high", "sonnet", vec!["rex-design-rust-library-review"]),
         "module-design" => (1, "max", "opus", vec!["rex-design-rust-modules"]),
         "architecture-design" => (1, "max", "opus", vec!["rex-design-rust-architecture"]),
         "integration-testing" => (
             1,
-            "max",
-            "opus",
+            "high",
+            "sonnet",
             vec!["rex-design-rust-integration-tests"],
         ),
         "foreign-critique" => (3, "max", "opus", vec!["rex-design-foreign-critique"]),
@@ -266,7 +258,7 @@ fn design_agent_config(item: &str) -> (u32, &'static str, &'static str, Vec<&'st
             "opus",
             vec!["rex-design-rust-architecture-proposal"],
         ),
-        "user-acceptance" => (1, "max", "opus", vec!["rex-design-user-acceptance"]),
+        "user-acceptance" => (1, "high", "sonnet", vec!["rex-design-user-acceptance"]),
         _ => (1, "high", "sonnet", vec![]),
     }
 }
@@ -503,7 +495,7 @@ fn build_execution_steps() -> Vec<TaskStep> {
         agent: Agent {
             count: 1,
             effort: "high".into(),
-            model: "opus".into(),
+            model: "sonnet".into(),
             skills: vec![
                 "STEP 1: run 'rex task next'".into(),
                 "STEP 2: Assign agents with model, effort level and skills as defined in the task".into(),
