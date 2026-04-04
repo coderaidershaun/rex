@@ -223,6 +223,8 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
                             let mut recovered_stats = stats;
                             recovered_stats.total_cost_usd += cost;
                             recovered_stats.invocations_completed += 1;
+                            recovered_stats.push_context_percent(output.context_percent());
+                            recovered_stats.push_session_duration_ms(output.duration_ms);
 
                             // Parse and handle — fall through to main loop
                             let op_result = claude::parse_operator_result(&output.result);
@@ -503,6 +505,8 @@ async fn main_loop(
                 let cost = output.effective_cost();
                 stats.total_cost_usd += cost;
                 stats.invocations_completed += 1;
+                stats.push_context_percent(output.context_percent());
+                stats.push_session_duration_ms(output.duration_ms);
 
                 let op_result = claude::parse_operator_result(&output.result);
 
@@ -769,6 +773,8 @@ async fn main_loop(
 
                                 stats.total_cost_usd += resume_output.effective_cost();
                                 stats.invocations_completed += 1;
+                                stats.push_context_percent(resume_output.context_percent());
+                                stats.push_session_duration_ms(resume_output.duration_ms);
 
                                 let resume_op = match claude::parse_operator_result(&resume_output.result) {
                                     Ok(r) => r,
@@ -1217,19 +1223,35 @@ async fn attempt_auth_refresh(
 fn build_query_response(
     project_id: &str,
     stats: &RunStats,
-    invocation_count: u32,
+    _invocation_count: u32,
 ) -> String {
     let uptime = format_duration_since(&stats.started_at);
+
+    let ctx_last = stats
+        .last_context_percent()
+        .map(|p| format!("{p:.1}%"))
+        .unwrap_or_else(|| "—".to_string());
+    let ctx_avg = stats
+        .avg_context_percent()
+        .map(|p| format!("{p:.1}%"))
+        .unwrap_or_else(|| "—".to_string());
+    let dur_last = stats
+        .last_session_duration_ms()
+        .map(format_duration_ms)
+        .unwrap_or_else(|| "—".to_string());
+    let dur_avg = stats
+        .avg_session_duration_ms()
+        .map(format_duration_ms)
+        .unwrap_or_else(|| "—".to_string());
 
     let mut msg = format!(
         "📊 <b>Autorun Status</b>  ·  <code>{pid}</code>\n\
          {DIV}\n\
-         ⏱ <b>Uptime:</b> <code>{uptime}</code>\n\
-         🔄 <b>Invocations:</b> <code>{inv}</code> ({items} completed)\n\
+         ⏱ <b>Total uptime:</b> <code>{uptime}</code>\n\
+         📊 <b>Context:</b> <code>{ctx_last}</code> last  ·  <code>{ctx_avg}</code> avg\n\
+         🕐 <b>Session:</b> <code>{dur_last}</code> last  ·  <code>{dur_avg}</code> avg\n\
          💰 <b>Cost:</b> <code>${cost:.2}</code>",
         pid = escape_html(project_id),
-        inv = invocation_count,
-        items = stats.items_completed,
         cost = stats.total_cost_usd,
     );
 
@@ -1267,6 +1289,18 @@ fn build_query_response(
     }
 
     msg
+}
+
+/// Format a duration in milliseconds as a human-readable string.
+fn format_duration_ms(ms: u64) -> String {
+    let secs = ms / 1000;
+    let mins = secs / 60;
+    let remaining_secs = secs % 60;
+    if mins > 0 {
+        format!("{mins}m {remaining_secs}s")
+    } else {
+        format!("{secs}s")
+    }
 }
 
 /// Format a human-readable duration from an ISO 8601 start time to now.

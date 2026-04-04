@@ -75,8 +75,7 @@ impl ClaudeOutput {
 
     /// Context window usage as a percentage.
     ///
-    /// Total input = `input_tokens` (non-cached) + `cache_read_input_tokens` (cached).
-    /// `cache_creation_input_tokens` is a subset of `input_tokens` (not additive).
+    /// Total input = `input_tokens` + `cache_creation_input_tokens` + `cache_read_input_tokens`.
     /// `output_tokens` are generated, not part of context window usage.
     pub fn context_percent(&self) -> f64 {
         let Some(entry) = self.model_usage.values().next() else {
@@ -85,7 +84,9 @@ impl ClaudeOutput {
         if entry.context_window == 0 {
             return 0.0;
         }
-        let total_input = entry.input_tokens + entry.cache_read_input_tokens;
+        let total_input = entry.input_tokens
+            + entry.cache_creation_input_tokens
+            + entry.cache_read_input_tokens;
         (total_input as f64 / entry.context_window as f64) * 100.0
     }
 
@@ -174,12 +175,59 @@ pub enum AutorunPhase {
     PendingInput,
 }
 
+/// Maximum entries kept in the rolling stat windows.
+const MAX_ROLLING_ENTRIES: usize = 50;
+
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct RunStats {
     pub invocations_completed: u32,
     pub items_completed: u32,
     pub total_cost_usd: f64,
     pub started_at: String,
+    /// Rolling window of the last N context-usage percentages (one per invocation).
+    #[serde(default)]
+    pub context_percents: Vec<f64>,
+    /// Rolling window of the last N session durations in milliseconds.
+    #[serde(default)]
+    pub session_durations_ms: Vec<u64>,
+}
+
+impl RunStats {
+    pub fn push_context_percent(&mut self, pct: f64) {
+        if self.context_percents.len() >= MAX_ROLLING_ENTRIES {
+            self.context_percents.remove(0);
+        }
+        self.context_percents.push(pct);
+    }
+
+    pub fn push_session_duration_ms(&mut self, ms: u64) {
+        if self.session_durations_ms.len() >= MAX_ROLLING_ENTRIES {
+            self.session_durations_ms.remove(0);
+        }
+        self.session_durations_ms.push(ms);
+    }
+
+    pub fn last_context_percent(&self) -> Option<f64> {
+        self.context_percents.last().copied()
+    }
+
+    pub fn avg_context_percent(&self) -> Option<f64> {
+        if self.context_percents.is_empty() {
+            return None;
+        }
+        Some(self.context_percents.iter().sum::<f64>() / self.context_percents.len() as f64)
+    }
+
+    pub fn last_session_duration_ms(&self) -> Option<u64> {
+        self.session_durations_ms.last().copied()
+    }
+
+    pub fn avg_session_duration_ms(&self) -> Option<u64> {
+        if self.session_durations_ms.is_empty() {
+            return None;
+        }
+        Some(self.session_durations_ms.iter().sum::<u64>() / self.session_durations_ms.len() as u64)
+    }
 }
 
 /// JSONL log events written to `.rex-autorun.log`.

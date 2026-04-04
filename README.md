@@ -91,7 +91,7 @@ While autorun is running, you can send commands to your Telegram bot:
 | Command | Description |
 |---------|-------------|
 | `/kill <project-id>` | Terminate the autorun session for the given project |
-| `/query <project-id>` | Show live stats (uptime, cost, invocations) and list other running autoruns |
+| `/query <project-id>` | Show live stats (total uptime, context usage, session duration, cost) and list other running autoruns |
 
 Autorun uses reply-to matching — questions are sent with Telegram's ForceReply, and only direct replies to the question message are accepted. Stray messages are safely ignored.
 

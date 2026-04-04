@@ -117,7 +117,7 @@ While autorun is running, you can send commands to your Telegram bot at any time
 | Command | Description |
 |---------|-------------|
 | `/kill <project-id>` | Terminate the autorun session immediately. Kills any running Claude process, cleans up state, and exits with code 6. You can also send `/kill` without a project ID to kill the current session. |
-| `/query <project-id>` | Show live stats for the project: uptime, invocation count, items completed, total cost. Also lists any other autorun instances detected on the machine. `/query` without a project ID also works. |
+| `/query <project-id>` | Show live stats for the project: total uptime, context usage (last and average over last 50 sessions), session duration (last and average), total cost. Also lists any other autorun instances detected on the machine. `/query` without a project ID also works. |
 
 ---
 
@@ -175,8 +175,9 @@ Invocations: 27  |  Cost: $89.45  |  Duration: 6h 12m
 ```
 [my-project] Autorun Status
 ━━━━━━━━━━━━━━━━━━━━
-Uptime: 2h 15m
-Invocations: 12 (8 items completed)
+Total uptime: 2h 15m
+Context: 1.9% last  ·  3.4% avg
+Session: 1m 8s last  ·  2m 15s avg
 Cost: $4.23
 
 Other autoruns:
@@ -324,6 +325,6 @@ Each line in `.rex-autorun.log` is a JSON object with an `event` field:
 - **Watch the log.** `tail -f .rex-autorun.log | jq .` gives a live view of what's happening.
 - **Run in the background.** `nohup rex-autorun --project-dir /absolute/path/to/project > /dev/null 2>&1 &` — always pass `--project-dir` with an absolute path when using nohup, so the process finds the correct project regardless of working directory. Check `.rex-autorun.log` for progress.
 - **Stop cleanly.** Send `/kill <project-id>` via Telegram, or SIGTERM/Ctrl+C locally. The binary cleans up the Claude process group and state file before exiting.
-- **Check status.** Send `/query <project-id>` via Telegram to see uptime, cost, and whether other autoruns are running.
+- **Check status.** Send `/query <project-id>` via Telegram to see total uptime, context usage, session duration, cost, and whether other autoruns are running.
 - **Resume after crash.** Just run `rex-autorun` again. It reads `.rex-autorun.json` and picks up where it left off.
 - **One bot per project.** Telegram's `getUpdates` API is exclusive — only one process can poll a given bot. If you need concurrent projects, use separate Telegram bots.
