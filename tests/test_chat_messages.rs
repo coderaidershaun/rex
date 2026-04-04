@@ -42,26 +42,32 @@ async fn test_all_chat_message_types() {
          \u{00a0}\u{00a0}<code>portfolio-tracker</code> · /srv/projects/portfolio\n",
     );
     let menu_buttons = vec![
-        InlineButton {
-            text: "💬 Chat: orderbook-engine".to_string(),
-            callback_data: "chat:orderbook-engine".to_string(),
-        },
-        InlineButton {
-            text: "📊 Status: orderbook-engine".to_string(),
-            callback_data: "status:orderbook-engine".to_string(),
-        },
-        InlineButton {
-            text: "🛑 Stop: orderbook-engine".to_string(),
-            callback_data: "stop:orderbook-engine".to_string(),
-        },
-        InlineButton {
-            text: "🚀 Start: portfolio-tracker".to_string(),
-            callback_data: "start:portfolio-tracker".to_string(),
-        },
-        InlineButton {
-            text: "💬 Chat: portfolio-tracker".to_string(),
-            callback_data: "chat:portfolio-tracker".to_string(),
-        },
+        // Running: Chat + Status + Stop on one row
+        vec![
+            InlineButton {
+                text: "💬 orderbook-engine".to_string(),
+                callback_data: "chat:orderbook-engine".to_string(),
+            },
+            InlineButton {
+                text: "📊".to_string(),
+                callback_data: "status:orderbook-engine".to_string(),
+            },
+            InlineButton {
+                text: "🛑".to_string(),
+                callback_data: "stop:orderbook-engine".to_string(),
+            },
+        ],
+        // Available: Start + Chat on one row
+        vec![
+            InlineButton {
+                text: "🚀 portfolio-tracker".to_string(),
+                callback_data: "start:portfolio-tracker".to_string(),
+            },
+            InlineButton {
+                text: "💬".to_string(),
+                callback_data: "chat:portfolio-tracker".to_string(),
+            },
+        ],
     ];
     tg.send_with_buttons(&menu_msg, &menu_buttons)
         .await
@@ -104,7 +110,7 @@ async fn test_all_chat_message_types() {
         added by treating them as limit orders with an extreme price (MAX for buys, \
         0 for sells).";
     let formatted = format_chat_response(project_id, response_text);
-    let response_buttons = vec![
+    let response_buttons = vec![vec![
         InlineButton {
             text: "💬 Reply".to_string(),
             callback_data: format!("rc_reply:{project_id}"),
@@ -113,7 +119,7 @@ async fn test_all_chat_message_types() {
             text: "🏠 Menu".to_string(),
             callback_data: "menu".to_string(),
         },
-    ];
+    ]];
     tg.edit_message_with_buttons(thinking_msg_id, &formatted, &response_buttons)
         .await
         .expect("failed to edit thinking → response");

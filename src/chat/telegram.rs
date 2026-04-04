@@ -120,19 +120,23 @@ impl ChatTelegramClient {
         self.send_with_body(&body).await
     }
 
-    /// Send a message with vertical inline keyboard buttons (one per row).
+    /// Send a message with inline keyboard buttons. Each inner Vec is one row.
     pub async fn send_with_buttons(
         &self,
         text: &str,
-        buttons: &[InlineButton],
+        button_rows: &[Vec<InlineButton>],
     ) -> RexResult<i64> {
-        let keyboard: Vec<Vec<serde_json::Value>> = buttons
+        let keyboard: Vec<Vec<serde_json::Value>> = button_rows
             .iter()
-            .map(|b| {
-                vec![serde_json::json!({
-                    "text": b.text,
-                    "callback_data": b.callback_data,
-                })]
+            .map(|row| {
+                row.iter()
+                    .map(|b| {
+                        serde_json::json!({
+                            "text": b.text,
+                            "callback_data": b.callback_data,
+                        })
+                    })
+                    .collect()
             })
             .collect();
 
@@ -186,20 +190,24 @@ impl ChatTelegramClient {
         Ok(())
     }
 
-    /// Edit an existing message and add buttons.
+    /// Edit an existing message and add buttons. Each inner Vec is one row.
     pub async fn edit_message_with_buttons(
         &self,
         message_id: i64,
         text: &str,
-        buttons: &[InlineButton],
+        button_rows: &[Vec<InlineButton>],
     ) -> RexResult<()> {
-        let keyboard: Vec<Vec<serde_json::Value>> = buttons
+        let keyboard: Vec<Vec<serde_json::Value>> = button_rows
             .iter()
-            .map(|b| {
-                vec![serde_json::json!({
-                    "text": b.text,
-                    "callback_data": b.callback_data,
-                })]
+            .map(|row| {
+                row.iter()
+                    .map(|b| {
+                        serde_json::json!({
+                            "text": b.text,
+                            "callback_data": b.callback_data,
+                        })
+                    })
+                    .collect()
             })
             .collect();
 

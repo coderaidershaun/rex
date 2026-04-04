@@ -261,7 +261,7 @@ async fn show_project_menu(tg: &mut ChatTelegramClient, project_dir: &PathBuf) {
     }
 
     let mut msg = format!("🏠 <b>Rex Chat</b>\n{DIV}\n");
-    let mut buttons = Vec::new();
+    let mut button_rows: Vec<Vec<InlineButton>> = Vec::new();
 
     // Running projects
     let running: Vec<_> = projects.iter().filter(|p| p.running).collect();
@@ -277,18 +277,20 @@ async fn show_project_menu(tg: &mut ChatTelegramClient, project_dir: &PathBuf) {
                     inv = state.invocation_count,
                 ));
             }
-            buttons.push(InlineButton {
-                text: format!("💬 Chat: {}", proj.id),
-                callback_data: format!("chat:{}", proj.id),
-            });
-            buttons.push(InlineButton {
-                text: format!("📊 Status: {}", proj.id),
-                callback_data: format!("status:{}", proj.id),
-            });
-            buttons.push(InlineButton {
-                text: format!("🛑 Stop: {}", proj.id),
-                callback_data: format!("stop:{}", proj.id),
-            });
+            button_rows.push(vec![
+                InlineButton {
+                    text: format!("💬 {}", proj.id),
+                    callback_data: format!("chat:{}", proj.id),
+                },
+                InlineButton {
+                    text: "📊".to_string(),
+                    callback_data: format!("status:{}", proj.id),
+                },
+                InlineButton {
+                    text: "🛑".to_string(),
+                    callback_data: format!("stop:{}", proj.id),
+                },
+            ]);
         }
     }
 
@@ -305,18 +307,20 @@ async fn show_project_menu(tg: &mut ChatTelegramClient, project_dir: &PathBuf) {
                 id = escape_html(&proj.id),
                 dir = escape_html(&proj.directory),
             ));
-            buttons.push(InlineButton {
-                text: format!("🚀 Start: {}", proj.id),
-                callback_data: format!("start:{}", proj.id),
-            });
-            buttons.push(InlineButton {
-                text: format!("💬 Chat: {}", proj.id),
-                callback_data: format!("chat:{}", proj.id),
-            });
+            button_rows.push(vec![
+                InlineButton {
+                    text: format!("🚀 {}", proj.id),
+                    callback_data: format!("start:{}", proj.id),
+                },
+                InlineButton {
+                    text: "💬".to_string(),
+                    callback_data: format!("chat:{}", proj.id),
+                },
+            ]);
         }
     }
 
-    if let Err(e) = tg.send_with_buttons(&msg, &buttons).await {
+    if let Err(e) = tg.send_with_buttons(&msg, &button_rows).await {
         error!("failed to send project menu: {e}");
     }
 }
@@ -392,7 +396,7 @@ async fn invoke_chat(
     {
         Ok(response) => {
             let formatted = format_chat_response(project_id, &response);
-            let buttons = vec![
+            let button_rows = vec![vec![
                 InlineButton {
                     text: "💬 Reply".to_string(),
                     callback_data: format!("rc_reply:{project_id}"),
@@ -401,14 +405,14 @@ async fn invoke_chat(
                     text: "🏠 Menu".to_string(),
                     callback_data: "menu".to_string(),
                 },
-            ];
+            ]];
             if tg
-                .edit_message_with_buttons(thinking_msg_id, &formatted, &buttons)
+                .edit_message_with_buttons(thinking_msg_id, &formatted, &button_rows)
                 .await
                 .is_err()
             {
                 // Edit failed (message too old?), send new
-                match tg.send_with_buttons(&formatted, &buttons).await {
+                match tg.send_with_buttons(&formatted, &button_rows).await {
                     Ok(id) => {
                         sessions.register_message(id, project_id);
                     }
