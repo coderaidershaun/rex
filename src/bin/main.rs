@@ -592,7 +592,7 @@ Autorun (separate binary — headless autopilot, uses REX_AUTORUN_TELEGRAM_BOT_T
 Rex Chat (separate binary — Telegram chat interface, uses REX_AUTOCHAT_TELEGRAM_BOT_TOKEN):
 
   rex-chat [OPTIONS]                        Telegram chat daemon for all rex projects
-      --project-dir <PATH>                  Directory with rex/projects.json (default: .)
+      --scan-dir <PATH>                     Root directory to scan for projects (default: $HOME)
       --max-budget-usd <AMT>               Budget per chat invocation (default: 10)
       --max-turns <N>                       Max turns per chat invocation (default: 50)
       --session-timeout-mins <N>            Idle session timeout (default: 30)

@@ -101,23 +101,31 @@ Autorun recovers from crashes automatically, respects budget limits, handles exp
 
 ### Rex Chat
 
-Rex Chat is a separate daemon that provides a universal Telegram interface for all your rex projects. Through a single Telegram conversation you can discover running autoruns, start new ones, chat about any project with an AI agent, and diagnose issues.
+Rex Chat is a project-agnostic Telegram daemon that auto-discovers all rex projects on your machine. Through a single Telegram conversation you can discover running autoruns, start new ones, chat about any project with an AI agent, and diagnose issues — without specifying any project directory.
 
-Rex Chat uses the **same Telegram bot** as autorun. When rex-chat is running, it becomes the sole Telegram poller and routes messages to autoruns via IPC inbox files. When rex-chat is not running, autoruns poll Telegram directly (fully backward-compatible).
+On startup, rex-chat scans your home directory (or a custom root) for `rex/projects.json` files and presents every discovered project in a Telegram dashboard. It continuously monitors the filesystem every 5 seconds and sends Telegram notifications when:
+
+- A **new project** is created (new `rex/projects.json` discovered)
+- A **project is removed** (registry disappears)
+- An **autorun starts** (`.rex-autorun.json` appears)
+- An **autorun stops** (`.rex-autorun.json` disappears)
 
 ```bash
-# Foreground (from the project root — where rex/projects.json lives)
+# Just run it — scans $HOME for all rex projects
 rex-chat
 
+# Or narrow the scan to a specific directory
+rex-chat --scan-dir ~/Code
+
 # Background with nohup
-nohup rex-chat --project-dir /absolute/path/to/project-root > /dev/null 2>&1 &
+nohup rex-chat > /dev/null 2>&1 &
 ```
 
 Rex Chat options:
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--project-dir <PATH>` | `.` | Directory containing `rex/projects.json` |
+| `--scan-dir <PATH>` | `$HOME` | Root directory to scan for rex projects |
 | `--max-budget-usd <AMOUNT>` | `10.0` | Max USD per chat invocation |
 | `--max-turns <N>` | `50` | Max agentic turns per chat invocation |
 | `--session-timeout-mins <N>` | `30` | Idle chat session timeout |
@@ -131,7 +139,7 @@ Send these to the **chat bot** (`REX_AUTOCHAT_TELEGRAM_BOT_TOKEN`) while rex-cha
 | `/menu` | Show project dashboard with Start / Chat / Stop buttons |
 | `/start` | Same as `/menu` |
 
-Rex Chat is idle by default — it polls Telegram for messages but **never calls an LLM** unless you send a chat message. It is safe to leave running permanently. Rex Chat uses its own dedicated bot token, separate from autorun.
+Rex Chat is idle by default — it polls Telegram for messages and monitors project state, but **never calls an LLM** unless you send a chat message. It is safe to leave running permanently. Rex Chat uses its own dedicated bot token, separate from autorun.
 
 #### systemd Service (Ubuntu)
 
@@ -146,15 +154,13 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=YOUR_USERNAME
-WorkingDirectory=/absolute/path/to/project-root
-ExecStart=/home/ubuntu/.cargo/bin/rex-chat --project-dir /absolute/path/to/project-root
+User=ubuntu
+ExecStart=/home/YOUR_USERNAME/.cargo/bin/rex-chat
 Restart=on-failure
 RestartSec=5
+Environment=HOME=/home/YOUR_USERNAME
 Environment=REX_AUTOCHAT_TELEGRAM_BOT_TOKEN=your-chat-bot-token
 Environment=REX_TELEGRAM_CHAT_ID=your-chat-id
-# Or load from .env:
-# EnvironmentFile=/absolute/path/to/project-root/.env
 
 # Logging
 StandardOutput=journal

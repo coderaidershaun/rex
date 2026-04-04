@@ -1,6 +1,7 @@
-//! Rex-chat daemon: independent Telegram bot for project chat sessions.
+//! Rex-chat daemon: project-agnostic Telegram bot that auto-discovers rex projects.
 
-use std::path::PathBuf;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::Duration;
 
@@ -12,7 +13,6 @@ use crate::autorun::state::read_state;
 use crate::autorun::types::{escape_html, DIV};
 use crate::errors::{RexError, RexResult};
 use crate::models::planning::{PlanningStatus, PlanningStore};
-use crate::models::project::ProjectRegistry;
 
 use super::discovery;
 use super::sessions::SessionManager;
@@ -22,9 +22,9 @@ use super::telegram::{ChatTelegramClient, InlineButton, Update};
 #[derive(Parser)]
 #[command(name = "rex-chat", about = "Telegram chat interface for rex projects")]
 pub struct Args {
-    /// Directory containing rex/projects.json
-    #[arg(long, default_value = ".")]
-    pub project_dir: PathBuf,
+    /// Root directory to scan for rex projects (default: $HOME)
+    #[arg(long)]
+    pub scan_dir: Option<PathBuf>,
 
     /// Max USD budget per chat invocation
     #[arg(long, default_value = "10.0")]
@@ -44,30 +44,31 @@ pub struct Args {
 }
 
 pub async fn run(args: Args) -> RexResult<ExitCode> {
-    let project_dir = std::fs::canonicalize(&args.project_dir).map_err(|e| {
-        RexError::FileRead {
-            path: args.project_dir.display().to_string(),
+    // Resolve scan directory: explicit flag > $HOME > current dir
+    let scan_dir = match &args.scan_dir {
+        Some(d) => std::fs::canonicalize(d).map_err(|e| RexError::FileRead {
+            path: d.display().to_string(),
             source: e,
+        })?,
+        None => {
+            let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
+            PathBuf::from(home)
         }
-    })?;
+    };
 
-    // Load .env
-    let env_path = project_dir.join(".env");
-    if env_path.exists() {
-        dotenvy::from_path(&env_path).ok();
-    } else {
-        dotenvy::dotenv().ok();
-    }
+    // Load .env from current directory (or parent chain)
+    dotenvy::dotenv().ok();
 
     // Read Telegram credentials
-    let telegram_token = std::env::var("REX_AUTOCHAT_TELEGRAM_BOT_TOKEN").map_err(|_| RexError::EnvVar {
-        name: "REX_AUTOCHAT_TELEGRAM_BOT_TOKEN".into(),
-        detail: "check .env".into(),
-    })?;
+    let telegram_token =
+        std::env::var("REX_AUTOCHAT_TELEGRAM_BOT_TOKEN").map_err(|_| RexError::EnvVar {
+            name: "REX_AUTOCHAT_TELEGRAM_BOT_TOKEN".into(),
+            detail: "set in environment or .env".into(),
+        })?;
     let telegram_chat_id: i64 = std::env::var("REX_TELEGRAM_CHAT_ID")
         .map_err(|_| RexError::EnvVar {
             name: "REX_TELEGRAM_CHAT_ID".into(),
-            detail: "check .env".into(),
+            detail: "set in environment or .env".into(),
         })?
         .parse()
         .map_err(|e| RexError::EnvVar {
@@ -75,38 +76,48 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
             detail: format!("must be a valid integer: {e}"),
         })?;
 
-    // Set CWD for ProjectRegistry::load()
-    std::env::set_current_dir(&project_dir).map_err(|e| RexError::FileRead {
-        path: project_dir.display().to_string(),
-        source: e,
-    })?;
-
     // Initialize Telegram client
     let mut tg = ChatTelegramClient::new(telegram_token, telegram_chat_id, 0);
 
     // Send startup notification
-    tg.notify("🏠 <b>Rex Chat online</b>\n\nSend /menu to see your projects.")
-        .await;
+    let project_count = discovery::discover_projects(&scan_dir)
+        .map(|p| p.len())
+        .unwrap_or(0);
+    tg.notify(&format!(
+        "🏠 <b>Rex Chat online</b>\n\
+         📂 Scanning <code>{dir}</code>\n\
+         📋 Found <b>{n}</b> project{s}\n\n\
+         Send /menu to see your projects.",
+        dir = escape_html(&scan_dir.display().to_string()),
+        n = project_count,
+        s = if project_count == 1 { "" } else { "s" },
+    ))
+    .await;
 
-    info!("rex-chat daemon started");
+    info!(
+        scan_dir = %scan_dir.display(),
+        projects = project_count,
+        "rex-chat daemon started"
+    );
 
     // Session manager
     let mut sessions = SessionManager::new();
     let session_timeout = Duration::from_secs(args.session_timeout_mins * 60);
 
     // Signal handling
-    let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
+    let mut sigterm =
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
 
     let result = tokio::select! {
         _ = tokio::signal::ctrl_c() => {
-            info!("SIGINT received — shutting down");
+            info!("SIGINT received -- shutting down");
             Ok(ExitCode::from(0))
         }
         _ = sigterm.recv() => {
-            info!("SIGTERM received — shutting down");
+            info!("SIGTERM received -- shutting down");
             Ok(ExitCode::from(0))
         }
-        result = poll_loop(&mut tg, &mut sessions, &project_dir, &args, session_timeout) => {
+        result = poll_loop(&mut tg, &mut sessions, &scan_dir, &args, session_timeout) => {
             result
         }
     };
@@ -122,11 +133,14 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
 async fn poll_loop(
     tg: &mut ChatTelegramClient,
     sessions: &mut SessionManager,
-    project_dir: &PathBuf,
+    scan_dir: &Path,
     args: &Args,
     session_timeout: Duration,
 ) -> RexResult<ExitCode> {
     let mut cleanup_counter = 0u32;
+    let mut snapshot = ProjectSnapshot::capture(scan_dir);
+    let mut last_scan = tokio::time::Instant::now();
+    let scan_interval = Duration::from_secs(5);
 
     loop {
         let updates = tg.poll_updates().await;
@@ -137,11 +151,28 @@ async fn poll_loop(
             sessions.cleanup_stale(session_timeout);
         }
 
+        // State monitoring: detect project/autorun changes every 5 seconds
+        if last_scan.elapsed() >= scan_interval {
+            last_scan = tokio::time::Instant::now();
+            let new_snapshot = ProjectSnapshot::capture(scan_dir);
+            let changes = snapshot.diff(&new_snapshot);
+            for change in &changes {
+                notify_state_change(tg, change).await;
+            }
+            if !changes.is_empty() {
+                snapshot = new_snapshot;
+            }
+        }
+
         for update in updates {
             match update {
-                Update::CallbackQuery { id, data, message_id: _ } => {
+                Update::CallbackQuery {
+                    id,
+                    data,
+                    message_id: _,
+                } => {
                     tg.answer_callback_query(&id).await;
-                    handle_callback(tg, sessions, project_dir, args, &data).await;
+                    handle_callback(tg, sessions, scan_dir, args, &data).await;
                 }
                 Update::TextMessage {
                     text,
@@ -150,7 +181,7 @@ async fn poll_loop(
                     handle_text_message(
                         tg,
                         sessions,
-                        project_dir,
+                        scan_dir,
                         args,
                         &text,
                         reply_to_message_id,
@@ -166,7 +197,7 @@ async fn poll_loop(
 async fn handle_callback(
     tg: &mut ChatTelegramClient,
     sessions: &mut SessionManager,
-    project_dir: &PathBuf,
+    scan_dir: &Path,
     _args: &Args,
     data: &str,
 ) {
@@ -178,7 +209,7 @@ async fn handle_callback(
 
     match action {
         "menu" => {
-            show_project_menu(tg, project_dir).await;
+            show_project_menu(tg, scan_dir).await;
         }
         "chat" => {
             if !target.is_empty() {
@@ -187,17 +218,17 @@ async fn handle_callback(
         }
         "start" => {
             if !target.is_empty() {
-                start_autorun(tg, project_dir, target).await;
+                start_autorun(tg, scan_dir, target).await;
             }
         }
         "status" => {
             if !target.is_empty() {
-                show_autorun_status(tg, target).await;
+                show_autorun_status(tg, scan_dir, target).await;
             }
         }
         "stop" => {
             if !target.is_empty() {
-                stop_autorun(tg, project_dir, target).await;
+                stop_autorun(tg, scan_dir, target).await;
             }
         }
         "rc_reply" => {
@@ -215,33 +246,33 @@ async fn handle_callback(
 async fn handle_text_message(
     tg: &mut ChatTelegramClient,
     sessions: &mut SessionManager,
-    project_dir: &PathBuf,
+    scan_dir: &Path,
     args: &Args,
     text: &str,
     reply_to: Option<i64>,
 ) {
-    // /clear → delete recent messages
+    // /clear -> delete recent messages
     if text.starts_with("/clear") {
         tg.clear_history().await;
         return;
     }
 
-    // /commands → show available commands
+    // /commands -> show available commands
     if text.starts_with("/commands") {
         tg.notify(
             "📋 <b>Chat Commands</b>\n\n\
-             <code>/menu</code> — Show project dashboard\n\
-             <code>/start</code> — Show project dashboard\n\
-             <code>/commands</code> — Show this help\n\
-             <code>/clear</code> — Clear chat history",
+             <code>/menu</code> -- Show project dashboard\n\
+             <code>/start</code> -- Show project dashboard\n\
+             <code>/commands</code> -- Show this help\n\
+             <code>/clear</code> -- Clear chat history",
         )
         .await;
         return;
     }
 
-    // /start or /menu → show project dashboard
+    // /start or /menu -> show project dashboard
     if text.starts_with("/start") || text.starts_with("/menu") {
-        show_project_menu(tg, project_dir).await;
+        show_project_menu(tg, scan_dir).await;
         return;
     }
 
@@ -249,24 +280,24 @@ async fn handle_text_message(
     if let Some(reply_to_id) = reply_to {
         if let Some(project_id) = sessions.lookup_reply(reply_to_id) {
             let pid = project_id.to_string();
-            invoke_chat(tg, sessions, project_dir, args, &pid, text).await;
+            invoke_chat(tg, sessions, scan_dir, args, &pid, text).await;
         }
         return;
     }
 
-    // Unrecognized message → show project menu
-    show_project_menu(tg, project_dir).await;
+    // Unrecognized message -> show project menu
+    show_project_menu(tg, scan_dir).await;
 }
 
-// ── Action handlers ──────────────────────────────────────────────────────
+// -- Action handlers ----------------------------------------------------------
 
 /// Show the project dashboard with inline buttons.
-async fn show_project_menu(tg: &mut ChatTelegramClient, project_dir: &PathBuf) {
-    let projects = match discovery::discover_projects(project_dir) {
+async fn show_project_menu(tg: &mut ChatTelegramClient, scan_dir: &Path) {
+    let projects = match discovery::discover_projects(scan_dir) {
         Ok(p) => p,
         Err(e) => {
             tg.notify(&format!(
-                "❌ Failed to load projects: {}",
+                "❌ Failed to discover projects: {}",
                 escape_html(&e.to_string())
             ))
             .await;
@@ -275,8 +306,11 @@ async fn show_project_menu(tg: &mut ChatTelegramClient, project_dir: &PathBuf) {
     };
 
     if projects.is_empty() {
-        tg.notify("🏠 <b>Rex Chat</b>\n\nNo projects found. Run <code>rex init</code> to create one.")
-            .await;
+        tg.notify(
+            "🏠 <b>Rex Chat</b>\n\nNo projects found. \
+             Run <code>rex project create</code> to create one.",
+        )
+        .await;
         return;
     }
 
@@ -369,13 +403,13 @@ async fn start_chat_prompt(
 async fn invoke_chat(
     tg: &mut ChatTelegramClient,
     sessions: &mut SessionManager,
-    project_dir: &PathBuf,
+    scan_dir: &Path,
     args: &Args,
     project_id: &str,
     message: &str,
 ) {
     // Find project directory
-    let proj_dir = match find_project_dir(project_dir, project_id) {
+    let proj_dir = match find_project_dir(scan_dir, project_id) {
         Some(d) => d,
         None => {
             tg.notify(&format!(
@@ -456,10 +490,10 @@ async fn invoke_chat(
 /// Start an autorun for a project.
 async fn start_autorun(
     tg: &mut ChatTelegramClient,
-    project_dir: &PathBuf,
+    scan_dir: &Path,
     project_id: &str,
 ) {
-    let proj_dir = match find_project_dir(project_dir, project_id) {
+    let proj_dir = match find_project_dir(scan_dir, project_id) {
         Some(d) => d,
         None => {
             tg.notify(&format!(
@@ -472,7 +506,7 @@ async fn start_autorun(
     };
 
     // Check if already running
-    let state_path = std::path::Path::new(&proj_dir).join(".rex-autorun.json");
+    let state_path = Path::new(&proj_dir).join(".rex-autorun.json");
     if read_state(&state_path).is_some() {
         tg.notify(&format!(
             "⚠️ <code>{}</code> is already running",
@@ -513,10 +547,10 @@ async fn start_autorun(
 /// Stop a running autorun by sending SIGTERM via its state file.
 async fn stop_autorun(
     tg: &mut ChatTelegramClient,
-    project_dir: &PathBuf,
+    scan_dir: &Path,
     project_id: &str,
 ) {
-    let proj_dir = match find_project_dir(project_dir, project_id) {
+    let proj_dir = match find_project_dir(scan_dir, project_id) {
         Some(d) => d,
         None => {
             tg.notify(&format!(
@@ -528,7 +562,7 @@ async fn stop_autorun(
         }
     };
 
-    let proj_path = std::path::Path::new(&proj_dir);
+    let proj_path = Path::new(&proj_dir);
     let state_path = proj_path.join(".rex-autorun.json");
     if let Some(state) = read_state(&state_path) {
         if let Some(pgid) = state.claude_pgid {
@@ -558,9 +592,13 @@ async fn stop_autorun(
 }
 
 /// Show autorun status for a project.
-async fn show_autorun_status(tg: &mut ChatTelegramClient, project_id: &str) {
-    let registry = match ProjectRegistry::load() {
-        Ok(r) => r,
+async fn show_autorun_status(
+    tg: &mut ChatTelegramClient,
+    scan_dir: &Path,
+    project_id: &str,
+) {
+    let projects = match discovery::discover_projects(scan_dir) {
+        Ok(p) => p,
         Err(e) => {
             tg.notify(&format!("❌ {}", escape_html(&e.to_string())))
                 .await;
@@ -568,13 +606,7 @@ async fn show_autorun_status(tg: &mut ChatTelegramClient, project_id: &str) {
         }
     };
 
-    let proj = registry
-        .active
-        .iter()
-        .chain(registry.inactive.iter())
-        .find(|p| p.id == project_id);
-
-    let Some(proj) = proj else {
+    let Some(proj) = projects.iter().find(|p| p.id == project_id) else {
         tg.notify(&format!(
             "❌ Project <code>{}</code> not found",
             escape_html(project_id)
@@ -583,10 +615,10 @@ async fn show_autorun_status(tg: &mut ChatTelegramClient, project_id: &str) {
         return;
     };
 
-    let state_path = std::path::Path::new(&proj.directory).join(".rex-autorun.json");
+    let state_path = Path::new(&proj.directory).join(".rex-autorun.json");
     let Some(state) = read_state(&state_path) else {
         tg.notify(&format!(
-            "📊 <code>{}</code> — not running",
+            "📊 <code>{}</code> -- not running",
             escape_html(project_id)
         ))
         .await;
@@ -596,7 +628,7 @@ async fn show_autorun_status(tg: &mut ChatTelegramClient, project_id: &str) {
     let uptime = format_duration_since(&state.stats.started_at);
 
     // Load task counts from planning data
-    let proj_path = std::path::Path::new(&proj.directory);
+    let proj_path = Path::new(&proj.directory);
     let (tasks_done, tasks_total) = task_counts(proj_path);
 
     let msg = format!(
@@ -617,17 +649,110 @@ async fn show_autorun_status(tg: &mut ChatTelegramClient, project_id: &str) {
     tg.notify(&msg).await;
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────
+// -- State monitoring ---------------------------------------------------------
 
-/// Find the directory for a project by ID.
-fn find_project_dir(_project_dir: &PathBuf, project_id: &str) -> Option<String> {
-    let registry = ProjectRegistry::load().ok()?;
-    registry
-        .active
-        .iter()
-        .chain(registry.inactive.iter())
+/// Snapshot of project state for change detection.
+struct ProjectSnapshot {
+    /// project_id -> running status
+    projects: HashMap<String, bool>,
+}
+
+enum StateChange {
+    ProjectAdded { id: String, running: bool },
+    ProjectRemoved { id: String },
+    AutorunStarted { id: String },
+    AutorunStopped { id: String },
+}
+
+impl ProjectSnapshot {
+    fn capture(scan_dir: &Path) -> Self {
+        let projects = discovery::discover_projects(scan_dir)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|p| (p.id, p.running))
+            .collect();
+        Self { projects }
+    }
+
+    fn diff(&self, new: &Self) -> Vec<StateChange> {
+        let mut changes = Vec::new();
+
+        // New projects
+        for (id, &running) in &new.projects {
+            if !self.projects.contains_key(id) {
+                changes.push(StateChange::ProjectAdded {
+                    id: id.clone(),
+                    running,
+                });
+            }
+        }
+
+        // Removed projects
+        for id in self.projects.keys() {
+            if !new.projects.contains_key(id) {
+                changes.push(StateChange::ProjectRemoved { id: id.clone() });
+            }
+        }
+
+        // Autorun status changes
+        for (id, &new_running) in &new.projects {
+            if let Some(&old_running) = self.projects.get(id) {
+                if !old_running && new_running {
+                    changes.push(StateChange::AutorunStarted { id: id.clone() });
+                } else if old_running && !new_running {
+                    changes.push(StateChange::AutorunStopped { id: id.clone() });
+                }
+            }
+        }
+
+        changes
+    }
+}
+
+async fn notify_state_change(tg: &mut ChatTelegramClient, change: &StateChange) {
+    let msg = match change {
+        StateChange::ProjectAdded { id, running } => {
+            let status = if *running { " (autorun active)" } else { "" };
+            info!(project = %id, "new project discovered");
+            format!(
+                "📦 <b>New project discovered</b>\n<code>{}</code>{status}",
+                escape_html(id),
+            )
+        }
+        StateChange::ProjectRemoved { id } => {
+            info!(project = %id, "project removed");
+            format!(
+                "🗑 <b>Project removed</b>\n<code>{}</code>",
+                escape_html(id),
+            )
+        }
+        StateChange::AutorunStarted { id } => {
+            info!(project = %id, "autorun started");
+            format!(
+                "🟢 <b>Autorun started</b>\n<code>{}</code>",
+                escape_html(id),
+            )
+        }
+        StateChange::AutorunStopped { id } => {
+            info!(project = %id, "autorun stopped");
+            format!(
+                "🔴 <b>Autorun stopped</b>\n<code>{}</code>",
+                escape_html(id),
+            )
+        }
+    };
+    tg.notify(&msg).await;
+}
+
+// -- Helpers ------------------------------------------------------------------
+
+/// Find the directory for a project by ID via filesystem discovery.
+fn find_project_dir(scan_dir: &Path, project_id: &str) -> Option<String> {
+    let projects = discovery::discover_projects(scan_dir).ok()?;
+    projects
+        .into_iter()
         .find(|p| p.id == project_id)
-        .map(|p| p.directory.clone())
+        .map(|p| p.directory)
 }
 
 /// Format chat response for Telegram.
@@ -640,7 +765,7 @@ fn format_chat_response(project_id: &str, response: &str) -> String {
         (response.to_string(), false)
     };
     let suffix = if truncated {
-        "\n…\n\n<i>(truncated)</i>"
+        "\n...\n\n<i>(truncated)</i>"
     } else {
         ""
     };
@@ -671,7 +796,7 @@ fn format_duration_since(started_at: &str) -> String {
 }
 
 /// Count (completed, total) tasks from planning.json.
-fn task_counts(project_dir: &std::path::Path) -> (usize, usize) {
+fn task_counts(project_dir: &Path) -> (usize, usize) {
     let Ok(store) = PlanningStore::load(project_dir) else {
         return (0, 0);
     };
