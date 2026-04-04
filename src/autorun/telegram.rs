@@ -142,17 +142,20 @@ impl TelegramClient {
     }
 
     /// Send a message with inline Reply + Stats + Kill buttons.
+    /// Reply gets its own row (full width), Stats + Kill share a row.
     pub async fn send_with_buttons(&self, text: &str, project_id: &str) -> RexResult<i64> {
         let body = serde_json::json!({
             "chat_id": self.chat_id,
             "text": text,
             "parse_mode": "HTML",
             "reply_markup": {
-                "inline_keyboard": [[
-                    { "text": "💬 Reply", "callback_data": format!("reply:{project_id}") },
-                    { "text": "📊 Stats", "callback_data": format!("query:{project_id}") },
-                    { "text": "🛑 Kill", "callback_data": format!("kill:{project_id}") },
-                ]]
+                "inline_keyboard": [
+                    [{ "text": "💬 Reply", "callback_data": format!("reply:{project_id}") }],
+                    [
+                        { "text": "📊 Stats", "callback_data": format!("query:{project_id}") },
+                        { "text": "🛑 Kill", "callback_data": format!("kill:{project_id}") },
+                    ],
+                ]
             },
         });
         self.send_with_body(&body).await

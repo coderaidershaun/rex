@@ -313,7 +313,7 @@ async fn show_project_menu(tg: &mut ChatTelegramClient, project_dir: &PathBuf) {
                     callback_data: format!("start:{}", proj.id),
                 },
                 InlineButton {
-                    text: "💬".to_string(),
+                    text: "💬 Chat".to_string(),
                     callback_data: format!("chat:{}", proj.id),
                 },
             ]);

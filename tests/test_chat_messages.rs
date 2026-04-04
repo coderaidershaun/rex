@@ -64,7 +64,7 @@ async fn test_all_chat_message_types() {
                 callback_data: "start:portfolio-tracker".to_string(),
             },
             InlineButton {
-                text: "💬".to_string(),
+                text: "💬 Chat".to_string(),
                 callback_data: "chat:portfolio-tracker".to_string(),
             },
         ],
