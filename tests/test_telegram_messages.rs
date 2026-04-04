@@ -73,11 +73,11 @@ async fn test_all_autorun_message_types() {
             &format!(
                 "💬 <b>Input needed</b>  ·  <code>{pid}</code>  ·  <code>onboarding:scope</code>\n\
                  {DIV}\n\
-                 The project scope needs definition. Should the matching engine support:\n\n\
+                 <blockquote>The project scope needs definition. Should the matching engine support:\n\n\
                  1. Limit orders only (simpler, faster to build)\n\
                  2. Limit + market orders (standard exchange feature set)\n\
                  3. Full order types including stop-loss, iceberg, and FOK/IOC\n\n\
-                 Also: should the WebSocket feed be public or authenticated?\n\
+                 Also: should the WebSocket feed be public or authenticated?</blockquote>\n\
                  {DIV}\n\
                  ⚡ <code>68.5 tok/s</code>  ·  📊 <code>31.7%</code> context\n\n\
                  <i>Reply to this message with your answer</i>",
@@ -105,7 +105,7 @@ async fn test_all_autorun_message_types() {
          {DIV}\n\
          ⚡ <code>55.0 tok/s</code>  ·  📊 <code>78.3%</code> context\n\
          {DIV}\n\
-         Operator returned error: failed to parse design document — missing required field 'modules'",
+         <blockquote>Operator returned error: failed to parse design document — missing required field 'modules'</blockquote>",
         pid = escape_html(project_id),
     ))
     .await;

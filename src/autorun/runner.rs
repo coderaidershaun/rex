@@ -161,7 +161,7 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
             let msg = format!(
                 "💬 <b>Input needed (recovered)</b>  ·  <code>{pid}</code>\n\
                  {DIV}\n\
-                 {q}\n\n\
+                 <blockquote>{q}</blockquote>\n\n\
                  <i>Reply to this message with your answer</i>",
                 pid = escape_html(&project_id),
                 q = escape_html(&question),
@@ -628,7 +628,7 @@ async fn main_loop(
                                 let msg = format!(
                                     "💬 <b>Input needed</b>  ·  <code>{pid}</code>{itag}\n\
                                      {DIV}\n\
-                                     {q}\n\
+                                     <blockquote>{q}</blockquote>\n\
                                      {DIV}\n\
                                      {stats}\n\n\
                                      <i>Reply to this message with your answer</i>",
@@ -875,7 +875,7 @@ async fn main_loop(
                                              {DIV}\n\
                                              {rstats}\n\
                                              {DIV}\n\
-                                             {msg}",
+                                             <blockquote>{msg}</blockquote>",
                                             pid = escape_html(project_id),
                                             itag = item_tag(&resume_op.item),
                                             rstats = resume_output.telegram_stats(),
@@ -904,7 +904,7 @@ async fn main_loop(
                                  {DIV}\n\
                                  {stats}\n\
                                  {DIV}\n\
-                                 {msg}",
+                                 <blockquote>{msg}</blockquote>",
                                 pid = escape_html(project_id),
                                 itag = item_tag(&result.item),
                                 stats = output.telegram_stats(),
@@ -930,7 +930,7 @@ async fn main_loop(
                              {DIV}\n\
                              {stats}\n\
                              {DIV}\n\
-                             {err}",
+                             <blockquote>{err}</blockquote>",
                             pid = escape_html(project_id),
                             stats = output.telegram_stats(),
                             err = escape_html(&e.to_string()),
