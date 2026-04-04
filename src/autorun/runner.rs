@@ -551,13 +551,13 @@ async fn main_loop(
                                  {msg}\n\
                                  {DIV}\n\
                                  {stats}\n\
-                                 💰 <code>${cost:.2}</code>  ·  ⏱ <code>{dur}s</code>",
+                                 💰 <code>${cost:.2}</code>  ·  ⏱ <code>{dur}</code>",
                                 pid = escape_html(project_id),
                                 itag = item_tag(&result.item),
                                 msg = escape_html(&result.message),
                                 stats = output.telegram_stats(),
                                 cost = cost,
-                                dur = output.duration_ms / 1000,
+                                dur = format_duration_ms(output.duration_ms),
                             ), project_id)
                             .await;
 
@@ -832,13 +832,13 @@ async fn main_loop(
                                              {msg}\n\
                                              {DIV}\n\
                                              {rstats}\n\
-                                             💰 <code>${cost:.2}</code>  ·  ⏱ <code>{dur}s</code>",
+                                             💰 <code>${cost:.2}</code>  ·  ⏱ <code>{dur}</code>",
                                             pid = escape_html(project_id),
                                             itag = item_tag(&resume_op.item),
                                             msg = escape_html(&resume_op.message),
                                             rstats = resume_output.telegram_stats(),
                                             cost = resume_output.effective_cost(),
-                                            dur = resume_output.duration_ms / 1000,
+                                            dur = format_duration_ms(resume_output.duration_ms),
                                         ), project_id).await;
                                         state::delete_state(state_path);
                                         // Brief cooldown to avoid hammering the API and let the filesystem settle.
