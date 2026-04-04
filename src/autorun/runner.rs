@@ -530,7 +530,7 @@ async fn main_loop(
                     Ok(result) => match result.status {
                         OperatorStatus::Completed => {
                             stats.items_completed += 1;
-                            tg.notify_with_buttons(&format!(
+                            tg.notify_with_status_buttons(&format!(
                                 "✅ <b>Completed #{n}</b>  ·  <code>{pid}</code>{itag}\n\
                                  {DIV}\n\
                                  {msg}\n\
@@ -810,7 +810,7 @@ async fn main_loop(
                                     }
                                     OperatorStatus::Completed => {
                                         stats.items_completed += 1;
-                                        tg.notify_with_buttons(&format!(
+                                        tg.notify_with_status_buttons(&format!(
                                             "✅ <b>Completed #{n}</b>  ·  <code>{pid}</code>{itag}\n\
                                              {DIV}\n\
                                              {msg}\n\

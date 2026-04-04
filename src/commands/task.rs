@@ -351,7 +351,7 @@ pub fn next() -> RexResult<()> {
             ));
         }
         return Err(RexError::Validation(
-            "No eligible tasks. Remaining tasks are blocked by unmet dependencies.".into(),
+            "WAITING - Remaining tasks are waiting on upstream dependencies.".into(),
         ));
     }
 

@@ -481,6 +481,9 @@ rex task next
 
 - If `rex task next` returns **"NO TASKS - Please mark as item complete"**: all tasks are finished. The execution phase is done — you will mark the execution item as complete in Step 10.
 - If `rex task next` returns **another task**: more work remains. The execution item stays `in-progress` — do NOT mark it as complete. Continue to Step 9 to record history (skipping Step 10).
+- If `rex task next` returns **"WAITING - Remaining tasks are waiting on upstream dependencies."**: tasks exist but none are eligible yet. Treat this identically to "another task returned" — the execution item stays `in-progress`. Continue to Step 9 to record history (skipping Step 10). The next operator invocation will re-evaluate eligibility.
+
+**Important:** When producing the completion message for your JSON output, keep it simple and user-friendly. Just state what was completed. Example: `"Completed task t-foo-impl."` — do NOT include jargon about dependencies, re-invocation, or internal state. The user only needs to know the task is done.
 
 ---
 
@@ -592,7 +595,7 @@ Re-invoke the operator to continue.
 
 **If `REX_AUTORUN=1` is set**, also output the following JSON as your final line:
 ```
-{"status": "completed", "message": "Execution task limit reached (1 task). Last task: <task-id>.", "item": "<task-id>"}
+{"status": "completed", "message": "Completed task <task-id>.", "item": "<task-id>"}
 ```
 
 This prevents runaway execution. A maximum of **1 task** may be completed per operator invocation during execution phase. This limit applies ONLY to execution phase tasks — it does not apply to other phases.

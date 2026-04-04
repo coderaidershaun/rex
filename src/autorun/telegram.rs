@@ -636,7 +636,25 @@ impl TelegramClient {
         }
     }
 
-    /// Fire-and-forget notification with inline Stats + Kill buttons.
+    /// Fire-and-forget notification with inline Stats + Kill buttons (no Reply).
+    pub async fn notify_with_status_buttons(&self, text: &str) {
+        let body = serde_json::json!({
+            "chat_id": self.chat_id,
+            "text": text,
+            "parse_mode": "HTML",
+            "reply_markup": {
+                "inline_keyboard": [[
+                    { "text": "📊 Stats", "callback_data": "query" },
+                    { "text": "🛑 Kill", "callback_data": "kill" },
+                ]]
+            },
+        });
+        if let Err(e) = self.send_with_body(&body).await {
+            error!("failed to send telegram notification with status buttons: {e}");
+        }
+    }
+
+    /// Fire-and-forget notification with inline Reply + Stats + Kill buttons.
     pub async fn notify_with_buttons(&self, text: &str) {
         if let Err(e) = self.send_with_buttons(text).await {
             error!("failed to send telegram notification with buttons: {e}");
