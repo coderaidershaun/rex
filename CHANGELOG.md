@@ -2,6 +2,19 @@
 
 All notable changes to **rex-cli** are documented here.
 
+## 0.1.29 — 2026-04-04
+
+- **Separate chat and autorun Telegram bots** — Each daemon now uses its own dedicated bot token (`REX_AUTOCHAT_TELEGRAM_BOT_TOKEN` for rex-chat, `REX_AUTORUN_TELEGRAM_BOT_TOKEN` for rex-autorun) and `REX_TELEGRAM_CHAT_ID` as the shared chat ID. No more cross-filtering between bots or shared `TELEGRAM_BOT_TOKEN`.
+- **Cooperative multi-autorun triage** — When multiple autoruns share the same bot token, a file-lock-based triage system ensures only one polls Telegram at a time. A shared registry tracks each autorun's PID and expected reply message, and cross-project messages are routed via per-project inbox files. A `RegistryGuard` RAII struct guarantees deregistration on all exit paths.
+- **Rex-chat simplified** — Remove `/rex-chat` command prefix (replaced by `/menu` and `/start`), remove all inbox IPC and autorun message routing, simplify session manager by removing `autorun_reply_map`. Chat bot now operates fully independently.
+- **Inline buttons on questions** — Autorun "input needed" messages now include Reply + Stats + Kill inline buttons instead of ForceReply-only. Tapping Reply sends a ForceReply prompt.
+- **Task progress in stats** — `/query` and status messages now show task completion counts (`Tasks: 14/23`) loaded from `planning/planning.json`.
+- **`/clear` and `/commands`** — Both bots support `/clear` to delete recent chat history and `/commands` (or `/start`, `/menu`) to show available commands.
+- **Duration formatting fix** — Completion messages now use `Xm Ys` format (via `format_duration_ms`) instead of raw seconds.
+- **1M context window** — All headless `claude -p` calls now use `sonnet[1m]` to ensure the 1M context window.
+- **Blockquote formatting** — Error messages use `<blockquote>` for highlighted error text. Chat response footer text removed (buttons are sufficient).
+- **Integration tests** — New `test_telegram_messages` and `test_chat_messages` tests exercise the real `TelegramClient` code, sending every message type to verify formatting and button layout on both bots.
+
 ## 0.1.28 — 2026-04-03
 
 - **Interactive Telegram chat sessions** — New `/chat` command lets you ask questions about the running project mid-session. Each chat spawns a parallel Claude instance scoped to the project directory, with inline Reply and Restart buttons for multi-turn conversation — all without interrupting the active autorun work item.
