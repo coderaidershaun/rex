@@ -140,14 +140,36 @@ Rex Chat options:
 | `--max-turns <N>` | `50` | Max agentic turns per chat invocation |
 | `--session-timeout-mins <N>` | `30` | Idle chat session timeout |
 
-#### Telegram Commands
+#### Chatting
 
-Send these to the **chat bot** (`REX_AUTOCHAT_TELEGRAM_BOT_TOKEN`) while rex-chat is running:
+Just type a message and it goes to your active project's AI agent. No menus required.
+
+```
+you:  What's the current state of the orderbook module?
+rex:  🗨️ Rex Chat · polyapi
+      The orderbook module has...
+
+you:  polyapi: check the error handling in src/lib.rs
+rex:  🗨️ Rex Chat · polyapi
+      Looking at src/lib.rs...
+```
+
+- **Bare messages** go to the active project (or the only project if there's just one)
+- **`project-id: message`** targets a specific project and switches context to it
+- **Reply to any rex-chat message** to continue that conversation
+
+#### Telegram Commands
 
 | Command | Description |
 |---------|-------------|
-| `/menu` | Show project dashboard with Start / Chat / Stop buttons |
-| `/start` | Same as `/menu` |
+| `/chat <id>` | Switch active project |
+| `/start <id>` | Start autorun for a project |
+| `/stop <id>` | Stop autorun for a project |
+| `/status [id]` | Show autorun status (all running if no id) |
+| `/projects` | List all discovered projects |
+| `/menu` | Show project dashboard with buttons |
+| `/commands` | Show command help |
+| `/clear` | Clear chat history |
 
 Rex Chat is idle by default — it polls Telegram for messages and monitors project state, but **never calls an LLM** unless you send a chat message. It is safe to leave running permanently. Rex Chat uses its own dedicated bot token, separate from autorun.
 

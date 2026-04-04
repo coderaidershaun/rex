@@ -598,8 +598,16 @@ Rex Chat (separate binary — Telegram chat interface, uses REX_AUTOCHAT_TELEGRA
       --session-timeout-mins <N>            Idle session timeout (default: 30)
 
   Telegram commands (send to chat bot):
-      /menu                                 Show project dashboard with buttons
-      /start                                Show project dashboard with buttons
+      <message>                              Chat with active project (or only project)
+      <id>: <message>                        Chat with a specific project
+      /chat <id>                             Switch active project
+      /start <id>                            Start autorun for a project
+      /stop <id>                             Stop autorun for a project
+      /status [id]                           Show autorun status (all if no id)
+      /projects                              List all discovered projects
+      /menu                                  Show project dashboard with buttons
+      /commands                              Show command help
+      /clear                                 Clear chat history
 
   Background usage (recommended):
       nohup rex-autorun --project-dir /absolute/path/to/project > /dev/null 2>&1 &";

@@ -254,45 +254,167 @@ async fn handle_text_message(
     text: &str,
     reply_to: Option<i64>,
 ) {
-    // /clear -> delete recent messages
-    if text.starts_with("/clear") {
-        tg.clear_history().await;
+    let trimmed = text.trim();
+
+    // -- Slash commands -------------------------------------------------------
+
+    if trimmed.starts_with('/') {
+        handle_slash_command(tg, sessions, scan_dir, args, trimmed).await;
         return;
     }
 
-    // /commands -> show available commands
-    if text.starts_with("/commands") {
-        tg.notify(
-            "📋 <b>Chat Commands</b>\n\n\
-             <code>/menu</code> -- Show project dashboard\n\
-             <code>/start</code> -- Show project dashboard\n\
-             <code>/commands</code> -- Show this help\n\
-             <code>/clear</code> -- Clear chat history",
-        )
-        .await;
-        return;
-    }
+    // -- Reply-to routing -----------------------------------------------------
 
-    // /start or /menu -> show project dashboard
-    if text.starts_with("/start") || text.starts_with("/menu") {
-        show_project_menu(tg, scan_dir).await;
-        return;
-    }
-
-    // Reply-to routing
     if let Some(reply_to_id) = reply_to {
         if let Some(project_id) = sessions.lookup_reply(reply_to_id) {
             let pid = project_id.to_string();
-            invoke_chat(tg, sessions, scan_dir, args, &pid, text).await;
+            invoke_chat(tg, sessions, scan_dir, args, &pid, trimmed).await;
         }
         return;
     }
 
-    // Smart routing: recent session > single project > show menu
+    // -- Project-prefixed messages: "project-id: message" ---------------------
+
+    let known_ids = discover_project_ids(scan_dir);
+    if let Some((pid, message)) = parse_project_prefix(trimmed, &known_ids) {
+        sessions.last_active = Some(pid.clone());
+        invoke_chat(tg, sessions, scan_dir, args, &pid, message).await;
+        return;
+    }
+
+    // -- Smart routing: recent session > single project > pick first ----------
+
     if let Some(target) = resolve_chat_target(sessions, scan_dir) {
-        invoke_chat(tg, sessions, scan_dir, args, &target, text).await;
+        invoke_chat(tg, sessions, scan_dir, args, &target, trimmed).await;
     } else {
-        show_project_menu(tg, scan_dir).await;
+        // Multiple projects, no context -- pick the first one and tell the user
+        let projects = discovery::discover_projects(scan_dir).unwrap_or_default();
+        if projects.is_empty() {
+            tg.notify("No projects found. Run <code>rex project create</code> to create one.")
+                .await;
+        } else {
+            let first = &projects[0].id;
+            sessions.last_active = Some(first.clone());
+            tg.notify(&format!(
+                "📋 Multiple projects found. Defaulting to <code>{}</code>.\n\
+                 Use <code>/chat project-id</code> to switch.\n\
+                 Use <code>/projects</code> to list all.",
+                escape_html(first),
+            ))
+            .await;
+            invoke_chat(tg, sessions, scan_dir, args, first, trimmed).await;
+        }
+    }
+}
+
+/// Handle slash commands.
+async fn handle_slash_command(
+    tg: &mut ChatTelegramClient,
+    sessions: &mut SessionManager,
+    scan_dir: &Path,
+    args: &Args,
+    text: &str,
+) {
+    // Split command and arguments
+    let (cmd, arg) = match text.split_once(|c: char| c.is_whitespace()) {
+        Some((c, a)) => (c, a.trim()),
+        None => (text, ""),
+    };
+
+    match cmd {
+        "/clear" => {
+            tg.clear_history().await;
+        }
+        "/menu" => {
+            show_project_menu(tg, scan_dir).await;
+        }
+        "/commands" | "/help" => {
+            tg.notify(
+                "📋 <b>Rex Chat Commands</b>\n\n\
+                 <b>Project management:</b>\n\
+                 <code>/start &lt;id&gt;</code> -- Start autorun\n\
+                 <code>/stop &lt;id&gt;</code> -- Stop autorun\n\
+                 <code>/status &lt;id&gt;</code> -- Show autorun status\n\
+                 <code>/chat &lt;id&gt;</code> -- Switch active project\n\
+                 <code>/menu</code> -- Show project dashboard\n\n\
+                 <b>Chat:</b>\n\
+                 <code>id: message</code> -- Chat with specific project\n\
+                 <code>message</code> -- Chat with active project\n\n\
+                 <b>Utility:</b>\n\
+                 <code>/projects</code> -- List all discovered projects\n\
+                 <code>/clear</code> -- Clear chat history\n\
+                 <code>/commands</code> -- Show this help",
+            )
+            .await;
+        }
+        "/projects" => {
+            show_project_list(tg, scan_dir).await;
+        }
+        "/chat" => {
+            if arg.is_empty() {
+                if let Some(ref active) = sessions.last_active {
+                    tg.notify(&format!(
+                        "💬 Active project: <code>{}</code>\n\
+                         Just type your message to chat.",
+                        escape_html(active),
+                    ))
+                    .await;
+                } else {
+                    tg.notify("💬 No active project. Use <code>/chat project-id</code> to select one.")
+                        .await;
+                }
+            } else {
+                // Switch active project
+                let known_ids = discover_project_ids(scan_dir);
+                if known_ids.contains(&arg.to_string()) {
+                    sessions.last_active = Some(arg.to_string());
+                    tg.notify(&format!(
+                        "💬 Switched to <code>{}</code>\nJust type your message to chat.",
+                        escape_html(arg),
+                    ))
+                    .await;
+                } else {
+                    tg.notify(&format!(
+                        "❌ Project <code>{}</code> not found",
+                        escape_html(arg),
+                    ))
+                    .await;
+                }
+            }
+        }
+        "/start" => {
+            if arg.is_empty() {
+                show_project_menu(tg, scan_dir).await;
+            } else {
+                start_autorun(tg, scan_dir, arg).await;
+            }
+        }
+        "/stop" => {
+            if arg.is_empty() {
+                tg.notify("Usage: <code>/stop project-id</code>").await;
+            } else {
+                stop_autorun(tg, scan_dir, arg).await;
+            }
+        }
+        "/status" => {
+            if arg.is_empty() {
+                // Show status for active project or all running
+                show_all_running_status(tg, scan_dir).await;
+            } else {
+                show_autorun_status(tg, scan_dir, arg).await;
+            }
+        }
+        _ => {
+            // Unknown slash command -- treat as chat if we have context
+            if let Some(target) = resolve_chat_target(sessions, scan_dir) {
+                invoke_chat(tg, sessions, scan_dir, args, &target, text).await;
+            } else {
+                tg.notify(&format!(
+                    "Unknown command. Send <code>/commands</code> for help.",
+                ))
+                .await;
+            }
+        }
     }
 }
 
@@ -766,6 +888,100 @@ fn resolve_chat_target(sessions: &SessionManager, scan_dir: &Path) -> Option<Str
         return Some(projects[0].id.clone());
     }
     None
+}
+
+/// Parse "project-id: message" or "project-id message" prefix syntax.
+/// Only matches if the prefix is a known project ID.
+fn parse_project_prefix<'a>(text: &'a str, known_ids: &[String]) -> Option<(String, &'a str)> {
+    // Try "id: message" first
+    if let Some((prefix, rest)) = text.split_once(':') {
+        let prefix = prefix.trim();
+        if known_ids.iter().any(|id| id == prefix) {
+            return Some((prefix.to_string(), rest.trim()));
+        }
+    }
+    // Try "id message" (first word is a project ID)
+    if let Some((first, rest)) = text.split_once(|c: char| c.is_whitespace()) {
+        let first = first.trim();
+        if known_ids.iter().any(|id| id == first) {
+            return Some((first.to_string(), rest.trim()));
+        }
+    }
+    None
+}
+
+/// Get all known project IDs from discovery.
+fn discover_project_ids(scan_dir: &Path) -> Vec<String> {
+    discovery::discover_projects(scan_dir)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|p| p.id)
+        .collect()
+}
+
+/// Show a compact text list of all discovered projects.
+async fn show_project_list(tg: &mut ChatTelegramClient, scan_dir: &Path) {
+    let projects = match discovery::discover_projects(scan_dir) {
+        Ok(p) => p,
+        Err(e) => {
+            tg.notify(&format!("❌ {}", escape_html(&e.to_string())))
+                .await;
+            return;
+        }
+    };
+
+    if projects.is_empty() {
+        tg.notify("No projects found.").await;
+        return;
+    }
+
+    let mut msg = format!("📋 <b>Projects</b> ({})\n{DIV}\n", projects.len());
+    for p in &projects {
+        let status = if p.running { "🟢" } else { "⚪" };
+        msg.push_str(&format!(
+            "{status} <code>{id}</code> -- {dir}\n",
+            id = escape_html(&p.id),
+            dir = escape_html(&p.directory),
+        ));
+    }
+    tg.notify(&msg).await;
+}
+
+/// Show status for all currently running autoruns.
+async fn show_all_running_status(tg: &mut ChatTelegramClient, scan_dir: &Path) {
+    let projects = match discovery::discover_projects(scan_dir) {
+        Ok(p) => p,
+        Err(e) => {
+            tg.notify(&format!("❌ {}", escape_html(&e.to_string())))
+                .await;
+            return;
+        }
+    };
+
+    let running: Vec<_> = projects.iter().filter(|p| p.running).collect();
+    if running.is_empty() {
+        tg.notify("No autoruns currently running.").await;
+        return;
+    }
+
+    let mut msg = format!("📊 <b>Running Autoruns</b> ({})\n{DIV}\n", running.len());
+    for proj in &running {
+        if let Some(ref state) = proj.autorun_state {
+            let uptime = format_duration_since(&state.stats.started_at);
+            let proj_path = Path::new(&proj.directory);
+            let (tasks_done, tasks_total) = task_counts(proj_path);
+            msg.push_str(&format!(
+                "\n🟢 <code>{id}</code>\n\
+                 ⏱ {uptime} · 🔄 #{inv} · 📋 {done}/{total} · 💰 ${cost:.2}\n",
+                id = escape_html(&proj.id),
+                inv = state.invocation_count,
+                done = tasks_done,
+                total = tasks_total,
+                cost = state.stats.total_cost_usd,
+            ));
+        }
+    }
+    tg.notify(&msg).await;
 }
 
 /// Find the directory for a project by ID via filesystem discovery.
