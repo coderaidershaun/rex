@@ -191,6 +191,7 @@ Restart=on-failure
 
 RestartSec=5
 Environment=HOME=/home/ubuntu
+Environment=PATH=/home/ubuntu/.local/bin:/home/ubuntu/.cargo/bin:/usr/local/bin:/usr/bin:/bin
 EnvironmentFile=/home/ubuntu/.env
 
 # Logging
