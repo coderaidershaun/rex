@@ -159,7 +159,7 @@ ExecStart=/home/ubuntu/.cargo/bin/rex-chat
 Restart=on-failure
 RestartSec=5
 Environment=HOME=/home/ubuntu
-EnvironmentFile=/home/ubuntu/.env
+EnvironmentFile=/usr/bin/env
 
 # Logging
 StandardOutput=journal

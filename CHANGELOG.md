@@ -2,6 +2,12 @@
 
 All notable changes to **rex-cli** are documented here.
 
+## 0.2.0 — 2026-04-04
+
+- **Project-agnostic rex-chat** — Rex-chat no longer requires `--project-dir`. It auto-discovers all rex projects by scanning the filesystem from `$HOME` (or a custom `--scan-dir` root) for `rex/projects.json` files. No CWD dependency, no single-registry assumption — just run `rex-chat` and it finds everything.
+- **Real-time state monitoring** — Rex-chat polls the filesystem every 5 seconds and sends Telegram notifications when projects are created, removed, or when autoruns start or stop. No manual refresh needed.
+- **Breaking: `--project-dir` replaced by `--scan-dir`** — The old `--project-dir` flag is removed. Use `--scan-dir` to narrow the scan root, or omit it to scan `$HOME`. The systemd service no longer needs `WorkingDirectory` or project-specific paths.
+
 ## 0.1.30 — 2026-04-04
 
 - **Dependency upgrades** — Bump console 0.15→0.16, dialoguer 0.11→0.12, reqwest 0.12→0.13, teloxide 0.13→0.17. Reqwest TLS feature renamed from `rustls-tls` to `rustls` (now uses aws-lc crypto backend). All public APIs remain compatible.
