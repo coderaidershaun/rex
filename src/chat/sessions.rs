@@ -1,11 +1,11 @@
-//! Chat session management: per-project Claude sessions with message routing.
+//! Chat session management: per-project Claude sessions with process tracking.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use crate::errors::{RexError, RexResult};
 
@@ -16,13 +16,17 @@ pub struct ChatSession {
     pub claude_session_id: Option<String>,
     pub session_name: String,
     pub last_activity: DateTime<Utc>,
+    /// Process group ID of an active Claude process (if running).
+    pub active_pgid: Option<i32>,
 }
 
 /// Manages chat sessions and message-to-project routing.
 pub struct SessionManager {
     sessions: HashMap<String, ChatSession>,
-    /// message_id → project_id for reply routing.
+    /// message_id -> project_id for reply routing.
     message_to_project: HashMap<i64, String>,
+    /// Last project the user chatted with (for smart routing).
+    pub last_active: Option<String>,
 }
 
 const CHAT_SYSTEM_PROMPT: &str = r#"You are a project assistant responding to a user query via Telegram.
@@ -30,7 +34,7 @@ const CHAT_SYSTEM_PROMPT: &str = r#"You are a project assistant responding to a 
 RULES:
 - You MUST invoke the /rex-chat skill to handle the user's request.
 - Keep your response under 3500 characters.
-- Use plain text only — no HTML tags, no markdown.
+- Use plain text only -- no HTML tags, no markdown.
 - Do NOT output any JSON status objects.
 - Be concise and actionable."#;
 
@@ -39,6 +43,7 @@ impl SessionManager {
         Self {
             sessions: HashMap::new(),
             message_to_project: HashMap::new(),
+            last_active: None,
         }
     }
 
@@ -56,6 +61,7 @@ impl SessionManager {
                 claude_session_id: None,
                 session_name: format!("rex-chat-{project_id}"),
                 last_activity: Utc::now(),
+                active_pgid: None,
             })
     }
 
@@ -71,6 +77,7 @@ impl SessionManager {
     }
 
     /// Clean up sessions that have been idle longer than the timeout.
+    /// Kills any active Claude processes for stale sessions.
     pub fn cleanup_stale(&mut self, timeout: Duration) {
         let cutoff = Utc::now() - chrono::Duration::from_std(timeout).unwrap_or_default();
         let stale: Vec<String> = self
@@ -81,14 +88,34 @@ impl SessionManager {
             .collect();
 
         for id in &stale {
-            self.sessions.remove(id);
-            info!(project_id = %id, "cleaned up stale chat session");
+            if let Some(session) = self.sessions.remove(id) {
+                kill_session_process(&session);
+                info!(project_id = %id, "cleaned up stale chat session");
+            }
         }
 
         if !stale.is_empty() {
             // Clean up message mappings for stale sessions
             self.message_to_project
                 .retain(|_, pid| !stale.contains(pid));
+        }
+    }
+
+    /// Kill all active Claude processes across all sessions.
+    /// Called on daemon shutdown to prevent orphaned processes.
+    pub fn kill_all(&mut self) {
+        for (pid, session) in &mut self.sessions {
+            if let Some(pgid) = session.active_pgid.take() {
+                info!(project = %pid, pgid, "killing chat claude process group on shutdown");
+                unsafe {
+                    libc::killpg(pgid, libc::SIGTERM);
+                }
+                // Give it a moment, then force kill
+                std::thread::sleep(Duration::from_millis(500));
+                unsafe {
+                    libc::killpg(pgid, libc::SIGKILL);
+                }
+            }
         }
     }
 
@@ -114,15 +141,36 @@ impl SessionManager {
             &session.session_name,
             max_turns,
             max_budget_usd,
+            &mut session.active_pgid,
         )
         .await?;
 
         session.claude_session_id = Some(new_session_id);
+        self.last_active = Some(project_id.to_string());
         Ok(response)
     }
 }
 
+/// Kill the process group for a session if one is active.
+fn kill_session_process(session: &ChatSession) {
+    if let Some(pgid) = session.active_pgid {
+        warn!(
+            project = %session.project_id,
+            pgid,
+            "killing orphaned chat claude process group"
+        );
+        unsafe {
+            libc::killpg(pgid, libc::SIGTERM);
+        }
+        std::thread::sleep(Duration::from_millis(500));
+        unsafe {
+            libc::killpg(pgid, libc::SIGKILL);
+        }
+    }
+}
+
 /// Spawn Claude and wait for the response.
+/// Tracks the process group ID via `active_pgid` so it can be killed on cleanup.
 async fn spawn_and_await(
     project_dir: &Path,
     prompt: &str,
@@ -130,6 +178,7 @@ async fn spawn_and_await(
     session_name: &str,
     max_turns: u32,
     max_budget_usd: f64,
+    active_pgid: &mut Option<i32>,
 ) -> RexResult<(String, String)> {
     let mut cmd = tokio::process::Command::new("claude");
     cmd.current_dir(project_dir);
@@ -160,6 +209,7 @@ async fn spawn_and_await(
 
     cmd.env("REX_CHAT", "1");
 
+    // Process group isolation: child becomes its own group leader.
     #[cfg(unix)]
     unsafe {
         cmd.pre_exec(|| {
@@ -177,7 +227,19 @@ async fn spawn_and_await(
         RexError::ClaudeProcess(format!("failed to spawn chat claude: {e}"))
     })?;
 
-    await_chat_claude(child).await
+    // Track the process group so it can be killed on cleanup/shutdown.
+    // PGID = PID because of setpgid(0, 0).
+    let pid = child.id().unwrap_or(0);
+    let pgid = pid as i32;
+    *active_pgid = Some(pgid);
+    info!(pid, pgid, "chat claude process started");
+
+    let result = await_chat_claude(child).await;
+
+    // Clear the tracked PGID -- process is done.
+    *active_pgid = None;
+
+    result
 }
 
 async fn await_chat_claude(
@@ -232,8 +294,22 @@ async fn await_chat_claude(
         Ok(Err(e)) => Err(RexError::ClaudeProcess(format!(
             "chat process error: {e}"
         ))),
-        Err(_) => Err(RexError::ClaudeProcess(
-            "chat claude timed out (10 min)".into(),
-        )),
+        Err(_) => {
+            // Timeout -- kill the process group
+            if let Some(id) = child.id() {
+                let pgid = id as i32;
+                warn!(pgid, "chat claude timed out, killing process group");
+                unsafe {
+                    libc::killpg(pgid, libc::SIGTERM);
+                }
+                tokio::time::sleep(Duration::from_millis(500)).await;
+                unsafe {
+                    libc::killpg(pgid, libc::SIGKILL);
+                }
+            }
+            Err(RexError::ClaudeProcess(
+                "chat claude timed out (10 min)".into(),
+            ))
+        }
     }
 }

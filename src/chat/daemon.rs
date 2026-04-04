@@ -122,6 +122,9 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
         }
     };
 
+    // Kill all active Claude processes to prevent orphans
+    sessions.kill_all();
+
     // Cleanup
     tg.notify("🏠 <b>Rex Chat offline</b>").await;
     info!("rex-chat daemon stopped");
@@ -285,8 +288,12 @@ async fn handle_text_message(
         return;
     }
 
-    // Unrecognized message -> show project menu
-    show_project_menu(tg, scan_dir).await;
+    // Smart routing: recent session > single project > show menu
+    if let Some(target) = resolve_chat_target(sessions, scan_dir) {
+        invoke_chat(tg, sessions, scan_dir, args, &target, text).await;
+    } else {
+        show_project_menu(tg, scan_dir).await;
+    }
 }
 
 // -- Action handlers ----------------------------------------------------------
@@ -745,6 +752,21 @@ async fn notify_state_change(tg: &mut ChatTelegramClient, change: &StateChange) 
 }
 
 // -- Helpers ------------------------------------------------------------------
+
+/// Determine which project a bare message should route to.
+/// Returns the project ID if routing is unambiguous.
+fn resolve_chat_target(sessions: &SessionManager, scan_dir: &Path) -> Option<String> {
+    // If the user has chatted recently, continue that conversation
+    if let Some(ref last) = sessions.last_active {
+        return Some(last.clone());
+    }
+    // If there's exactly one project, route there
+    let projects = discovery::discover_projects(scan_dir).ok()?;
+    if projects.len() == 1 {
+        return Some(projects[0].id.clone());
+    }
+    None
+}
 
 /// Find the directory for a project by ID via filesystem discovery.
 fn find_project_dir(scan_dir: &Path, project_id: &str) -> Option<String> {

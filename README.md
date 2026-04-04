@@ -71,6 +71,7 @@ rex-autorun
 # Always use --project-dir with an absolute path so the process
 # finds the correct project regardless of working directory.
 nohup rex-autorun --project-dir /absolute/path/to/project > /dev/null 2>&1 &
+nohup rex-autorun --project-dir /home/ubuntu/code/rex-projects/libs/polyapi > /dev/null 2>&1 &
 ```
 
 Autorun options:
