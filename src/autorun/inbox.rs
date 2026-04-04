@@ -137,37 +137,59 @@ pub struct AutorunEntry {
     pub expected_message_id: Option<i64>,
 }
 
-/// Register an autorun in the shared registry.
+/// Register an autorun in the shared registry (locked).
 pub fn register_autorun(
     root_dir: &Path,
     project_id: &str,
     entry: AutorunEntry,
 ) -> RexResult<()> {
+    let _lock = lock_registry(root_dir);
     let mut registry = load_registry(root_dir);
     registry.autoruns.insert(project_id.to_string(), entry);
     write_registry(root_dir, &registry)
 }
 
-/// Deregister an autorun from the shared registry.
+/// Deregister an autorun from the shared registry (locked).
 pub fn deregister_autorun(root_dir: &Path, project_id: &str) {
+    let _lock = lock_registry(root_dir);
     if let Ok(mut registry) = load_registry_raw(root_dir) {
         registry.autoruns.remove(project_id);
         let _ = write_registry(root_dir, &registry);
     }
 }
 
-/// Update the expected_message_id for an autorun in the registry.
+/// Update the expected_message_id for an autorun in the registry (locked).
 pub fn update_expected_message_id(
     root_dir: &Path,
     project_id: &str,
     msg_id: Option<i64>,
 ) {
+    let _lock = lock_registry(root_dir);
     if let Ok(mut registry) = load_registry_raw(root_dir)
         && let Some(entry) = registry.autoruns.get_mut(project_id)
     {
         entry.expected_message_id = msg_id;
         let _ = write_registry(root_dir, &registry);
     }
+}
+
+/// Acquire a blocking lock on the registry file to prevent concurrent modifications.
+fn lock_registry(root_dir: &Path) -> Option<PollLockGuard> {
+    let path = root_dir.join(".rex-autorun-registry.lock");
+    let c_path = std::ffi::CString::new(path.to_string_lossy().as_bytes()).ok()?;
+    let fd = unsafe {
+        libc::open(c_path.as_ptr(), libc::O_CREAT | libc::O_RDWR, 0o644)
+    };
+    if fd < 0 {
+        return None;
+    }
+    // Blocking lock — waits until acquired
+    let result = unsafe { libc::flock(fd, libc::LOCK_EX) };
+    if result != 0 {
+        unsafe { libc::close(fd) };
+        return None;
+    }
+    Some(PollLockGuard { fd })
 }
 
 /// Load the registry, pruning dead PIDs.

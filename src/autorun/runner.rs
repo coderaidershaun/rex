@@ -106,6 +106,23 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
     let state_path = project_dir.join(".rex-autorun.json");
     let log_path = args.log_file.clone().unwrap_or_else(|| project_dir.join(".rex-autorun.log"));
 
+    // Register in the autorun registry early — before recovery, so that the
+    // recovery path participates in cooperative triage and other autoruns can
+    // route messages to us. The guard ensures deregistration on ALL exit paths.
+    let _ = inbox::register_autorun(
+        &project_dir,
+        &project_id,
+        inbox::AutorunEntry {
+            pid: std::process::id(),
+            project_dir: project_dir.display().to_string(),
+            expected_message_id: None,
+        },
+    );
+    let _registry_guard = RegistryGuard {
+        root_dir: &project_dir,
+        project_id: &project_id,
+    };
+
     // Check/recover state
     let recovery = state::recover_state(&state_path);
     let (mut stats, mut invocation_count, telegram_offset) = match recovery {
@@ -318,17 +335,6 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
     // Create Telegram client for main loop
     let mut tg = TelegramClient::new(telegram_token, telegram_chat_id, telegram_offset, project_dir.clone(), project_id.clone());
 
-    // Register in the autorun registry for cooperative triage
-    let _ = inbox::register_autorun(
-        &project_dir,
-        &project_id,
-        inbox::AutorunEntry {
-            pid: std::process::id(),
-            project_dir: project_dir.display().to_string(),
-            expected_message_id: None,
-        },
-    );
-
     // Log + notify start
     log_event(&log_path, &LogEvent::Started {
         project_id: project_id.clone(),
@@ -379,8 +385,7 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
     };
 
     // Deregister from the autorun registry
-    inbox::deregister_autorun(&project_dir, &project_id);
-
+    // _registry_guard drops here, ensuring deregistration on all exit paths
     result
 }
 
@@ -1010,6 +1015,19 @@ async fn main_loop(
                 return Ok(ExitCode::from(1));
             }
         }
+    }
+}
+
+/// RAII guard that deregisters from the autorun registry on drop.
+/// Ensures cleanup on all exit paths (including early returns and panics).
+struct RegistryGuard<'a> {
+    root_dir: &'a Path,
+    project_id: &'a str,
+}
+
+impl Drop for RegistryGuard<'_> {
+    fn drop(&mut self) {
+        inbox::deregister_autorun(self.root_dir, self.project_id);
     }
 }
 
