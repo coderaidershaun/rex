@@ -1,3 +1,4 @@
+pub mod autorun;
 pub mod checklist;
 pub mod git;
 pub mod history;

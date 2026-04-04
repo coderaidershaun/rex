@@ -19,6 +19,10 @@ path = "src/bin/main.rs"
 name = "rex-autorun"
 path = "src/bin/autorun.rs"
 
+[[bin]]
+name = "rex-chat"
+path = "src/bin/chat.rs"
+
 [lib]
 name = "rex_cli"
 path = "src/lib.rs"

@@ -10,7 +10,6 @@ use tracing::{error, info, warn};
 
 use crate::models::project::ProjectRegistry;
 
-use super::chat;
 use super::claude::{self, is_retryable};
 use super::state::{self, RecoveryAction};
 use super::telegram::{TelegramClient, TelegramPollResult};
@@ -102,14 +101,6 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
         "loaded active project"
     );
 
-    // Create chat manager for /chat command handling
-    let chat_manager = chat::new_manager(
-        telegram_token.clone(),
-        telegram_chat_id,
-        project_id.clone(),
-        project_dir.clone(),
-    );
-
     // State file and log file paths
     let state_path = project_dir.join(".rex-autorun.json");
     let log_path = args.log_file.clone().unwrap_or_else(|| project_dir.join(".rex-autorun.log"));
@@ -145,6 +136,7 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
                 telegram_token.clone(),
                 telegram_chat_id,
                 telegram_update_offset,
+                project_dir.clone(),
             );
 
             let msg = format!(
@@ -172,7 +164,7 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
             // Wait for reply (with reply-to matching)
             let human_timeout = Duration::from_secs(args.human_timeout_days * 86400);
             let recovery_query = build_query_response(&project_id, &stats, invocation_count);
-            match tg.wait_for_reply(recovery_msg_id, &project_id, human_timeout, &recovery_query, &chat_manager).await {
+            match tg.wait_for_reply(recovery_msg_id, &project_id, human_timeout, &recovery_query).await {
                 Ok(TelegramPollResult::Reply(reply)) => {
                     send_ack(&tg, &project_id).await;
 
@@ -211,7 +203,7 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
                     let recovery_q2 = build_query_response(&project_id, &stats, invocation_count);
                     let invoke_result = tokio::select! {
                         result = claude::await_claude(spawned, timeout) => result,
-                        _ = tg.poll_for_kill(&project_id, &recovery_q2, &chat_manager) => {
+                        _ = tg.poll_for_kill(&project_id, &recovery_q2) => {
                             claude::kill_process_group(pgid).await;
                             Err(RexError::Killed)
                         }
@@ -272,7 +264,7 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
                         }
                         Err(RexError::AuthExpired(_)) => {
                             warn!("claude auth expired during recovery, attempting refresh");
-                            match attempt_auth_refresh(&mut tg, &project_id, &project_dir, &log_path, &chat_manager).await {
+                            match attempt_auth_refresh(&mut tg, &project_id, &project_dir, &log_path).await {
                                 Ok(true) => {
                                     // Auth refreshed — fall through to main loop
                                     (stats, invocation_count, Some(tg.update_offset))
@@ -319,7 +311,7 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
     };
 
     // Create Telegram client for main loop
-    let mut tg = TelegramClient::new(telegram_token, telegram_chat_id, telegram_offset);
+    let mut tg = TelegramClient::new(telegram_token, telegram_chat_id, telegram_offset, project_dir.clone());
 
     // Log + notify start
     log_event(&log_path, &LogEvent::Started {
@@ -334,12 +326,11 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
          {DIV}\n\
          <b>Commands:</b>\n\
          <code>/kill {pid}</code> — stop autorun\n\
-         <code>/query {pid}</code> — show live stats\n\
-         <code>/chat {pid} &lt;question&gt;</code> — ask about the project",
+         <code>/query {pid}</code> — show live stats",
         pid = escape_html(&project_id),
         pt = escape_html(&project_title),
         pd = escape_html(&project_directory),
-    )).await;
+    ), &project_id).await;
 
     // Signal handling + main loop
     let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
@@ -366,7 +357,6 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
             &mut tg,
             &mut stats,
             &mut invocation_count,
-            &chat_manager,
         ) => {
             result
         }
@@ -384,7 +374,6 @@ async fn main_loop(
     tg: &mut TelegramClient,
     stats: &mut RunStats,
     invocation_count: &mut u32,
-    chat_manager: &chat::ChatManager,
 ) -> RexResult<ExitCode> {
     let mut consecutive_errors = 0u32;
     let mut auth_refreshed = false;
@@ -493,7 +482,7 @@ async fn main_loop(
         let query_resp = build_query_response(project_id, stats, n);
         let invoke_result = tokio::select! {
             result = claude::await_claude(spawned, timeout) => result,
-            _ = tg.poll_for_kill(project_id, &query_resp, chat_manager) => {
+            _ = tg.poll_for_kill(project_id, &query_resp) => {
                 claude::kill_process_group(pgid).await;
                 Err(RexError::Killed)
             }
@@ -543,7 +532,7 @@ async fn main_loop(
                                 stats = output.telegram_stats(),
                                 cost = cost,
                                 dur = output.duration_ms / 1000,
-                            ))
+                            ), project_id)
                             .await;
 
                             state::delete_state(state_path);
@@ -645,7 +634,7 @@ async fn main_loop(
                                 // Wait for reply (with reply-to matching)
                                 let human_timeout = Duration::from_secs(args.human_timeout_days * 86400);
                                 let input_query = build_query_response(project_id, stats, n);
-                                let reply = match tg.wait_for_reply(question_msg_id, project_id, human_timeout, &input_query, chat_manager).await {
+                                let reply = match tg.wait_for_reply(question_msg_id, project_id, human_timeout, &input_query).await {
                                     Ok(TelegramPollResult::Reply(r)) => r,
                                     Ok(TelegramPollResult::Kill) => {
                                         return Ok(handle_kill(tg, project_id, log_path, state_path).await);
@@ -712,7 +701,7 @@ async fn main_loop(
                                 let resume_query = build_query_response(project_id, stats, n);
                                 let resume_result = tokio::select! {
                                     result = claude::await_claude(spawned, timeout) => result,
-                                    _ = tg.poll_for_kill(project_id, &resume_query, chat_manager) => {
+                                    _ = tg.poll_for_kill(project_id, &resume_query) => {
                                         claude::kill_process_group(resume_pgid).await;
                                         Err(RexError::Killed)
                                     }
@@ -725,7 +714,7 @@ async fn main_loop(
                                     }
                                     Err(RexError::AuthExpired(_)) if !auth_refreshed => {
                                         warn!("claude auth expired during resume, attempting refresh");
-                                        match attempt_auth_refresh(tg, project_id, project_dir, log_path, chat_manager).await {
+                                        match attempt_auth_refresh(tg, project_id, project_dir, log_path).await {
                                             Ok(true) => {
                                                 auth_refreshed = true;
                                                 state::delete_state(state_path);
@@ -823,7 +812,7 @@ async fn main_loop(
                                             rstats = resume_output.telegram_stats(),
                                             cost = resume_output.effective_cost(),
                                             dur = resume_output.duration_ms / 1000,
-                                        )).await;
+                                        ), project_id).await;
                                         state::delete_state(state_path);
                                         // Brief cooldown to avoid hammering the API and let the filesystem settle.
                                         info!(n, "invocation completed, cooling down 5s");
@@ -929,7 +918,7 @@ async fn main_loop(
             }
             Err(RexError::AuthExpired(_)) if !auth_refreshed => {
                 warn!("claude auth expired, attempting refresh");
-                match attempt_auth_refresh(tg, project_id, project_dir, log_path, chat_manager).await {
+                match attempt_auth_refresh(tg, project_id, project_dir, log_path).await {
                     Ok(true) => {
                         auth_refreshed = true;
                         state::delete_state(state_path);
@@ -1135,7 +1124,6 @@ async fn attempt_auth_refresh(
     project_id: &str,
     project_dir: &Path,
     log_path: &Path,
-    chat_manager: &chat::ChatManager,
 ) -> RexResult<bool> {
     info!("attempting auth refresh via `claude auth login`");
 
@@ -1191,7 +1179,7 @@ async fn attempt_auth_refresh(
         pid = escape_html(project_id),
     );
     let result = tg
-        .wait_for_reply(msg_id, project_id, auth_timeout, &auth_query, chat_manager)
+        .wait_for_reply(msg_id, project_id, auth_timeout, &auth_query)
         .await;
 
     // Clean up auth process

@@ -52,6 +52,21 @@ enum Commands {
         #[command(subcommand)]
         action: HistoryAction,
     },
+    /// Autorun management
+    Autorun {
+        #[command(subcommand)]
+        action: AutorunAction,
+    },
+}
+
+#[derive(Subcommand)]
+enum AutorunAction {
+    /// List running autoruns across all registered projects
+    List {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 // ---------------------------------------------------------------------------
@@ -556,6 +571,8 @@ All commands:
   rex history get-recent                    Get recent history entries as JSON
   rex history list                          List all history (recent and archived) as JSON
 
+  rex autorun list [--json]                 List running autoruns across all registered projects
+
 Autorun (separate binary — headless autopilot with Telegram):
 
   rex-autorun [OPTIONS]                     Run the active project autonomously
@@ -571,6 +588,20 @@ Autorun (separate binary — headless autopilot with Telegram):
   Telegram commands (send to bot while autorun is running):
       /kill <project-id>                    Terminate the autorun session
       /query <project-id>                   Show live stats and other running autoruns
+
+Rex Chat (separate binary — Telegram chat interface for all projects):
+
+  rex-chat [OPTIONS]                        Telegram chat daemon for all rex projects
+      --project-dir <PATH>                  Directory with rex/projects.json (default: .)
+      --max-budget-usd <AMT>               Budget per chat invocation (default: 10)
+      --max-turns <N>                       Max turns per chat invocation (default: 50)
+      --session-timeout-mins <N>            Idle session timeout (default: 30)
+
+  Telegram commands (send to rex-chat bot):
+      /rex-chat                             Show project dashboard with buttons
+      /rex-chat <project-id> <message>      Chat about a project
+      /kill <project-id>                    Stop a running autorun
+      /query <project-id>                   Show autorun status
 
   Background usage (recommended):
       nohup rex-autorun --project-dir /absolute/path/to/project > /dev/null 2>&1 &";
@@ -756,6 +787,9 @@ fn main() {
             }
             HistoryAction::GetRecent => rex_cli::commands::history::get_recent(),
             HistoryAction::List => rex_cli::commands::history::list(),
+        },
+        Commands::Autorun { action } => match action {
+            AutorunAction::List { json } => rex_cli::commands::autorun::list(json),
         },
     };
 
