@@ -148,7 +148,7 @@ Wants=network-online.target
 Type=simple
 User=YOUR_USERNAME
 WorkingDirectory=/absolute/path/to/project-root
-ExecStart=/absolute/path/to/rex-chat --project-dir /absolute/path/to/project-root
+ExecStart=/home/ubuntu/.cargo/bin/rex-chat --project-dir /absolute/path/to/project-root
 Restart=on-failure
 RestartSec=5
 Environment=REX_AUTOCHAT_TELEGRAM_BOT_TOKEN=your-chat-bot-token
