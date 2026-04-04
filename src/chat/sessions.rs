@@ -143,7 +143,7 @@ async fn spawn_and_await(
         .arg("--output-format")
         .arg("json")
         .arg("--model")
-        .arg("sonnet")
+        .arg("sonnet[1m]")
         .arg("--effort")
         .arg("high")
         .arg("--dangerously-skip-permissions")
