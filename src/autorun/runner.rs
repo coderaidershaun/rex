@@ -161,12 +161,12 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
             let msg = format!(
                 "💬 <b>Input needed (recovered)</b>  ·  <code>{pid}</code>\n\
                  {DIV}\n\
-                 <blockquote>{q}</blockquote>\n\n\
+                 {q}\n\n\
                  <i>Reply to this message with your answer</i>",
                 pid = escape_html(&project_id),
                 q = escape_html(&question),
             );
-            let recovery_msg_id = match tg.send_question(&msg).await {
+            let recovery_msg_id = match tg.send_with_buttons(&msg, &project_id).await {
                 Ok(id) => {
                     inbox::update_expected_message_id(&project_dir, &project_id, Some(id));
                     id
@@ -624,11 +624,11 @@ async fn main_loop(
                                     timestamp: now_iso(),
                                 });
 
-                                // Send question to Telegram with force_reply
+                                // Send question to Telegram with inline buttons
                                 let msg = format!(
                                     "💬 <b>Input needed</b>  ·  <code>{pid}</code>{itag}\n\
                                      {DIV}\n\
-                                     <blockquote>{q}</blockquote>\n\
+                                     {q}\n\
                                      {DIV}\n\
                                      {stats}\n\n\
                                      <i>Reply to this message with your answer</i>",
@@ -637,7 +637,7 @@ async fn main_loop(
                                     q = escape_html(&current_question),
                                     stats = output.telegram_stats(),
                                 );
-                                let question_msg_id = match tg.send_question(&msg).await {
+                                let question_msg_id = match tg.send_with_buttons(&msg, project_id).await {
                                     Ok(id) => {
                                         inbox::update_expected_message_id(project_dir, project_id, Some(id));
                                         let mut updated = pending_state;
