@@ -116,93 +116,14 @@ While autorun is running, you can send commands to your Telegram bot at any time
 
 | Command | Description |
 |---------|-------------|
-| `/kill <project-id>` | Terminate the autorun session immediately. Kills any running Claude process, cleans up state, and exits with code 6. You can also send `/kill` without a project ID to kill the current session. |
-| `/query <project-id>` | Show live stats for the project: total uptime, context usage (last and average over last 50 sessions), session duration (last and average), total cost. Also lists any other autorun instances detected on the machine. `/query` without a project ID also works. |
+| `/kill <project-id>` | Terminate the autorun session immediately. Kills any running Claude process, cleans up state, and exits with code 6. `/kill` without a project ID kills the current session. |
+| `/query <project-id>` | Show live stats: uptime, context usage, session duration, task progress, cost, and other running autoruns. `/query` without a project ID also works. |
+| `/commands` | Show available commands. |
+| `/start` | Same as `/commands`. |
+| `/menu` | Same as `/commands`. |
+| `/clear` | Clear chat history (deletes recent messages). |
 
----
-
-## Telegram Message Format
-
-All Telegram messages use HTML formatting. Messages sent after a Claude invocation include a **header line** showing the model, speed mode, and context window usage percentage.
-
-**Autorun started:**
-```
-[my-project] Autorun started
-Project: My Auth System
-Directory: /Users/me/Code/auth-system
-```
-
-**Item completed (with model header):**
-```
-claude-sonnet-4-6  |  standard  |  12.3% context
-━━━━━━━━━━━━━━━━━━━━
-[my-project] Completed #3
-Completed: goal (onboarding)
-
-Cost: $1.23  |  Duration: 45s
-```
-
-**Input needed (with ForceReply):**
-```
-claude-sonnet-4-6  |  standard  |  8.5% context
-━━━━━━━━━━━━━━━━━━━━
-[my-project] Input needed
-
-What is the primary goal of your project?
-
-Reply to this message with your answer
-```
-
-Questions are sent with Telegram's ForceReply markup, which prompts your Telegram client to reply directly to the message. Only replies to the specific question message are accepted — stray messages in the chat are ignored and logged.
-
-**Acknowledgment (on reply received):**
-```
-[my-project]
-Copy that! Processing now...
-```
-
-When you reply to a question, an immediate acknowledgment is sent (randomly chosen from 50 fun responses) to confirm your input was received before Claude starts processing.
-
-**Project complete:**
-```
-claude-sonnet-4-6  |  standard  |  45.2% context
-━━━━━━━━━━━━━━━━━━━━
-[my-project] Project complete!
-Invocations: 27  |  Cost: $89.45  |  Duration: 6h 12m
-```
-
-**Query response:**
-```
-[my-project] Autorun Status
-━━━━━━━━━━━━━━━━━━━━
-Total uptime: 2h 15m
-Context: 1.9% last  ·  3.4% avg
-Session: 1m 8s last  ·  2m 15s avg
-Cost: $4.23
-
-Other autoruns:
-  other-project — 45m (#3 inv, $1.50)
-```
-
-**Auth expired:**
-```
-[my-project] Auth expired
-━━━━━━━━━━━━━━━━━━━━
-Your Claude token has expired.
-
-Please visit this URL to re-authorize:
-https://console.anthropic.com/oauth/...
-
-Reply when authorization is complete
-```
-
-**Error with retry:**
-```
-[my-project] Error
-claude timed out
-
-Retrying in 60s (attempt 2/5)
-```
+See `rex/docs/telegram.md` for the full Telegram reference including inline buttons, reply routing, and multi-autorun triage behaviour.
 
 ---
 
@@ -210,12 +131,13 @@ Retrying in 60s (attempt 2/5)
 
 Autorun uses Telegram's reply-to mechanism to prevent stray messages from being consumed as answers:
 
-1. When a question is sent, it uses **ForceReply** markup — your Telegram client will prompt you to reply directly to the message.
-2. Only messages with `reply_to_message.message_id` matching the question are accepted.
-3. Messages that are not replies to the question are logged at debug level and skipped.
-4. `/kill` and `/query` commands are always processed regardless of reply-to status.
+1. Questions are sent with inline **Reply** / **Stats** / **Kill** buttons.
+2. Tapping **Reply** sends a ForceReply prompt — your Telegram client will open the reply composer.
+3. Only messages with `reply_to_message.message_id` matching the question are accepted.
+4. Messages that are not replies to a question trigger an "unprocessed" response listing active autoruns.
+5. `/kill` and `/query` commands are always processed regardless of reply-to status.
 
-This means if you accidentally send a message in the chat that isn't a reply to the bot's question, it won't derail the project.
+When multiple autoruns share the same bot token, a cooperative triage system routes messages to the correct instance via a shared registry and per-project inbox files.
 
 ---
 
@@ -238,7 +160,7 @@ Auth refresh is attempted at most once per session. If auth fails again after re
 ### Core Loop
 
 1. Load the active project from `rex/projects.json`.
-2. Invoke `claude -p "/rex-operator" --output-format json --model sonnet --effort high --dangerously-skip-permissions`.
+2. Invoke `claude -p "/rex-operator" --output-format json --model sonnet[1m] --effort high --dangerously-skip-permissions`.
 3. While Claude runs, poll Telegram for `/kill` and `/query` commands (1-second polling interval).
 4. Parse the JSON output for a status: `completed`, `project_done`, `needs_input`, or `error`.
 5. Route:
