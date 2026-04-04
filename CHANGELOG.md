@@ -2,6 +2,11 @@
 
 All notable changes to **rex-cli** are documented here.
 
+## 0.1.30 — 2026-04-04
+
+- **Dependency upgrades** — Bump console 0.15→0.16, dialoguer 0.11→0.12, reqwest 0.12→0.13, teloxide 0.13→0.17. Reqwest TLS feature renamed from `rustls-tls` to `rustls` (now uses aws-lc crypto backend). All public APIs remain compatible.
+- **Fix `wait_for_reply` visibility** — Make `TelegramClient::wait_for_reply` public so integration tests can call it (was `pub(crate)`).
+
 ## 0.1.29 — 2026-04-04
 
 - **Separate chat and autorun Telegram bots** — Each daemon now uses its own dedicated bot token (`REX_AUTOCHAT_TELEGRAM_BOT_TOKEN` for rex-chat, `REX_AUTORUN_TELEGRAM_BOT_TOKEN` for rex-autorun) and `REX_TELEGRAM_CHAT_ID` as the shared chat ID. No more cross-filtering between bots or shared `TELEGRAM_BOT_TOKEN`.
