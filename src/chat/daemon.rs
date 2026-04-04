@@ -555,8 +555,9 @@ async fn invoke_chat(
 
     // Send thinking indicator
     let thinking_text = format!(
-        "🔍 <b>Rex Chat</b>  ·  <code>{pid}</code>\n{DIV}\nThinking...",
+        "🔍 <b>Rex Chat</b>  ·  <code>{pid}</code>\n{DIV}\n{status}",
         pid = escape_html(project_id),
+        status = random_thinking_message(),
     );
     let thinking_msg_id = match tg.send_message(&thinking_text).await {
         Ok(id) => id,
@@ -1045,6 +1046,68 @@ fn task_counts(project_dir: &Path) -> (usize, usize) {
         .filter(|t| t.status == PlanningStatus::Completed)
         .count();
     (done, total)
+}
+
+/// Pick a random thinking/working status message.
+fn random_thinking_message() -> &'static str {
+    const MESSAGES: &[&str] = &[
+        "Thinking...",
+        "On it...",
+        "Working on it...",
+        "Let me look into that...",
+        "Digging in...",
+        "Give me a moment...",
+        "Processing...",
+        "Looking into it...",
+        "One sec...",
+        "Checking...",
+        "Pulling up the details...",
+        "Investigating...",
+        "Hang tight...",
+        "Let me check...",
+        "Spinning up...",
+        "Crunching...",
+        "Searching the codebase...",
+        "Reading the code...",
+        "Analyzing...",
+        "Diving in...",
+        "Looking around...",
+        "Running through it...",
+        "Figuring it out...",
+        "Browsing the project...",
+        "Scanning...",
+        "Taking a look...",
+        "Getting the context...",
+        "Picking up where we left off...",
+        "Loading context...",
+        "Rifling through the code...",
+        "Parsing your request...",
+        "Consulting the source...",
+        "Let me see...",
+        "Poking around...",
+        "Tracing through...",
+        "Gathering info...",
+        "Sifting through the files...",
+        "Assembling an answer...",
+        "Bear with me...",
+        "Reviewing the code...",
+        "Mapping it out...",
+        "Following the trail...",
+        "Chasing that down...",
+        "Pulling threads...",
+        "Wiring it together...",
+        "Reading up...",
+        "Checking the source...",
+        "Almost there...",
+        "Connecting the dots...",
+        "Mulling it over...",
+    ];
+    let idx = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .subsec_nanos() as usize
+        % MESSAGES.len();
+    MESSAGES[idx]
 }
 
 /// Simple shell escaping for paths.
