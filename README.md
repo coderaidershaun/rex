@@ -71,7 +71,6 @@ rex-autorun
 # Always use --project-dir with an absolute path so the process
 # finds the correct project regardless of working directory.
 nohup rex-autorun --project-dir /absolute/path/to/project > /dev/null 2>&1 &
-nohup rex-autorun --project-dir /home/ubuntu/code/rex-projects/libs/polyapi > /dev/null 2>&1 &
 ```
 
 Autorun options:
@@ -189,9 +188,10 @@ Type=simple
 User=ubuntu
 ExecStart=/home/ubuntu/.cargo/bin/rex-chat
 Restart=on-failure
+
 RestartSec=5
 Environment=HOME=/home/ubuntu
-EnvironmentFile=/usr/bin/env
+EnvironmentFile=/home/ubuntu/.env
 
 # Logging
 StandardOutput=journal
@@ -200,6 +200,7 @@ SyslogIdentifier=rex-chat
 
 [Install]
 WantedBy=multi-user.target
+
 EOF
 ```
 
