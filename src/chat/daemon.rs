@@ -220,6 +220,25 @@ async fn handle_text_message(
     text: &str,
     reply_to: Option<i64>,
 ) {
+    // /clear → delete recent messages
+    if text.starts_with("/clear") {
+        tg.clear_history().await;
+        return;
+    }
+
+    // /commands → show available commands
+    if text.starts_with("/commands") {
+        tg.notify(
+            "📋 <b>Chat Commands</b>\n\n\
+             <code>/menu</code> — Show project dashboard\n\
+             <code>/start</code> — Show project dashboard\n\
+             <code>/commands</code> — Show this help\n\
+             <code>/clear</code> — Clear chat history",
+        )
+        .await;
+        return;
+    }
+
     // /start or /menu → show project dashboard
     if text.starts_with("/start") || text.starts_with("/menu") {
         show_project_menu(tg, project_dir).await;

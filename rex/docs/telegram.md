@@ -22,6 +22,8 @@ The chat bot provides a project dashboard and Claude-powered chat sessions.
 |---------|-------------|
 | `/start` | Show the project dashboard with inline buttons. |
 | `/menu` | Same as `/start`. |
+| `/commands` | Show available commands. |
+| `/clear` | Clear chat history (deletes recent messages). |
 | Any other text | Shows the project dashboard. |
 
 ### Inline Buttons
@@ -55,6 +57,10 @@ The autorun bot relays status updates and questions from the headless autopilot.
 | `/kill` | Kill the autorun that is currently polling (when only one is running). |
 | `/query <project-id>` | Show live stats for the specified project (uptime, cost, context usage, other running autoruns). |
 | `/query` | Show stats for the autorun that is currently polling. |
+| `/commands` | Show available commands. |
+| `/start` | Same as `/commands`. |
+| `/menu` | Same as `/commands`. |
+| `/clear` | Clear chat history (deletes recent messages). |
 
 ### Inline Buttons
 

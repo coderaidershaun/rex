@@ -435,6 +435,22 @@ impl TelegramClient {
                     continue;
                 }
 
+                // /clear command
+                if text.starts_with("/clear") {
+                    info!("received /clear command");
+                    self.clear_history().await;
+                    continue;
+                }
+
+                // /commands, /start, /menu — show available commands
+                if text.starts_with("/commands")
+                    || text.starts_with("/start")
+                    || text.starts_with("/menu")
+                {
+                    self.send_commands_help().await;
+                    continue;
+                }
+
                 // Check reply-to matching
                 let reply_to_msg_id =
                     msg["reply_to_message"]["message_id"].as_i64();
@@ -658,6 +674,17 @@ impl TelegramClient {
                             let _ = inbox::write_inbox(target_dir, &inbox::InboxMessage::Query);
                         }
                     }
+                    // /clear command
+                    else if text.starts_with("/clear") {
+                        self.clear_history().await;
+                    }
+                    // /commands, /start, /menu
+                    else if text.starts_with("/commands")
+                        || text.starts_with("/start")
+                        || text.starts_with("/menu")
+                    {
+                        self.send_commands_help().await;
+                    }
                     // Reply-to messages — route to correct autorun
                     else if let Some(reply_to_id) = msg["reply_to_message"]["message_id"].as_i64() {
                         for (pid, entry) in &registry.autoruns {
@@ -680,6 +707,47 @@ impl TelegramClient {
             }
             // Lock is released here when _lock goes out of scope
         }
+    }
+
+    // ── Delete / clear ────────────────────────────────────────────────────
+
+    /// Delete a message by ID. Silently ignores failures.
+    async fn delete_message(&self, message_id: i64) {
+        let body = serde_json::json!({
+            "chat_id": self.chat_id,
+            "message_id": message_id,
+        });
+        let _ = self
+            .http
+            .post(self.api_url("deleteMessage"))
+            .json(&body)
+            .timeout(Duration::from_secs(5))
+            .send()
+            .await;
+    }
+
+    /// Clear chat history by deleting recent messages.
+    async fn clear_history(&self) {
+        let marker_id = match self.send_message("🗑 Clearing...").await {
+            Ok(id) => id,
+            Err(_) => return,
+        };
+        for msg_id in (1..marker_id).rev().take(200) {
+            self.delete_message(msg_id).await;
+        }
+        self.delete_message(marker_id).await;
+    }
+
+    /// Send the list of available commands.
+    async fn send_commands_help(&self) {
+        self.notify(
+            "📋 <b>Autorun Commands</b>\n\n\
+             <code>/kill &lt;project-id&gt;</code> — Stop an autorun\n\
+             <code>/query &lt;project-id&gt;</code> — Show live stats\n\
+             <code>/commands</code> — Show this help\n\
+             <code>/clear</code> — Clear chat history",
+        )
+        .await;
     }
 
     // ── Notification helpers ─────────────────────────────────────────────

@@ -238,6 +238,38 @@ impl ChatTelegramClient {
         Ok(())
     }
 
+    /// Delete a message by ID. Silently ignores failures.
+    pub async fn delete_message(&self, message_id: i64) {
+        let body = serde_json::json!({
+            "chat_id": self.chat_id,
+            "message_id": message_id,
+        });
+        let _ = self
+            .http
+            .post(self.api_url("deleteMessage"))
+            .json(&body)
+            .timeout(Duration::from_secs(5))
+            .send()
+            .await;
+    }
+
+    /// Clear chat history by deleting recent messages.
+    pub async fn clear_history(&self) {
+        // Send a marker message to get the current message_id
+        let marker_id = match self.send_message("🗑 Clearing...").await {
+            Ok(id) => id,
+            Err(_) => return,
+        };
+
+        // Delete messages backwards from the marker
+        for msg_id in (1..marker_id).rev().take(200) {
+            self.delete_message(msg_id).await;
+        }
+
+        // Delete the marker itself
+        self.delete_message(marker_id).await;
+    }
+
     /// Fire-and-forget notification.
     pub async fn notify(&self, text: &str) {
         if let Err(e) = self.send_message(text).await {

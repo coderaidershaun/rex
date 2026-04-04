@@ -186,7 +186,19 @@ async fn test_all_chat_message_types() {
         .await;
     tokio::time::sleep(delay).await;
 
-    // 11. SHUTDOWN — plain notify
+    // 11. COMMANDS — help text
+    eprintln!("--- Sending: commands ---");
+    tg.notify(
+        "📋 <b>Chat Commands</b>\n\n\
+         <code>/menu</code> — Show project dashboard\n\
+         <code>/start</code> — Show project dashboard\n\
+         <code>/commands</code> — Show this help\n\
+         <code>/clear</code> — Clear chat history",
+    )
+    .await;
+    tokio::time::sleep(delay).await;
+
+    // 12. SHUTDOWN — plain notify
     eprintln!("--- Sending: shutdown ---");
     tg.notify("🏠 <b>Rex Chat offline</b>").await;
 

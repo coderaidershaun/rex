@@ -141,6 +141,18 @@ async fn test_all_autorun_message_types() {
         pid = escape_html(project_id),
     ))
     .await;
+    tokio::time::sleep(delay).await;
+
+    // 9. COMMANDS — help text
+    eprintln!("--- Sending: commands ---");
+    tg.notify(
+        "📋 <b>Autorun Commands</b>\n\n\
+         <code>/kill &lt;project-id&gt;</code> — Stop an autorun\n\
+         <code>/query &lt;project-id&gt;</code> — Show live stats\n\
+         <code>/commands</code> — Show this help\n\
+         <code>/clear</code> — Clear chat history",
+    )
+    .await;
 
     eprintln!("\n=== ALL MESSAGE TYPES SENT ===");
 }
