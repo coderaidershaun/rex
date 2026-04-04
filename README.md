@@ -164,6 +164,7 @@ nohup rex-autorun --project-dir /absolute/path/to/rex-projects/libs/api-server >
 | `rex project update [FLAGS]` | Update project fields (title, subtitle, description, directory, category, complexity) |
 | `rex project update-status <ITEM> <STATUS>` | Update a work item's status |
 | `rex project get-completion-percent` | Get project completion percentage (JSON) |
+| `rex project get-user-input` | Read and consume user-provided input |
 
 ### Planning Tree
 

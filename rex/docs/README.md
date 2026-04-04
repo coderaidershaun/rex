@@ -300,6 +300,7 @@ Each work item in `project-status.json` specifies how its agent(s) should be dis
 | `rex project update-status <item> <status>` | Update item status (not-started / in-progress / completed / not-required) |
 | `rex project next-item` | Get next incomplete item as JSON |
 | `rex project get-completion-percent` | Get project completion percentage as JSON (items + tasks) |
+| `rex project get-user-input` | Read and consume user-provided input from escalation |
 
 ### Checklist
 

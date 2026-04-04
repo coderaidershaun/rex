@@ -189,6 +189,8 @@ enum ProjectAction {
     Unlock,
     /// Get project completion percentage (JSON output)
     GetCompletionPercent,
+    /// Read and consume user-provided input for the active project
+    GetUserInput,
 }
 
 // ---------------------------------------------------------------------------
@@ -509,6 +511,7 @@ All commands:
       [--category <c>] [--complexity <x>]   Update the active project's fields
   rex project update-status <item> <status> Update the status of a project item
   rex project get-completion-percent        Get project completion percentage (JSON)
+  rex project get-user-input                Read and consume user-provided input
 
   rex checklist init [--date <YYYY-MM-DD>]  Initialize an empty checklist for the active project
   rex checklist add --category <cat> --id <id> --title <t> --description <d> [--phase <p>]
@@ -637,6 +640,7 @@ fn main() {
             ProjectAction::GetCompletionPercent => {
                 rex_cli::commands::project::get_completion_percent()
             }
+            ProjectAction::GetUserInput => rex_cli::commands::project::get_user_input(),
         },
 
         // -- Checklist ------------------------------------------------------

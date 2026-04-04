@@ -36,6 +36,18 @@ If `locked` is `true`: **stop immediately**. Print a message like "Project is lo
 
 ---
 
+## Step 2b: Check for user-provided input
+
+```bash
+rex project get-user-input
+```
+
+If the command prints content, save it as `user_input_context` — this is the user's answer to a previous escalation. The CLI command deletes the file after reading, so it is consumed exactly once.
+
+If the command prints nothing, no user input is pending. Set `user_input_context` to empty and proceed.
+
+---
+
 ## Step 3: Get the next work item
 
 ```bash
@@ -258,9 +270,14 @@ The prompt you give each sub-agent must include:
 3. **The skill(s) to invoke** — tell the agent which skill(s) to invoke from `agent.skills`, using the Skill tool. Be explicit: "You MUST invoke the skill `/<skill-name>` using the Skill tool. Do not follow from memory — actually call it."
    - **Single skill** (`agent.skills` has 1 entry): The agent invokes that one skill.
    - **Multiple skills** (`agent.skills` has 2+ entries): List ALL skills and tell the agent to invoke them sequentially, in order.
-4. **Input files** — list every file in `inputs` and instruct the agent to read them before starting work.
-5. **Output files** — list every file in `outputs` and instruct the agent to write its results there.
-6. **Effort level** — include the effort level as a literal instruction at the end of the prompt. Map the effort field:
+4. **User input** — if `user_input_context` is non-empty (from Step 2b), include it:
+   ```
+   ## User Input (from previous escalation)
+   <user_input_context content>
+   ```
+5. **Input files** — list every file in `inputs` and instruct the agent to read them before starting work.
+6. **Output files** — list every file in `outputs` and instruct the agent to write its results there.
+7. **Effort level** — include the effort level as a literal instruction at the end of the prompt. Map the effort field:
    - `"medium"` → "Apply moderate reasoning depth."
    - `"high"` → "Think carefully and thoroughly."
    - `"max"` → "Think very deeply. Take your time and consider all angles. ultrathink"
@@ -377,6 +394,7 @@ ultrathink. Think very deeply. Take your time and consider all angles.
 
 When the dispatch mode is **direct invoke** (from Step 6), you execute the skill yourself. No sub-agents. No relay. You ARE the agent.
 
+0. **If `user_input_context` is non-empty** (from Step 2b), provide it to the skill as additional context: "The user previously provided this input in response to an escalation: \<user_input_context\>".
 1. **Read all `inputs` files** listed in the work item.
 2. **Invoke each skill** in `agent.skills` sequentially using the Skill tool (e.g., `skill: "rex-onboarding-goal"`).
 3. **The skill runs in your context.** It will ask the user questions directly. The user responds directly to you. No middleman. No paraphrasing.
@@ -422,7 +440,7 @@ When `agent.count` is greater than 1, spawn that many worker agents plus one coo
 
 **Critical: Do not launch agents in the background and move on.** The operator must wait until all agents complete and report back. This is essential for headless operation.
 
-**Note:** Sub-agents dispatched here are always non-interactive. They should never need to ask the user questions. If a sub-agent unexpectedly returns a question instead of completing its work, leave the item as in-progress and report what happened.
+**Note:** Sub-agents dispatched here are always non-interactive. They should never need to ask the user questions. If a sub-agent returns a question, error, or cannot proceed, evaluate whether you can resolve it. If not, escalate to user-support via Step 8b.
 
 ---
 
@@ -463,6 +481,31 @@ rex task next
 
 - If `rex task next` returns **"NO TASKS - Please mark as item complete"**: all tasks are finished. The execution phase is done — you will mark the execution item as complete in Step 10.
 - If `rex task next` returns **another task**: more work remains. The execution item stays `in-progress` — do NOT mark it as complete. Continue to Step 9 to record history (skipping Step 10).
+
+---
+
+## Step 8b: Escalate to user-support (when stuck)
+
+If a sub-agent fails, returns an error, or indicates it cannot proceed — and the failure is not something you can resolve by retrying or adjusting — escalate to the user:
+
+1. **Write the problem** to `rex/<project-id>/user-support/requested.md`. Describe clearly: what was attempted, what went wrong, and what input is needed from the user.
+2. **Activate user-support:**
+   ```bash
+   rex project update-status user-input not-started
+   ```
+3. **Leave the current item as `in-progress`** — do NOT mark it completed or not-required.
+4. **Stop processing.** Output a status line explaining the escalation.
+
+If `REX_AUTORUN=1` is set, output this JSON as your final line:
+```
+{"status": "needs_input", "message": "<description of what the agent needs>", "item": "user-input"}
+```
+
+**What happens next:** On the next invocation, `rex project next-item` returns the `user-input` item (user-support phase is processed first). The operator handles it via direct invoke — reading `requested.md` and presenting the question to the user. The user's answer is written to `provided.md` and the item is marked completed.
+
+On the following invocation, Step 2b consumes the user's answer, and the original in-progress item resumes with the user's input as context.
+
+**Use this sparingly.** Escalation is a last resort for genuine blockers — not for minor issues that can be retried or worked around.
 
 ---
 

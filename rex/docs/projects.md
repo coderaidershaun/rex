@@ -327,3 +327,28 @@ rex project get-completion-percent
 
 - `"No active project."` — if no project is currently active.
 - `"Failed to read project-status.json: ..."` — if the file is missing or unreadable.
+
+---
+
+### `rex project get-user-input`
+
+Reads and consumes the user-provided input file for the active project.
+
+```
+rex project get-user-input
+```
+
+**Behavior:**
+
+1. Loads the active project from `rex/projects.json`.
+2. Checks for `rex/<project-id>/user-support/provided.md`.
+3. If the file exists and has content: prints the content to stdout and deletes the file.
+4. If the file does not exist or is empty: prints nothing.
+
+This is a consume-once operation — the file is deleted after reading so the same input is not processed twice.
+
+**Used by:** The operator (Step 2b) checks for user input at the start of every invocation. Agents and automation can also call this directly.
+
+**Error cases:**
+
+- `"No active project."` — if no project is currently active.

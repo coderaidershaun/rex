@@ -832,3 +832,26 @@ pub fn get_completion_percent() -> RexResult<()> {
 
     Ok(())
 }
+
+pub fn get_user_input() -> RexResult<()> {
+    let registry = ProjectRegistry::load()?;
+    let project = registry
+        .active
+        .ok_or_else(|| RexError::NotFound("No active project.".into()))?;
+
+    let path = format!("rex/{}/user-support/provided.md", project.id);
+    let path = Path::new(&path);
+
+    if path.exists() {
+        let content = fs::read_to_string(path)
+            .map_err(|e| RexError::FileRead { path: path.display().to_string(), source: e })?;
+        let trimmed = content.trim();
+        if !trimmed.is_empty() {
+            println!("{trimmed}");
+            fs::remove_file(path)
+                .map_err(|e| RexError::FileWrite { path: path.display().to_string(), source: e })?;
+        }
+    }
+
+    Ok(())
+}

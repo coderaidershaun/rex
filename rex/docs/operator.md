@@ -53,6 +53,7 @@ When `rex project next-item` returns the execution item (item: `"run"`, phase: `
 | Step | Command | Purpose |
 |------|---------|---------|
 | 1 | `rex project get-active` | Get active project fields |
+| 2b | `rex project get-user-input` | Check for and consume user-provided input |
 | 3 | `rex project next-item` | Get next actionable item from project-status.json |
 | 3a | `rex task next` | Get next eligible task + objective + milestone (execution phase) |
 | 4 | `rex project update-status <item> <status>` | Mark items in-progress or completed |
@@ -130,6 +131,22 @@ Before dispatching an item, the operator checks whether the item should be skipp
 - **`existing-code-exploration`**: Read `rex/<project-id>/onboarding/existing-code.md`. If it indicates no existing code (greenfield), mark the item `not-required` and skip to the next item.
 
 This prevents wasting tokens on items whose preconditions aren't met.
+
+## Escalation to User-Support
+
+When a sub-agent fails or gets stuck and cannot proceed, the operator escalates:
+
+1. Writes the problem/question to `rex/<project-id>/user-support/requested.md`
+2. Runs `rex project update-status user-input not-started`
+3. Leaves the current item as `in-progress` and stops
+
+On the next invocation, `rex project next-item` returns the `user-input` item (user-support is processed first). The operator handles it via direct invoke — the user sees the question and provides an answer.
+
+On the following invocation, the operator runs `rex project get-user-input` (Step 2b) to consume the answer, then the original in-progress item resumes with the user's input as context.
+
+## Early User Input Check
+
+At Step 2b, the operator runs `rex project get-user-input` to check for pending user input from a previous escalation. If content is returned, it is passed as additional context to the next dispatched agent. The CLI command deletes the file after reading (consume-once).
 
 ## Rules
 
