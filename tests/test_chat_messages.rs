@@ -155,6 +155,7 @@ async fn test_all_chat_message_types() {
          🔄 <b>Phase:</b> <code>Running</code>\n\
          📊 <b>Invocations:</b> <code>12</code>\n\
          ✅ <b>Items completed:</b> <code>8</code>\n\
+         📋 <b>Tasks:</b> <code>14/23</code>\n\
          💰 <b>Cost:</b> <code>$8.34</code>",
         pid = escape_html(project_id),
     );
@@ -210,9 +211,7 @@ fn format_chat_response(project_id: &str, response: &str) -> String {
     format!(
         "🗨️ <b>Rex Chat</b>  ·  <code>{pid}</code>\n\
          {DIV}\n\
-         {resp}{suffix}\n\
-         {DIV}\n\
-         <i>💬 Reply to continue  ·  🏠 Menu</i>",
+         {resp}{suffix}",
         pid = escape_html(project_id),
         resp = escape_html(&content),
     )

@@ -1273,12 +1273,26 @@ fn build_query_response(
         .map(format_duration_ms)
         .unwrap_or_else(|| "—".to_string());
 
+    // Load task counts from planning data
+    let (tasks_done, tasks_total) = {
+        if let Ok(store) = crate::models::planning::PlanningStore::load(std::path::Path::new(".")) {
+            let total = store.tasks.len();
+            let done = store.tasks.iter()
+                .filter(|t| t.status == crate::models::planning::PlanningStatus::Completed)
+                .count();
+            (done, total)
+        } else {
+            (0, 0)
+        }
+    };
+
     let mut msg = format!(
         "📊 <b>Autorun Status</b>  ·  <code>{pid}</code>\n\
          {DIV}\n\
          ⏱ <b>Total uptime:</b> <code>{uptime}</code>\n\
          📊 <b>Context:</b> <code>{ctx_last}</code> last  ·  <code>{ctx_avg}</code> avg\n\
          🕐 <b>Session:</b> <code>{dur_last}</code> last  ·  <code>{dur_avg}</code> avg\n\
+         📋 <b>Tasks:</b> <code>{tasks_done}/{tasks_total}</code>\n\
          💰 <b>Cost:</b> <code>${cost:.2}</code>",
         pid = escape_html(project_id),
         cost = stats.total_cost_usd,

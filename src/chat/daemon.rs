@@ -11,6 +11,7 @@ use tracing::{error, info, warn};
 use crate::autorun::state::read_state;
 use crate::autorun::types::{escape_html, DIV};
 use crate::errors::{RexError, RexResult};
+use crate::models::planning::{PlanningStatus, PlanningStore};
 use crate::models::project::ProjectRegistry;
 
 use super::discovery;
@@ -574,6 +575,11 @@ async fn show_autorun_status(tg: &mut ChatTelegramClient, project_id: &str) {
     };
 
     let uptime = format_duration_since(&state.stats.started_at);
+
+    // Load task counts from planning data
+    let proj_path = std::path::Path::new(&proj.directory);
+    let (tasks_done, tasks_total) = task_counts(proj_path);
+
     let msg = format!(
         "📊 <b>Status</b>  ·  <code>{pid}</code>\n\
          {DIV}\n\
@@ -581,6 +587,7 @@ async fn show_autorun_status(tg: &mut ChatTelegramClient, project_id: &str) {
          🔄 <b>Phase:</b> <code>{phase:?}</code>\n\
          📊 <b>Invocations:</b> <code>{inv}</code>\n\
          ✅ <b>Items completed:</b> <code>{items}</code>\n\
+         📋 <b>Tasks:</b> <code>{tasks_done}/{tasks_total}</code>\n\
          💰 <b>Cost:</b> <code>${cost:.2}</code>",
         pid = escape_html(project_id),
         phase = state.phase,
@@ -622,9 +629,7 @@ fn format_chat_response(project_id: &str, response: &str) -> String {
     format!(
         "🗨️ <b>Rex Chat</b>  ·  <code>{pid}</code>\n\
          {DIV}\n\
-         {resp}{suffix}\n\
-         {DIV}\n\
-         <i>💬 Reply to continue  ·  🏠 Menu</i>",
+         {resp}{suffix}",
         pid = escape_html(project_id),
         resp = escape_html(&content),
     )
@@ -644,6 +649,20 @@ fn format_duration_since(started_at: &str) -> String {
     } else {
         format!("{mins}m")
     }
+}
+
+/// Count (completed, total) tasks from planning.json.
+fn task_counts(project_dir: &std::path::Path) -> (usize, usize) {
+    let Ok(store) = PlanningStore::load(project_dir) else {
+        return (0, 0);
+    };
+    let total = store.tasks.len();
+    let done = store
+        .tasks
+        .iter()
+        .filter(|t| t.status == PlanningStatus::Completed)
+        .count();
+    (done, total)
 }
 
 /// Simple shell escaping for paths.
