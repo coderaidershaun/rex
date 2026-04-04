@@ -2,6 +2,10 @@
 
 All notable changes to **rex-cli** are documented here.
 
+## 0.2.3 — 2026-04-04
+
+- **Varied thinking messages** — Rex-chat now shows a randomly chosen status message (from 50 variations) while the agent is working, instead of always "Thinking...".
+
 ## 0.2.2 — 2026-04-04
 
 - **Fix systemd PATH for claude binary** — Add PATH environment variable to the rex-chat systemd service example so `claude` (typically in `~/.local/bin`) is found when running as a service.
