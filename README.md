@@ -99,6 +99,15 @@ Autorun uses reply-to matching — questions are sent with Telegram's ForceReply
 
 Autorun recovers from crashes automatically, respects budget limits, handles expired auth tokens (sends re-auth URL via Telegram), and exits cleanly when the project is done.
 
+TG Environment variables.
+
+```shell
+export REX_TELEGRAM_CHAT_ID=...
+export REX_Q_TELEGRAM_BOT_TOKEN=...
+export REX_AUTORUN_TELEGRAM_BOT_TOKEN=...
+export REX_AUTOCHAT_TELEGRAM_BOT_TOKEN=...
+```
+
 ### Rex Chat
 
 Rex Chat is a project-agnostic Telegram daemon that auto-discovers all rex projects on your machine. Through a single Telegram conversation you can discover running autoruns, start new ones, chat about any project with an AI agent, and diagnose issues — without specifying any project directory.
