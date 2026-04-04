@@ -155,12 +155,11 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=ubuntu
-ExecStart=/home/YOUR_USERNAME/.cargo/bin/rex-chat
+ExecStart=/home/ubuntu/.cargo/bin/rex-chat
 Restart=on-failure
 RestartSec=5
-Environment=HOME=/home/YOUR_USERNAME
-Environment=REX_AUTOCHAT_TELEGRAM_BOT_TOKEN=your-chat-bot-token
-Environment=REX_TELEGRAM_CHAT_ID=your-chat-id
+Environment=HOME=/home/ubuntu
+EnvironmentFile=/home/ubuntu/.env
 
 # Logging
 StandardOutput=journal
