@@ -23,8 +23,6 @@ pub struct SessionManager {
     sessions: HashMap<String, ChatSession>,
     /// message_id → project_id for reply routing.
     message_to_project: HashMap<i64, String>,
-    /// message_id → "autorun:<project_id>" for autorun reply routing.
-    autorun_reply_map: HashMap<i64, String>,
 }
 
 const CHAT_SYSTEM_PROMPT: &str = r#"You are a project assistant responding to a user query via Telegram.
@@ -41,7 +39,6 @@ impl SessionManager {
         Self {
             sessions: HashMap::new(),
             message_to_project: HashMap::new(),
-            autorun_reply_map: HashMap::new(),
         }
     }
 
@@ -68,22 +65,9 @@ impl SessionManager {
             .insert(msg_id, project_id.to_string());
     }
 
-    /// Register a Telegram message as belonging to an autorun ForceReply.
-    pub fn register_autorun_reply(&mut self, msg_id: i64, project_id: &str) {
-        self.autorun_reply_map
-            .insert(msg_id, project_id.to_string());
-    }
-
     /// Look up which project a reply-to-message belongs to.
-    /// Returns `Some(("chat", project_id))` or `Some(("autorun", project_id))`.
-    pub fn lookup_reply(&self, reply_to_msg_id: i64) -> Option<(&str, &str)> {
-        if let Some(pid) = self.message_to_project.get(&reply_to_msg_id) {
-            return Some(("chat", pid));
-        }
-        if let Some(pid) = self.autorun_reply_map.get(&reply_to_msg_id) {
-            return Some(("autorun", pid));
-        }
-        None
+    pub fn lookup_reply(&self, reply_to_msg_id: i64) -> Option<&str> {
+        self.message_to_project.get(&reply_to_msg_id).map(|s| s.as_str())
     }
 
     /// Clean up sessions that have been idle longer than the timeout.
@@ -104,8 +88,6 @@ impl SessionManager {
         if !stale.is_empty() {
             // Clean up message mappings for stale sessions
             self.message_to_project
-                .retain(|_, pid| !stale.contains(pid));
-            self.autorun_reply_map
                 .retain(|_, pid| !stale.contains(pid));
         }
     }

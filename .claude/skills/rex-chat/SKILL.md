@@ -1,6 +1,6 @@
 ---
 name: rex-chat
-description: Telegram-based project assistant for rex. Responds to user queries about their rex projects with full machine access — can read/write files, run commands, manage processes, inspect autorun state, and diagnose issues. Use this skill when the user is interacting via the rex-chat Telegram bot, when messages arrive from the chat daemon, or when anyone invokes /rex-chat directly.
+description: Telegram-based project assistant for rex. Responds to user queries about their rex projects with full machine access — can read/write files, run commands, manage processes, inspect autorun state, and diagnose issues. Use this skill when the user is interacting via the rex-chat Telegram bot or when messages arrive from the chat daemon.
 disable-model-invocation: false
 user-invocable: true
 ---

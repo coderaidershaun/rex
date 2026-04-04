@@ -7,11 +7,11 @@ Rex Autorun is a headless autopilot that drives a rex project to completion unat
 ## Prerequisites
 
 1. **Rex project initialized and active.** Run `rex init`, then `rex project create` and step through the prompts.
-2. **Telegram bot.** Create one via [@BotFather](https://t.me/BotFather) on Telegram. You need the bot token and your chat ID.
+2. **Telegram bot.** Create a dedicated autorun bot via [@BotFather](https://t.me/BotFather) on Telegram. You need the bot token and your chat ID.
 3. **`.env` file** in the rex project root with:
    ```
-   TELEGRAM_BOT_TOKEN=<your-bot-token>
-   TELEGRAM_CHAT_ID=<your-chat-id>
+   REX_AUTORUN_TELEGRAM_BOT_TOKEN=<your-autorun-bot-token>
+   REX_TELEGRAM_CHAT_ID=<your-chat-id>
    ```
 
 To find your chat ID: send any message to your bot, then visit `https://api.telegram.org/bot<token>/getUpdates` and look for `"chat":{"id":<number>}`.
@@ -90,8 +90,8 @@ Set these in a `.env` file in the project root directory, or export them in your
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `TELEGRAM_BOT_TOKEN` | Yes | Telegram Bot API token from @BotFather. |
-| `TELEGRAM_CHAT_ID` | Yes | Telegram chat ID for the user. This is where questions and notifications are sent. |
+| `REX_AUTORUN_TELEGRAM_BOT_TOKEN` | Yes | Telegram Bot API token for the autorun bot (from @BotFather). |
+| `REX_TELEGRAM_CHAT_ID` | Yes | Telegram chat ID for the user. This is where questions and notifications are sent. |
 | `RUST_LOG` | No | Controls log verbosity to stderr. Default: `info`. Set to `debug` for verbose output, `warn` for quieter. |
 
 ---

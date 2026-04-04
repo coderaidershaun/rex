@@ -11,6 +11,7 @@ use tracing::{error, info, warn};
 use crate::models::project::ProjectRegistry;
 
 use super::claude::{self, is_retryable};
+use super::inbox;
 use super::state::{self, RecoveryAction};
 use super::telegram::{TelegramClient, TelegramPollResult};
 use super::types::*;
@@ -75,12 +76,12 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
     }
 
     // Read Telegram credentials from env
-    let telegram_token = std::env::var("TELEGRAM_BOT_TOKEN")
-        .map_err(|_| RexError::EnvVar { name: "TELEGRAM_BOT_TOKEN".into(), detail: "check .env".into() })?;
-    let telegram_chat_id: i64 = std::env::var("TELEGRAM_CHAT_ID")
-        .map_err(|_| RexError::EnvVar { name: "TELEGRAM_CHAT_ID".into(), detail: "check .env".into() })?
+    let telegram_token = std::env::var("REX_AUTORUN_TELEGRAM_BOT_TOKEN")
+        .map_err(|_| RexError::EnvVar { name: "REX_AUTORUN_TELEGRAM_BOT_TOKEN".into(), detail: "check .env".into() })?;
+    let telegram_chat_id: i64 = std::env::var("REX_TELEGRAM_CHAT_ID")
+        .map_err(|_| RexError::EnvVar { name: "REX_TELEGRAM_CHAT_ID".into(), detail: "check .env".into() })?
         .parse()
-        .map_err(|e| RexError::EnvVar { name: "TELEGRAM_CHAT_ID".into(), detail: format!("must be a valid integer: {e}") })?;
+        .map_err(|e| RexError::EnvVar { name: "REX_TELEGRAM_CHAT_ID".into(), detail: format!("must be a valid integer: {e}") })?;
 
     // Load project info from projects.json
     // ProjectRegistry::load() reads from cwd, so we set cwd first.
@@ -137,6 +138,7 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
                 telegram_chat_id,
                 telegram_update_offset,
                 project_dir.clone(),
+                project_id.clone(),
             );
 
             let msg = format!(
@@ -148,7 +150,10 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
                 q = escape_html(&question),
             );
             let recovery_msg_id = match tg.send_question(&msg).await {
-                Ok(id) => id,
+                Ok(id) => {
+                    inbox::update_expected_message_id(&project_dir, &project_id, Some(id));
+                    id
+                }
                 Err(e) => {
                     error!("failed to send recovered question: {e}");
                     tg.notify(&format!(
@@ -311,7 +316,18 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
     };
 
     // Create Telegram client for main loop
-    let mut tg = TelegramClient::new(telegram_token, telegram_chat_id, telegram_offset, project_dir.clone());
+    let mut tg = TelegramClient::new(telegram_token, telegram_chat_id, telegram_offset, project_dir.clone(), project_id.clone());
+
+    // Register in the autorun registry for cooperative triage
+    let _ = inbox::register_autorun(
+        &project_dir,
+        &project_id,
+        inbox::AutorunEntry {
+            pid: std::process::id(),
+            project_dir: project_dir.display().to_string(),
+            expected_message_id: None,
+        },
+    );
 
     // Log + notify start
     log_event(&log_path, &LogEvent::Started {
@@ -335,7 +351,7 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
     // Signal handling + main loop
     let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
 
-    tokio::select! {
+    let result = tokio::select! {
         _ = tokio::signal::ctrl_c() => {
             info!("SIGINT received — shutting down");
             tg.notify(&format!("🛑 <b>Autorun stopped</b>  ·  <code>{pid}</code>\n{DIV}\nSIGINT received", pid = escape_html(&project_id))).await;
@@ -360,7 +376,12 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
         ) => {
             result
         }
-    }
+    };
+
+    // Deregister from the autorun registry
+    inbox::deregister_autorun(&project_dir, &project_id);
+
+    result
 }
 
 /// The core invocation loop.
@@ -613,6 +634,7 @@ async fn main_loop(
                                 );
                                 let question_msg_id = match tg.send_question(&msg).await {
                                     Ok(id) => {
+                                        inbox::update_expected_message_id(project_dir, project_id, Some(id));
                                         let mut updated = pending_state;
                                         updated.telegram_message_id = Some(id);
                                         updated.telegram_update_offset = Some(tg.update_offset);
@@ -1163,6 +1185,7 @@ async fn attempt_auth_refresh(
     };
 
     let msg_id = tg.send_question(&msg).await?;
+    inbox::update_expected_message_id(project_dir, project_id, Some(msg_id));
 
     log_event(
         log_path,

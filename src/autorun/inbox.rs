@@ -1,8 +1,9 @@
-//! File-based IPC between rex-chat and rex-autorun.
+//! Inter-autorun message routing and cooperative coordination.
 //!
-//! When rex-chat is running, it becomes the sole Telegram poller.
-//! Autorun switches to watching inbox files for messages routed by rex-chat.
+//! When multiple autoruns share the same bot token, messages are routed between
+//! them via per-project inbox directories and a shared registry file.
 
+use std::collections::HashMap;
 use std::io::Write;
 use std::path::Path;
 
@@ -11,9 +12,9 @@ use tracing::{debug, warn};
 
 use crate::errors::{RexError, RexResult};
 
-// ── Inbox messages (rex-chat → autorun) ───────────────────────────────────
+// ── Inbox messages (autorun → autorun) ──────────────────────────────────
 
-/// A message written by rex-chat into an autorun's inbox directory.
+/// A message written into an autorun's inbox directory.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum InboxMessage {
@@ -21,6 +22,8 @@ pub enum InboxMessage {
     Reply { text: String },
     /// Kill command received.
     Kill,
+    /// Query/stats request received.
+    Query,
 }
 
 /// Write an inbox message atomically to `<project_dir>/.rex-autorun-inbox/`.
@@ -115,24 +118,98 @@ pub fn cleanup_inbox(project_dir: &Path) {
     let _ = std::fs::remove_dir_all(&inbox_dir);
 }
 
-// ── Rex-chat state (presence + offset handoff) ───────────────────────────
+// ── Autorun registry (cooperative triage) ───────────────────────────────
 
-/// State written by rex-chat so autoruns know it's alive and can hand off offsets.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ChatState {
-    pub pid: u32,
-    pub telegram_update_offset: i64,
+const REGISTRY_FILE: &str = ".rex-autorun-registry.json";
+
+/// Shared registry of active autorun instances.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct AutorunRegistry {
+    pub autoruns: HashMap<String, AutorunEntry>,
 }
 
-const CHAT_STATE_FILE: &str = ".rex-chat.state";
+/// An entry in the autorun registry.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutorunEntry {
+    pub pid: u32,
+    pub project_dir: String,
+    /// The Telegram message_id this autorun is waiting for a reply to.
+    pub expected_message_id: Option<i64>,
+}
 
-/// Write rex-chat state atomically.
-pub fn write_chat_state(project_dir: &Path, state: &ChatState) -> RexResult<()> {
-    let path = project_dir.join(CHAT_STATE_FILE);
-    let tmp = path.with_extension("state.tmp");
+/// Register an autorun in the shared registry.
+pub fn register_autorun(
+    root_dir: &Path,
+    project_id: &str,
+    entry: AutorunEntry,
+) -> RexResult<()> {
+    let mut registry = load_registry(root_dir);
+    registry.autoruns.insert(project_id.to_string(), entry);
+    write_registry(root_dir, &registry)
+}
 
-    let data = serde_json::to_string_pretty(state).map_err(|e| RexError::JsonSerialize {
-        context: "rex-chat state".into(),
+/// Deregister an autorun from the shared registry.
+pub fn deregister_autorun(root_dir: &Path, project_id: &str) {
+    if let Ok(mut registry) = load_registry_raw(root_dir) {
+        registry.autoruns.remove(project_id);
+        let _ = write_registry(root_dir, &registry);
+    }
+}
+
+/// Update the expected_message_id for an autorun in the registry.
+pub fn update_expected_message_id(
+    root_dir: &Path,
+    project_id: &str,
+    msg_id: Option<i64>,
+) {
+    if let Ok(mut registry) = load_registry_raw(root_dir)
+        && let Some(entry) = registry.autoruns.get_mut(project_id)
+    {
+        entry.expected_message_id = msg_id;
+        let _ = write_registry(root_dir, &registry);
+    }
+}
+
+/// Load the registry, pruning dead PIDs.
+pub fn load_registry(root_dir: &Path) -> AutorunRegistry {
+    let mut registry = load_registry_raw(root_dir).unwrap_or_default();
+
+    // Prune dead processes
+    let dead: Vec<String> = registry
+        .autoruns
+        .iter()
+        .filter(|(_, entry)| !is_process_alive(entry.pid))
+        .map(|(k, _)| k.clone())
+        .collect();
+
+    if !dead.is_empty() {
+        for id in &dead {
+            registry.autoruns.remove(id);
+        }
+        let _ = write_registry(root_dir, &registry);
+    }
+
+    registry
+}
+
+fn load_registry_raw(root_dir: &Path) -> RexResult<AutorunRegistry> {
+    let path = root_dir.join(REGISTRY_FILE);
+    let data = std::fs::read_to_string(&path).map_err(|e| RexError::FileRead {
+        path: path.display().to_string(),
+        source: e,
+    })?;
+    serde_json::from_str(&data).map_err(|e| RexError::JsonParse {
+        context: "autorun registry".into(),
+        source: e,
+    })
+}
+
+fn write_registry(root_dir: &Path, registry: &AutorunRegistry) -> RexResult<()> {
+    let path = root_dir.join(REGISTRY_FILE);
+    let tmp = path.with_extension("json.tmp");
+
+    let data = serde_json::to_string_pretty(registry).map_err(|e| RexError::JsonSerialize {
+        context: "autorun registry".into(),
         source: e,
     })?;
 
@@ -157,30 +234,53 @@ pub fn write_chat_state(project_dir: &Path, state: &ChatState) -> RexResult<()> 
     Ok(())
 }
 
-/// Read rex-chat state. Returns `None` if file missing or corrupt.
-pub fn read_chat_state(project_dir: &Path) -> Option<ChatState> {
-    let path = project_dir.join(CHAT_STATE_FILE);
-    let data = std::fs::read_to_string(&path).ok()?;
-    serde_json::from_str(&data).ok()
-}
-
-/// Delete rex-chat state file.
-pub fn delete_chat_state(project_dir: &Path) {
-    let path = project_dir.join(CHAT_STATE_FILE);
-    let _ = std::fs::remove_file(&path);
-    let tmp = path.with_extension("state.tmp");
-    let _ = std::fs::remove_file(&tmp);
-}
-
-/// Check if the rex-chat daemon is alive by reading state and checking PID.
-pub fn rex_chat_is_running(project_dir: &Path) -> bool {
-    let Some(state) = read_chat_state(project_dir) else {
-        return false;
-    };
-    is_process_alive(state.pid)
-}
-
 /// Check if a process is alive via `kill(pid, 0)`.
 fn is_process_alive(pid: u32) -> bool {
     unsafe { libc::kill(pid as i32, 0) == 0 }
+}
+
+// ── Poll lock (cooperative triage) ──────────────────────────────────────
+
+const POLL_LOCK_FILE: &str = ".rex-autorun-poll.lock";
+
+/// A guard that releases the file lock on drop.
+pub struct PollLockGuard {
+    fd: i32,
+}
+
+impl Drop for PollLockGuard {
+    fn drop(&mut self) {
+        unsafe {
+            libc::flock(self.fd, libc::LOCK_UN);
+            libc::close(self.fd);
+        }
+    }
+}
+
+/// Try to acquire the poll lock (non-blocking).
+/// Returns `Some(guard)` if acquired, `None` if another autorun holds it.
+pub fn try_acquire_poll_lock(root_dir: &Path) -> Option<PollLockGuard> {
+    let path = root_dir.join(POLL_LOCK_FILE);
+
+    // Create the file if it doesn't exist
+    let c_path = std::ffi::CString::new(path.to_string_lossy().as_bytes()).ok()?;
+    let fd = unsafe {
+        libc::open(
+            c_path.as_ptr(),
+            libc::O_CREAT | libc::O_RDWR,
+            0o644,
+        )
+    };
+    if fd < 0 {
+        return None;
+    }
+
+    // Try non-blocking exclusive lock
+    let result = unsafe { libc::flock(fd, libc::LOCK_EX | libc::LOCK_NB) };
+    if result != 0 {
+        unsafe { libc::close(fd) };
+        return None;
+    }
+
+    Some(PollLockGuard { fd })
 }

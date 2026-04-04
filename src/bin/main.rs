@@ -573,7 +573,7 @@ All commands:
 
   rex autorun list [--json]                 List running autoruns across all registered projects
 
-Autorun (separate binary — headless autopilot with Telegram):
+Autorun (separate binary — headless autopilot, uses REX_AUTORUN_TELEGRAM_BOT_TOKEN):
 
   rex-autorun [OPTIONS]                     Run the active project autonomously
       --project-dir <PATH>                  Rex project root (default: current directory)
@@ -589,7 +589,7 @@ Autorun (separate binary — headless autopilot with Telegram):
       /kill <project-id>                    Terminate the autorun session
       /query <project-id>                   Show live stats and other running autoruns
 
-Rex Chat (separate binary — Telegram chat interface for all projects):
+Rex Chat (separate binary — Telegram chat interface, uses REX_AUTOCHAT_TELEGRAM_BOT_TOKEN):
 
   rex-chat [OPTIONS]                        Telegram chat daemon for all rex projects
       --project-dir <PATH>                  Directory with rex/projects.json (default: .)
@@ -597,11 +597,9 @@ Rex Chat (separate binary — Telegram chat interface for all projects):
       --max-turns <N>                       Max turns per chat invocation (default: 50)
       --session-timeout-mins <N>            Idle session timeout (default: 30)
 
-  Telegram commands (send to rex-chat bot):
-      /rex-chat                             Show project dashboard with buttons
-      /rex-chat <project-id> <message>      Chat about a project
-      /kill <project-id>                    Stop a running autorun
-      /query <project-id>                   Show autorun status
+  Telegram commands (send to chat bot):
+      /menu                                 Show project dashboard with buttons
+      /start                                Show project dashboard with buttons
 
   Background usage (recommended):
       nohup rex-autorun --project-dir /absolute/path/to/project > /dev/null 2>&1 &";

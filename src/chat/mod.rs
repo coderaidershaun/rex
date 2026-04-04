@@ -1,7 +1,8 @@
-//! Rex-chat: Telegram-based universal interface for rex projects.
+//! Rex-chat: Telegram-based chat interface for rex projects.
 //!
-//! A long-running daemon that serves as the sole Telegram poller, routing
-//! messages to autoruns via inbox files and handling chat sessions via Claude.
+//! An independent daemon with its own bot token (`REX_AUTOCHAT_TELEGRAM_BOT_TOKEN`)
+//! that handles chat sessions via Claude. No longer routes messages to autoruns —
+//! autorun has its own dedicated bot.
 
 pub mod daemon;
 pub mod discovery;

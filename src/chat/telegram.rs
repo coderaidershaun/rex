@@ -76,7 +76,7 @@ impl ChatTelegramClient {
                 }
                 Ok(r) if r.status() == 401 || r.status() == 403 => {
                     return Err(RexError::Telegram(format!(
-                        "auth error ({}): check TELEGRAM_BOT_TOKEN",
+                        "auth error ({}): check REX_AUTOCHAT_TELEGRAM_BOT_TOKEN",
                         r.status()
                     )));
                 }

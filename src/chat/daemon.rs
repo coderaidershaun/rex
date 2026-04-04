@@ -1,4 +1,4 @@
-//! Rex-chat daemon: long-running Telegram poller and message router.
+//! Rex-chat daemon: independent Telegram bot for project chat sessions.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -8,7 +8,6 @@ use chrono::Utc;
 use clap::Parser;
 use tracing::{error, info, warn};
 
-use crate::autorun::inbox;
 use crate::autorun::state::read_state;
 use crate::autorun::types::{escape_html, DIV};
 use crate::errors::{RexError, RexResult};
@@ -60,18 +59,18 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
     }
 
     // Read Telegram credentials
-    let telegram_token = std::env::var("TELEGRAM_BOT_TOKEN").map_err(|_| RexError::EnvVar {
-        name: "TELEGRAM_BOT_TOKEN".into(),
+    let telegram_token = std::env::var("REX_AUTOCHAT_TELEGRAM_BOT_TOKEN").map_err(|_| RexError::EnvVar {
+        name: "REX_AUTOCHAT_TELEGRAM_BOT_TOKEN".into(),
         detail: "check .env".into(),
     })?;
-    let telegram_chat_id: i64 = std::env::var("TELEGRAM_CHAT_ID")
+    let telegram_chat_id: i64 = std::env::var("REX_TELEGRAM_CHAT_ID")
         .map_err(|_| RexError::EnvVar {
-            name: "TELEGRAM_CHAT_ID".into(),
+            name: "REX_TELEGRAM_CHAT_ID".into(),
             detail: "check .env".into(),
         })?
         .parse()
         .map_err(|e| RexError::EnvVar {
-            name: "TELEGRAM_CHAT_ID".into(),
+            name: "REX_TELEGRAM_CHAT_ID".into(),
             detail: format!("must be a valid integer: {e}"),
         })?;
 
@@ -81,38 +80,14 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
         source: e,
     })?;
 
-    // Singleton check
-    if inbox::rex_chat_is_running(&project_dir) {
-        return Err(RexError::Validation(
-            "rex-chat is already running (check .rex-chat.state)".into(),
-        ));
-    }
-
-    // Read max offset from running autoruns for handoff
-    let initial_offset = collect_max_offset(&project_dir);
-
-    // Write state so autoruns know we're alive
-    let pid = std::process::id();
-    inbox::write_chat_state(
-        &project_dir,
-        &inbox::ChatState {
-            pid,
-            telegram_update_offset: initial_offset,
-        },
-    )?;
-
-    // Brief delay to let autoruns detect us and switch to inbox mode
-    info!("waiting 2s for autoruns to detect rex-chat...");
-    tokio::time::sleep(Duration::from_secs(2)).await;
-
     // Initialize Telegram client
-    let mut tg = ChatTelegramClient::new(telegram_token, telegram_chat_id, initial_offset);
+    let mut tg = ChatTelegramClient::new(telegram_token, telegram_chat_id, 0);
 
     // Send startup notification
-    tg.notify("🏠 <b>Rex Chat online</b>\n\nSend /rex-chat to see your projects.")
+    tg.notify("🏠 <b>Rex Chat online</b>\n\nSend /menu to see your projects.")
         .await;
 
-    info!(pid, offset = initial_offset, "rex-chat daemon started");
+    info!("rex-chat daemon started");
 
     // Session manager
     let mut sessions = SessionManager::new();
@@ -137,7 +112,6 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
 
     // Cleanup
     tg.notify("🏠 <b>Rex Chat offline</b>").await;
-    inbox::delete_chat_state(&project_dir);
     info!("rex-chat daemon stopped");
 
     result
@@ -156,16 +130,9 @@ async fn poll_loop(
     loop {
         let updates = tg.poll_updates().await;
 
-        // Periodically update state file with latest offset + cleanup stale sessions
+        // Periodically cleanup stale sessions
         cleanup_counter += 1;
         if cleanup_counter % 30 == 0 {
-            let _ = inbox::write_chat_state(
-                project_dir,
-                &inbox::ChatState {
-                    pid: std::process::id(),
-                    telegram_update_offset: tg.update_offset,
-                },
-            );
             sessions.cleanup_stale(session_timeout);
         }
 
@@ -232,22 +199,6 @@ async fn handle_callback(
                 stop_autorun(tg, project_dir, target).await;
             }
         }
-        // Autorun buttons routed through rex-chat
-        "reply" => {
-            if !target.is_empty() {
-                send_autorun_reply_prompt(tg, sessions, target).await;
-            }
-        }
-        "query" => {
-            if !target.is_empty() {
-                show_autorun_status(tg, target).await;
-            }
-        }
-        "kill" => {
-            if !target.is_empty() {
-                stop_autorun(tg, project_dir, target).await;
-            }
-        }
         "rc_reply" => {
             if !target.is_empty() {
                 start_chat_prompt(tg, sessions, target).await;
@@ -268,95 +219,23 @@ async fn handle_text_message(
     text: &str,
     reply_to: Option<i64>,
 ) {
-    // /rex-chat command
-    if let Some(rest) = text.strip_prefix("/rex-chat") {
-        let rest = rest.strip_prefix("@").map_or(rest, |r| {
-            // Handle /rex-chat@botname
-            r.find(char::is_whitespace).map_or("", |pos| &r[pos..])
-        });
-        let rest = rest.trim();
-        if rest.is_empty() {
-            show_project_menu(tg, project_dir).await;
-        } else {
-            // Parse: project_id [message]
-            let (pid, msg) = match rest.find(char::is_whitespace) {
-                Some(pos) => (&rest[..pos], rest[pos..].trim()),
-                None => (rest, ""),
-            };
-            if msg.is_empty() {
-                // Just project ID → show chat prompt
-                start_chat_prompt(tg, sessions, pid).await;
-            } else {
-                // Project ID + message → invoke chat
-                invoke_chat(tg, sessions, project_dir, args, pid, msg).await;
-            }
-        }
-        return;
-    }
-
-    // /kill command
-    if let Some(target) = text.strip_prefix("/kill") {
-        let target = target.trim();
-        if !target.is_empty() {
-            stop_autorun(tg, project_dir, target).await;
-        }
-        return;
-    }
-
-    // /query command
-    if let Some(target) = text.strip_prefix("/query") {
-        let target = target.trim();
-        if !target.is_empty() {
-            show_autorun_status(tg, target).await;
-        }
+    // /start or /menu → show project dashboard
+    if text.starts_with("/start") || text.starts_with("/menu") {
+        show_project_menu(tg, project_dir).await;
         return;
     }
 
     // Reply-to routing
     if let Some(reply_to_id) = reply_to {
-        if let Some((kind, project_id)) = sessions.lookup_reply(reply_to_id) {
+        if let Some(project_id) = sessions.lookup_reply(reply_to_id) {
             let pid = project_id.to_string();
-            match kind {
-                "chat" => {
-                    invoke_chat(tg, sessions, project_dir, args, &pid, text).await;
-                }
-                "autorun" => {
-                    // Forward reply to autorun's inbox
-                    let projects = discovery::discover_projects(project_dir).ok();
-                    if let Some(proj) = projects
-                        .as_ref()
-                        .and_then(|p| p.iter().find(|p| p.id == pid))
-                    {
-                        let proj_dir = std::path::Path::new(&proj.directory);
-                        if inbox::write_inbox(
-                            proj_dir,
-                            &inbox::InboxMessage::Reply {
-                                text: text.to_string(),
-                            },
-                        )
-                        .is_ok()
-                        {
-                            tg.notify(&format!(
-                                "✅ Reply sent to <code>{}</code>",
-                                escape_html(&pid)
-                            ))
-                            .await;
-                        } else {
-                            tg.notify(&format!(
-                                "❌ Failed to send reply to <code>{}</code>",
-                                escape_html(&pid)
-                            ))
-                            .await;
-                        }
-                    }
-                }
-                _ => {}
-            }
+            invoke_chat(tg, sessions, project_dir, args, &pid, text).await;
         }
         return;
     }
 
-    // Ignore unrecognized messages
+    // Unrecognized message → show project menu
+    show_project_menu(tg, project_dir).await;
 }
 
 // ── Action handlers ──────────────────────────────────────────────────────
@@ -458,26 +337,6 @@ async fn start_chat_prompt(
         }
         Err(e) => {
             error!("failed to send chat prompt: {e}");
-        }
-    }
-}
-
-/// Send a ForceReply prompt for an autorun reply.
-async fn send_autorun_reply_prompt(
-    tg: &mut ChatTelegramClient,
-    sessions: &mut SessionManager,
-    project_id: &str,
-) {
-    let text = format!(
-        "💬 <b>Reply</b>  ·  <code>{pid}</code>\n<i>Type your message below</i>",
-        pid = escape_html(project_id),
-    );
-    match tg.send_force_reply(&text).await {
-        Ok(msg_id) => {
-            sessions.register_autorun_reply(msg_id, project_id);
-        }
-        Err(e) => {
-            error!("failed to send autorun reply prompt: {e}");
         }
     }
 }
@@ -627,7 +486,7 @@ async fn start_autorun(
     }
 }
 
-/// Stop a running autorun by writing kill to its inbox.
+/// Stop a running autorun by sending SIGTERM via its state file.
 async fn stop_autorun(
     tg: &mut ChatTelegramClient,
     project_dir: &PathBuf,
@@ -646,36 +505,31 @@ async fn stop_autorun(
     };
 
     let proj_path = std::path::Path::new(&proj_dir);
-
-    // Write kill to inbox
-    if inbox::write_inbox(proj_path, &inbox::InboxMessage::Kill).is_ok() {
-        tg.notify(&format!(
-            "🛑 Kill sent to <code>{}</code>",
-            escape_html(project_id)
-        ))
-        .await;
-    } else {
-        // Fallback: try to kill directly via state file
-        let state_path = proj_path.join(".rex-autorun.json");
-        if let Some(state) = read_state(&state_path) {
-            if let Some(pgid) = state.claude_pgid {
-                unsafe {
-                    libc::killpg(pgid, libc::SIGTERM);
-                }
-                tg.notify(&format!(
-                    "🛑 Sent SIGTERM to <code>{}</code> (pgid {})",
-                    escape_html(project_id),
-                    pgid
-                ))
-                .await;
+    let state_path = proj_path.join(".rex-autorun.json");
+    if let Some(state) = read_state(&state_path) {
+        if let Some(pgid) = state.claude_pgid {
+            unsafe {
+                libc::killpg(pgid, libc::SIGTERM);
             }
+            tg.notify(&format!(
+                "🛑 Sent SIGTERM to <code>{}</code> (pgid {})",
+                escape_html(project_id),
+                pgid
+            ))
+            .await;
         } else {
             tg.notify(&format!(
-                "❌ <code>{}</code> doesn't appear to be running",
+                "❌ <code>{}</code> has no active process group",
                 escape_html(project_id)
             ))
             .await;
         }
+    } else {
+        tg.notify(&format!(
+            "❌ <code>{}</code> doesn't appear to be running",
+            escape_html(project_id)
+        ))
+        .await;
     }
 }
 
@@ -744,25 +598,6 @@ fn find_project_dir(_project_dir: &PathBuf, project_id: &str) -> Option<String> 
         .chain(registry.inactive.iter())
         .find(|p| p.id == project_id)
         .map(|p| p.directory.clone())
-}
-
-/// Collect the maximum telegram_update_offset from all running autoruns.
-fn collect_max_offset(_project_dir: &std::path::Path) -> i64 {
-    let Ok(registry) = ProjectRegistry::load() else {
-        return 0;
-    };
-
-    let mut max_offset = 0i64;
-    for proj in registry.active.iter().chain(registry.inactive.iter()) {
-        let state_path = std::path::Path::new(&proj.directory).join(".rex-autorun.json");
-        if let Some(state) = read_state(&state_path) {
-            if let Some(offset) = state.telegram_update_offset {
-                max_offset = max_offset.max(offset);
-            }
-        }
-    }
-
-    max_offset
 }
 
 /// Format chat response for Telegram.

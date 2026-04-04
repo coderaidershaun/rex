@@ -48,15 +48,17 @@ Run the entire project autonomously with Telegram notifications for status updat
 **Telegram environment variables must be available:**
 
 ```bash
-export TELEGRAM_BOT_TOKEN="your-bot-token-from-botfather"
-export TELEGRAM_CHAT_ID="your-numeric-chat-id"
+export REX_TELEGRAM_CHAT_ID="your-numeric-chat-id"
+export REX_AUTORUN_TELEGRAM_BOT_TOKEN="your-autorun-bot-token"
+export REX_AUTOCHAT_TELEGRAM_BOT_TOKEN="your-chat-bot-token"
 ```
 
 Or create a `.env` file in your project root:
 
 ```env
-TELEGRAM_BOT_TOKEN=your-bot-token-from-botfather
-TELEGRAM_CHAT_ID=your-numeric-chat-id
+REX_TELEGRAM_CHAT_ID=your-numeric-chat-id
+REX_AUTORUN_TELEGRAM_BOT_TOKEN=your-autorun-bot-token
+REX_AUTOCHAT_TELEGRAM_BOT_TOKEN=your-chat-bot-token
 ```
 
 Then start autorun:
@@ -122,16 +124,14 @@ Rex Chat options:
 
 #### Telegram Commands
 
-Send these to your Telegram bot while rex-chat is running:
+Send these to the **chat bot** (`REX_AUTOCHAT_TELEGRAM_BOT_TOKEN`) while rex-chat is running:
 
 | Command | Description |
 |---------|-------------|
-| `/rex-chat` | Show project dashboard with Start / Chat / Stop buttons |
-| `/rex-chat <project-id> <message>` | Chat about a specific project |
-| `/kill <project-id>` | Stop a running autorun |
-| `/query <project-id>` | Show autorun status |
+| `/menu` | Show project dashboard with Start / Chat / Stop buttons |
+| `/start` | Same as `/menu` |
 
-Rex Chat is idle by default — it polls Telegram for messages but **never calls an LLM** unless you send a chat message. It is safe to leave running permanently.
+Rex Chat is idle by default — it polls Telegram for messages but **never calls an LLM** unless you send a chat message. It is safe to leave running permanently. Rex Chat uses its own dedicated bot token, separate from autorun.
 
 #### systemd Service (Ubuntu)
 
@@ -151,8 +151,8 @@ WorkingDirectory=/absolute/path/to/project-root
 ExecStart=/absolute/path/to/rex-chat --project-dir /absolute/path/to/project-root
 Restart=on-failure
 RestartSec=5
-Environment=TELEGRAM_BOT_TOKEN=your-bot-token
-Environment=TELEGRAM_CHAT_ID=your-chat-id
+Environment=REX_AUTOCHAT_TELEGRAM_BOT_TOKEN=your-chat-bot-token
+Environment=REX_TELEGRAM_CHAT_ID=your-chat-id
 # Or load from .env:
 # EnvironmentFile=/absolute/path/to/project-root/.env
 

@@ -39,11 +39,11 @@ const DIV: &str = "⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯";
 async fn test_stats_button() {
     dotenvy::dotenv().ok();
 
-    let token = std::env::var("TELEGRAM_BOT_TOKEN").expect("TELEGRAM_BOT_TOKEN not set");
-    let chat_id_raw: i64 = std::env::var("TELEGRAM_CHAT_ID")
-        .expect("TELEGRAM_CHAT_ID not set")
+    let token = std::env::var("REX_AUTORUN_TELEGRAM_BOT_TOKEN").expect("REX_AUTORUN_TELEGRAM_BOT_TOKEN not set");
+    let chat_id_raw: i64 = std::env::var("REX_TELEGRAM_CHAT_ID")
+        .expect("REX_TELEGRAM_CHAT_ID not set")
         .parse()
-        .expect("TELEGRAM_CHAT_ID not a valid i64");
+        .expect("REX_TELEGRAM_CHAT_ID not a valid i64");
 
     let project_id = "btn-test";
     let chat_id = ChatId(chat_id_raw);

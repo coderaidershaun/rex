@@ -1,10 +1,10 @@
-//! Telegram Bot API client with polling, retry logic, and command handling.
+//! Telegram Bot API client with cooperative triage polling.
 //!
-//! Supports two receive modes:
-//! - **Direct polling**: autorun calls `getUpdates` itself (when rex-chat is not running)
-//! - **Inbox mode**: rex-chat routes messages via inbox files (when rex-chat is running)
+//! When multiple autoruns share one bot token, a file lock ensures only one
+//! polls `getUpdates` at a time. The poller triages updates and routes
+//! cross-project messages via inbox files.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use crate::errors::{RexError, RexResult};
@@ -21,15 +21,17 @@ pub enum TelegramPollResult {
     Kill,
 }
 
-/// Raw HTTP client for the Telegram Bot API.
+/// Raw HTTP client for the Telegram Bot API with cooperative triage.
 pub struct TelegramClient {
     token: String,
     chat_id: i64,
     http: reqwest::Client,
     /// Tracks `getUpdates` offset to avoid replaying stale messages.
     pub update_offset: i64,
-    /// Project directory for inbox file checks.
-    project_dir: PathBuf,
+    /// Project root directory (contains registry and lock files).
+    root_dir: PathBuf,
+    /// This autorun's project ID.
+    pub our_project_id: String,
 }
 
 impl TelegramClient {
@@ -37,14 +39,16 @@ impl TelegramClient {
         token: String,
         chat_id: i64,
         initial_offset: Option<i64>,
-        project_dir: PathBuf,
+        root_dir: PathBuf,
+        project_id: String,
     ) -> Self {
         Self {
             token,
             chat_id,
             http: reqwest::Client::new(),
             update_offset: initial_offset.unwrap_or(0),
-            project_dir,
+            root_dir,
+            our_project_id: project_id,
         }
     }
 
@@ -83,7 +87,7 @@ impl TelegramClient {
                 }
                 Ok(r) if r.status() == 401 || r.status() == 403 => {
                     return Err(RexError::Telegram(format!(
-                        "auth error ({}): check TELEGRAM_BOT_TOKEN",
+                        "auth error ({}): check REX_AUTORUN_TELEGRAM_BOT_TOKEN",
                         r.status()
                     )));
                 }
@@ -138,7 +142,6 @@ impl TelegramClient {
     }
 
     /// Send a message with inline Reply + Stats + Kill buttons.
-    /// Callback data includes project_id for routing by rex-chat.
     pub async fn send_with_buttons(&self, text: &str, project_id: &str) -> RexResult<i64> {
         let body = serde_json::json!({
             "chat_id": self.chat_id,
@@ -213,13 +216,13 @@ impl TelegramClient {
         Ok(())
     }
 
-    // ── Receiving: dual-mode (direct polling + inbox) ────────────────────
+    // ── Receiving: cooperative triage polling ────────────────────────────
 
-    /// Long-poll `getUpdates` until a matching reply or `/kill` command arrives.
+    /// Long-poll until a matching reply or `/kill` command arrives.
     ///
-    /// Supports two modes:
-    /// - When rex-chat is running: watches inbox files
-    /// - When rex-chat is not running: polls Telegram directly
+    /// Uses cooperative triage: acquires a file lock to poll Telegram exclusively,
+    /// routes cross-project messages via inbox, falls back to inbox when lock
+    /// is held by another autorun.
     pub(crate) async fn wait_for_reply(
         &mut self,
         mut expected_message_id: i64,
@@ -234,6 +237,9 @@ impl TelegramClient {
             "waiting for reply"
         );
 
+        // Update registry with our expected message
+        inbox::update_expected_message_id(&self.root_dir, project_id, Some(expected_message_id));
+
         loop {
             if tokio::time::Instant::now() >= deadline {
                 return Err(RexError::Telegram(format!(
@@ -242,25 +248,35 @@ impl TelegramClient {
                 )));
             }
 
-            // Check if rex-chat is handling Telegram polling for us
-            if inbox::rex_chat_is_running(&self.project_dir) {
-                if let Some(msg) = inbox::read_inbox(&self.project_dir) {
-                    match msg {
-                        inbox::InboxMessage::Reply { text } => {
-                            info!(reply_len = text.len(), "received reply via inbox");
-                            return Ok(TelegramPollResult::Reply(text));
-                        }
-                        inbox::InboxMessage::Kill => {
-                            info!("received kill via inbox");
-                            return Ok(TelegramPollResult::Kill);
-                        }
+            // Check inbox for messages routed by another autorun
+            if let Some(msg) = inbox::read_inbox(&self.root_dir) {
+                match msg {
+                    inbox::InboxMessage::Reply { text } => {
+                        info!(reply_len = text.len(), "received reply via inbox");
+                        return Ok(TelegramPollResult::Reply(text));
+                    }
+                    inbox::InboxMessage::Kill => {
+                        info!("received kill via inbox");
+                        return Ok(TelegramPollResult::Kill);
+                    }
+                    inbox::InboxMessage::Query => {
+                        info!("received query via inbox, sending stats");
+                        self.notify(query_response).await;
                     }
                 }
-                tokio::time::sleep(Duration::from_secs(1)).await;
-                continue;
             }
 
-            // Direct Telegram polling
+            // Try to acquire poll lock
+            let _lock = match inbox::try_acquire_poll_lock(&self.root_dir) {
+                Some(guard) => guard,
+                None => {
+                    // Another autorun is polling — just check inbox and retry
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                    continue;
+                }
+            };
+
+            // We hold the lock — poll Telegram
             let body = serde_json::json!({
                 "offset": self.update_offset,
                 "timeout": 1,
@@ -299,6 +315,9 @@ impl TelegramClient {
                 None => continue,
             };
 
+            // Load registry for cross-autorun routing
+            let registry = inbox::load_registry(&self.root_dir);
+
             for update in updates {
                 if let Some(uid) = update["update_id"].as_i64() {
                     self.update_offset = uid + 1;
@@ -314,8 +333,41 @@ impl TelegramClient {
                     let cb_id = cb["id"].as_str().unwrap_or("");
                     self.answer_callback_query(cb_id).await;
 
-                    // Parse "action:project_id" format (also accept bare "action" for compat)
-                    let action = data.split(':').next().unwrap_or(data);
+                    // Parse "action:project_id" format
+                    let (action, target_pid) = match data.split_once(':') {
+                        Some((a, t)) => (a, t),
+                        None => (data, ""),
+                    };
+
+                    // Route by target project_id
+                    if !target_pid.is_empty() && target_pid != project_id {
+                        // Route to another autorun via inbox
+                        if let Some(target) = registry.autoruns.get(target_pid) {
+                            let target_dir = Path::new(&target.project_dir);
+                            match action {
+                                "kill" => {
+                                    let _ = inbox::write_inbox(target_dir, &inbox::InboxMessage::Kill);
+                                }
+                                "query" => {
+                                    let _ = inbox::write_inbox(target_dir, &inbox::InboxMessage::Query);
+                                }
+                                "reply" => {
+                                    // Send a reply prompt — this autorun handles it since
+                                    // it's the one polling, then routes the actual reply later
+                                    if let Ok(prompt_id) = self.send_reply_prompt(target_pid).await {
+                                        // Register in registry so replies get routed correctly
+                                        inbox::update_expected_message_id(
+                                            &self.root_dir, target_pid, Some(prompt_id),
+                                        );
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                        continue;
+                    }
+
+                    // Handle for our project
                     match action {
                         "kill" => {
                             info!("received kill button press for project {project_id}");
@@ -329,6 +381,9 @@ impl TelegramClient {
                             info!("received reply button press, sending force-reply prompt");
                             if let Ok(prompt_id) = self.send_reply_prompt(project_id).await {
                                 expected_message_id = prompt_id;
+                                inbox::update_expected_message_id(
+                                    &self.root_dir, project_id, Some(prompt_id),
+                                );
                             }
                         }
                         _ => {
@@ -349,22 +404,22 @@ impl TelegramClient {
                     None => continue,
                 };
 
-                // Check for /kill command FIRST (no reply-to required)
+                // Check for /kill command
                 if let Some(target) = text.strip_prefix("/kill") {
                     let target = target.trim();
                     if target.is_empty() || target == project_id {
                         info!("received /kill command for project {project_id}");
                         return Ok(TelegramPollResult::Kill);
                     }
-                    debug!(
-                        target_project = target,
-                        our_project = project_id,
-                        "ignoring /kill for different project"
-                    );
+                    // Route to another autorun
+                    if let Some(entry) = registry.autoruns.get(target) {
+                        let target_dir = Path::new(&entry.project_dir);
+                        let _ = inbox::write_inbox(target_dir, &inbox::InboxMessage::Kill);
+                    }
                     continue;
                 }
 
-                // Check for /query command (no reply-to required)
+                // Check for /query command
                 if let Some(target) = text.strip_prefix("/query") {
                     let target = target.trim();
                     if target.is_empty() || target == project_id {
@@ -372,11 +427,11 @@ impl TelegramClient {
                         self.notify(query_response).await;
                         continue;
                     }
-                    debug!(
-                        target_project = target,
-                        our_project = project_id,
-                        "ignoring /query for different project"
-                    );
+                    // Route to another autorun
+                    if let Some(entry) = registry.autoruns.get(target) {
+                        let target_dir = Path::new(&entry.project_dir);
+                        let _ = inbox::write_inbox(target_dir, &inbox::InboxMessage::Query);
+                    }
                     continue;
                 }
 
@@ -392,52 +447,82 @@ impl TelegramClient {
                         return Ok(TelegramPollResult::Reply(text.to_string()));
                     }
                     Some(id) => {
-                        debug!(
-                            expected = expected_message_id,
-                            got = id,
-                            "ignoring reply to different message"
-                        );
+                        // Check if this reply is for another autorun
+                        let mut routed = false;
+                        for (pid, entry) in &registry.autoruns {
+                            if pid != project_id
+                                && entry.expected_message_id == Some(id)
+                            {
+                                let target_dir = Path::new(&entry.project_dir);
+                                let _ = inbox::write_inbox(
+                                    target_dir,
+                                    &inbox::InboxMessage::Reply {
+                                        text: text.to_string(),
+                                    },
+                                );
+                                info!(
+                                    target_project = %pid,
+                                    "routed reply to another autorun via inbox"
+                                );
+                                routed = true;
+                                break;
+                            }
+                        }
+                        if !routed {
+                            debug!(
+                                expected = expected_message_id,
+                                got = id,
+                                "ignoring reply to unknown message"
+                            );
+                        }
                     }
                     None => {
-                        let preview: String =
-                            text.chars().take(50).collect();
-                        debug!(
-                            text_preview = preview,
-                            "ignoring message without reply_to"
-                        );
+                        // No reply-to — send "unprocessed" response
+                        self.send_unprocessed_response(&registry).await;
                     }
                 }
             }
+            // Lock is released here when _lock goes out of scope
         }
     }
 
     /// Poll for a `/kill` command during Claude execution.
     ///
-    /// Supports dual-mode: inbox files when rex-chat is running, Telegram polling otherwise.
+    /// Uses cooperative triage: acquires file lock to poll, routes cross-project
+    /// messages via inbox.
     pub(crate) async fn poll_for_kill(
         &mut self,
         project_id: &str,
         query_response: &str,
     ) -> RexResult<()> {
         loop {
-            // Check if rex-chat is handling Telegram polling for us
-            if inbox::rex_chat_is_running(&self.project_dir) {
-                if let Some(msg) = inbox::read_inbox(&self.project_dir) {
-                    match msg {
-                        inbox::InboxMessage::Kill => {
-                            info!("received kill via inbox during execution");
-                            return Ok(());
-                        }
-                        inbox::InboxMessage::Reply { .. } => {
-                            debug!("ignoring inbox reply during execution");
-                        }
+            // Check inbox for messages routed by another autorun
+            if let Some(msg) = inbox::read_inbox(&self.root_dir) {
+                match msg {
+                    inbox::InboxMessage::Kill => {
+                        info!("received kill via inbox during execution");
+                        return Ok(());
+                    }
+                    inbox::InboxMessage::Query => {
+                        info!("received query via inbox during execution");
+                        self.notify(query_response).await;
+                    }
+                    inbox::InboxMessage::Reply { .. } => {
+                        debug!("ignoring inbox reply during execution");
                     }
                 }
-                tokio::time::sleep(Duration::from_secs(1)).await;
-                continue;
             }
 
-            // Direct Telegram polling
+            // Try to acquire poll lock
+            let _lock = match inbox::try_acquire_poll_lock(&self.root_dir) {
+                Some(guard) => guard,
+                None => {
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                    continue;
+                }
+            };
+
+            // We hold the lock — poll Telegram
             let body = serde_json::json!({
                 "offset": self.update_offset,
                 "timeout": 1,
@@ -478,6 +563,9 @@ impl TelegramClient {
                 None => continue,
             };
 
+            // Load registry for cross-autorun routing
+            let registry = inbox::load_registry(&self.root_dir);
+
             for update in updates {
                 if let Some(uid) = update["update_id"].as_i64() {
                     self.update_offset = uid + 1;
@@ -493,7 +581,31 @@ impl TelegramClient {
                     let cb_id = cb["id"].as_str().unwrap_or("");
                     self.answer_callback_query(cb_id).await;
 
-                    let action = data.split(':').next().unwrap_or(data);
+                    let (action, target_pid) = match data.split_once(':') {
+                        Some((a, t)) => (a, t),
+                        None => (data, ""),
+                    };
+
+                    // Route to another autorun if target doesn't match
+                    if !target_pid.is_empty() && target_pid != project_id {
+                        if let Some(target) = registry.autoruns.get(target_pid) {
+                            let target_dir = Path::new(&target.project_dir);
+                            match action {
+                                "kill" => {
+                                    let _ = inbox::write_inbox(target_dir, &inbox::InboxMessage::Kill);
+                                }
+                                "query" => {
+                                    let _ = inbox::write_inbox(target_dir, &inbox::InboxMessage::Query);
+                                }
+                                "reply" => {
+                                    let _ = self.send_reply_prompt(target_pid).await;
+                                }
+                                _ => {}
+                            }
+                        }
+                        continue;
+                    }
+
                     match action {
                         "kill" => {
                             info!("received kill button press during claude execution");
@@ -521,6 +633,7 @@ impl TelegramClient {
                 }
 
                 if let Some(text) = msg["text"].as_str() {
+                    // /kill command
                     if let Some(target) = text.strip_prefix("/kill") {
                         let target = target.trim();
                         if target.is_empty() || target == project_id {
@@ -529,16 +642,43 @@ impl TelegramClient {
                             );
                             return Ok(());
                         }
+                        if let Some(entry) = registry.autoruns.get(target) {
+                            let target_dir = Path::new(&entry.project_dir);
+                            let _ = inbox::write_inbox(target_dir, &inbox::InboxMessage::Kill);
+                        }
                     }
-                    if let Some(target) = text.strip_prefix("/query") {
+                    // /query command
+                    else if let Some(target) = text.strip_prefix("/query") {
                         let target = target.trim();
                         if target.is_empty() || target == project_id {
                             info!("received /query during claude execution");
                             self.notify(query_response).await;
+                        } else if let Some(entry) = registry.autoruns.get(target) {
+                            let target_dir = Path::new(&entry.project_dir);
+                            let _ = inbox::write_inbox(target_dir, &inbox::InboxMessage::Query);
                         }
+                    }
+                    // Reply-to messages — route to correct autorun
+                    else if let Some(reply_to_id) = msg["reply_to_message"]["message_id"].as_i64() {
+                        for (pid, entry) in &registry.autoruns {
+                            if entry.expected_message_id == Some(reply_to_id) {
+                                let target_dir = Path::new(&entry.project_dir);
+                                let _ = inbox::write_inbox(
+                                    target_dir,
+                                    &inbox::InboxMessage::Reply { text: text.to_string() },
+                                );
+                                debug!(target_project = %pid, "routed reply during execution");
+                                break;
+                            }
+                        }
+                    }
+                    // Bare message — send unprocessed
+                    else {
+                        self.send_unprocessed_response(&registry).await;
                     }
                 }
             }
+            // Lock is released here when _lock goes out of scope
         }
     }
 
@@ -588,6 +728,28 @@ impl TelegramClient {
             .timeout(Duration::from_secs(10))
             .send()
             .await;
+    }
+
+    /// Send an "unprocessed" response listing active autoruns.
+    async fn send_unprocessed_response(&self, registry: &inbox::AutorunRegistry) {
+        let mut msg = "⚠️ <b>Unprocessed</b>\n\nPlease reply to a specific message, or use:\n\
+            <code>/kill &lt;project-id&gt;</code>\n\
+            <code>/query &lt;project-id&gt;</code>\n"
+            .to_string();
+
+        if registry.autoruns.is_empty() {
+            msg.push_str("\n<i>No active autoruns.</i>");
+        } else {
+            msg.push_str("\n<b>Active autoruns:</b>\n");
+            for (pid, _entry) in &registry.autoruns {
+                msg.push_str(&format!(
+                    "  <code>{}</code>\n",
+                    super::types::escape_html(pid),
+                ));
+            }
+        }
+
+        self.notify(&msg).await;
     }
 }
 
