@@ -2,6 +2,10 @@
 
 All notable changes to **rex-cli** are documented here.
 
+## 0.2.2 — 2026-04-04
+
+- **Fix systemd PATH for claude binary** — Add PATH environment variable to the rex-chat systemd service example so `claude` (typically in `~/.local/bin`) is found when running as a service.
+
 ## 0.2.1 — 2026-04-04
 
 - **Smart message routing** — Bare messages now route directly to the active project's Claude agent instead of showing a menu. Priority: last-chatted project > single project > first available. Every non-command message gets an agent response.
