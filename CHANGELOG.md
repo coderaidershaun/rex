@@ -2,6 +2,13 @@
 
 All notable changes to **rex-cli** are documented here.
 
+## 0.2.1 — 2026-04-04
+
+- **Smart message routing** — Bare messages now route directly to the active project's Claude agent instead of showing a menu. Priority: last-chatted project > single project > first available. Every non-command message gets an agent response.
+- **Text commands** — Full text-based project management: `/start <id>`, `/stop <id>`, `/status [id]`, `/chat <id>`, `/projects`. No buttons required.
+- **Project-prefixed chat** — `project-id: message` syntax targets a specific project and switches context to it.
+- **Process group cleanup** — Spawned `claude -p` processes now track their PGID. On daemon shutdown, session timeout, or Claude timeout, the entire process group is killed (SIGTERM + SIGKILL) to prevent orphaned processes.
+
 ## 0.2.0 — 2026-04-04
 
 - **Project-agnostic rex-chat** — Rex-chat no longer requires `--project-dir`. It auto-discovers all rex projects by scanning the filesystem from `$HOME` (or a custom `--scan-dir` root) for `rex/projects.json` files. No CWD dependency, no single-registry assumption — just run `rex-chat` and it finds everything.
