@@ -134,7 +134,7 @@ Directory: /Users/me/Code/auth-system
 
 **Item completed (with model header):**
 ```
-claude-opus-4-6[1m]  |  standard  |  12.3% context
+claude-sonnet-4-6  |  standard  |  12.3% context
 ━━━━━━━━━━━━━━━━━━━━
 [my-project] Completed #3
 Completed: goal (onboarding)
@@ -144,7 +144,7 @@ Cost: $1.23  |  Duration: 45s
 
 **Input needed (with ForceReply):**
 ```
-claude-opus-4-6[1m]  |  standard  |  8.5% context
+claude-sonnet-4-6  |  standard  |  8.5% context
 ━━━━━━━━━━━━━━━━━━━━
 [my-project] Input needed
 
@@ -165,7 +165,7 @@ When you reply to a question, an immediate acknowledgment is sent (randomly chos
 
 **Project complete:**
 ```
-claude-opus-4-6[1m]  |  standard  |  45.2% context
+claude-sonnet-4-6  |  standard  |  45.2% context
 ━━━━━━━━━━━━━━━━━━━━
 [my-project] Project complete!
 Invocations: 27  |  Cost: $89.45  |  Duration: 6h 12m
@@ -238,7 +238,7 @@ Auth refresh is attempted at most once per session. If auth fails again after re
 ### Core Loop
 
 1. Load the active project from `rex/projects.json`.
-2. Invoke `claude -p "/rex-operator" --output-format json --dangerously-skip-permissions`.
+2. Invoke `claude -p "/rex-operator" --output-format json --model sonnet --effort high --dangerously-skip-permissions`.
 3. While Claude runs, poll Telegram for `/kill` and `/query` commands (1-second polling interval).
 4. Parse the JSON output for a status: `completed`, `project_done`, `needs_input`, or `error`.
 5. Route:

@@ -60,6 +60,8 @@ pub fn spawn_claude(
 
     cmd.arg("-p").arg(prompt);
     cmd.arg("--output-format").arg("json");
+    cmd.arg("--model").arg("sonnet");
+    cmd.arg("--effort").arg("high");
     cmd.arg("--dangerously-skip-permissions");
     cmd.arg("--max-turns").arg(max_turns.to_string());
     cmd.arg("--max-budget-usd").arg(format!("{max_budget_usd:.2}"));
