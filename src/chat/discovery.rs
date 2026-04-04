@@ -21,7 +21,7 @@ pub struct DiscoveredProject {
 ///
 /// `project_dir` is where `rex/projects.json` lives (CWD is set to this).
 pub fn discover_projects(_project_dir: &Path) -> RexResult<Vec<DiscoveredProject>> {
-    let registry = ProjectRegistry::load()?;
+    let registry = ProjectRegistry::load().unwrap_or_default();
 
     let all_projects = registry.active.iter().chain(registry.inactive.iter());
 

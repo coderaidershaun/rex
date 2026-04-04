@@ -102,8 +102,10 @@ impl SessionManager {
         }
 
         if !stale.is_empty() {
-            // Also clean up message mappings for stale sessions
+            // Clean up message mappings for stale sessions
             self.message_to_project
+                .retain(|_, pid| !stale.contains(pid));
+            self.autorun_reply_map
                 .retain(|_, pid| !stale.contains(pid));
         }
     }

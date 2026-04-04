@@ -97,6 +97,89 @@ Autorun uses reply-to matching — questions are sent with Telegram's ForceReply
 
 Autorun recovers from crashes automatically, respects budget limits, handles expired auth tokens (sends re-auth URL via Telegram), and exits cleanly when the project is done.
 
+### Rex Chat
+
+Rex Chat is a separate daemon that provides a universal Telegram interface for all your rex projects. Through a single Telegram conversation you can discover running autoruns, start new ones, chat about any project with an AI agent, and diagnose issues.
+
+Rex Chat uses the **same Telegram bot** as autorun. When rex-chat is running, it becomes the sole Telegram poller and routes messages to autoruns via IPC inbox files. When rex-chat is not running, autoruns poll Telegram directly (fully backward-compatible).
+
+```bash
+# Foreground (from the project root — where rex/projects.json lives)
+rex-chat
+
+# Background with nohup
+nohup rex-chat --project-dir /absolute/path/to/project-root > /dev/null 2>&1 &
+```
+
+Rex Chat options:
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--project-dir <PATH>` | `.` | Directory containing `rex/projects.json` |
+| `--max-budget-usd <AMOUNT>` | `10.0` | Max USD per chat invocation |
+| `--max-turns <N>` | `50` | Max agentic turns per chat invocation |
+| `--session-timeout-mins <N>` | `30` | Idle chat session timeout |
+
+#### Telegram Commands
+
+Send these to your Telegram bot while rex-chat is running:
+
+| Command | Description |
+|---------|-------------|
+| `/rex-chat` | Show project dashboard with Start / Chat / Stop buttons |
+| `/rex-chat <project-id> <message>` | Chat about a specific project |
+| `/kill <project-id>` | Stop a running autorun |
+| `/query <project-id>` | Show autorun status |
+
+Rex Chat is idle by default — it polls Telegram for messages but **never calls an LLM** unless you send a chat message. It is safe to leave running permanently.
+
+#### systemd Service (Ubuntu)
+
+To run rex-chat as a persistent service with automatic restart:
+
+```bash
+sudo tee /etc/systemd/system/rex-chat.service > /dev/null << 'EOF'
+[Unit]
+Description=Rex Chat - Telegram interface for rex projects
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=YOUR_USERNAME
+WorkingDirectory=/absolute/path/to/project-root
+ExecStart=/absolute/path/to/rex-chat --project-dir /absolute/path/to/project-root
+Restart=on-failure
+RestartSec=5
+Environment=TELEGRAM_BOT_TOKEN=your-bot-token
+Environment=TELEGRAM_CHAT_ID=your-chat-id
+# Or load from .env:
+# EnvironmentFile=/absolute/path/to/project-root/.env
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=rex-chat
+
+[Install]
+WantedBy=multi-user.target
+EOF
+```
+
+Then enable and start:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable rex-chat
+sudo systemctl start rex-chat
+
+# Check status / logs
+sudo systemctl status rex-chat
+journalctl -u rex-chat -f
+```
+
+The service restarts automatically after 5 seconds on failure. Since rex-chat never calls an LLM on its own (only when you send a message), restarts are cheap — just Telegram polling.
+
 ## How It Works
 
 Rex manages projects through a structured pipeline:
@@ -196,6 +279,12 @@ nohup rex-autorun --project-dir /absolute/path/to/rex-projects/libs/api-server >
 | `rex checklist set-context <CTX>` | Set checklist context text |
 | `rex history list` | View all session history |
 | `rex history get-recent` | View recent history entries |
+
+### Autorun
+
+| Command | Description |
+|---|---|
+| `rex autorun list [--json]` | List running autoruns across all registered projects |
 
 ### Monorepo
 
