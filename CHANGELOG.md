@@ -2,6 +2,11 @@
 
 All notable changes to **rex-cli** are documented here.
 
+## 0.2.4 — 2026-04-05
+
+- **Integration testing in onboarding** — Add `integration-testing` as a new onboarding step and wire it as an input to all design and planning phases, so integration test preferences gathered during onboarding flow through to architecture, modules, errors, and critique design steps.
+- **Skill refinements** — Improve instructions for planning-tasks, planning-objectives, planning-review, integration-testing, design-integration-tests, design-user-acceptance, and research-reducer skills.
+
 ## 0.2.3 — 2026-04-04
 
 - **Varied thinking messages** — Rex-chat now shows a randomly chosen status message (from 50 variations) while the agent is working, instead of always "Thinking...".
