@@ -2,6 +2,11 @@
 
 All notable changes to **rex-cli** are documented here.
 
+## 0.2.5 — 2026-04-05
+
+- **Refactor project validation** — `project create` with the refactor category now requires the target directory to already exist, instead of scaffolding a new project with `cargo new`.
+- **Duplicate project directory guard** — `project create` checks whether `rex/<project-id>/` already exists on disk before proceeding, and errors out with a message to choose a different ID if it does.
+
 ## 0.2.4 — 2026-04-05
 
 - **Integration testing in onboarding** — Add `integration-testing` as a new onboarding step and wire it as an input to all design and planning phases, so integration test preferences gathered during onboarding flow through to architecture, modules, errors, and critique design steps.
