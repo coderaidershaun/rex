@@ -228,11 +228,26 @@ pub fn create(with_git_repo: Option<RepoVisibility>) -> RexResult<()> {
         locked: false,
     };
 
+    // Check that rex/<project-id> metadata directory doesn't already exist
+    let rex_project_dir = format!("rex/{id}");
+    if Path::new(&rex_project_dir).is_dir() {
+        return Err(RexError::Validation(format!(
+            "Directory \"{rex_project_dir}\" already exists. Please choose a different project ID."
+        )));
+    }
+
     // Ensure the source directory exists, scaffold with cargo if not
     if !Path::new(&project.directory).is_dir() {
+        if matches!(&project.category, Category::Refactor) {
+            return Err(RexError::Validation(format!(
+                "Directory \"{}\" does not exist. Refactor projects must point to an existing codebase.",
+                project.directory
+            )));
+        }
         let cargo_flag = match &project.category {
-            Category::Library | Category::Refactor => "--lib",
+            Category::Library => "--lib",
             Category::Binary => "--bin",
+            Category::Refactor => unreachable!(),
         };
         let output = Command::new("cargo")
             .args(["new", cargo_flag, &project.directory])
