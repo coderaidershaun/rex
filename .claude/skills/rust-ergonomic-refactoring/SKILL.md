@@ -20,10 +20,11 @@ Ergonomic Rust isn't about being clever. It's about removing friction between th
 ## Process
 
 1. Read the target file(s) completely — understand the data flow and ownership model before touching anything
-2. Identify patterns from the catalog below that apply
-3. Apply transformations in order of impact: biggest readability wins first
-4. Verify that no semantic changes were introduced — the refactored code must do exactly what the original did
-5. If you're unsure whether a transformation preserves performance, leave a brief note and keep the original
+2. **Check file length.** If any file exceeds 500 lines, it needs extra scrutiny. Long files often signal over-commenting, duplicated logic, or types that should be split into submodules. As a first pass on long files, check the comment-to-code ratio — if comments are contributing significantly to the line count, invoke the `rust-commenting` skill on that file to strip comments down to their minimal, essential form before continuing with structural refactoring. After comment trimming, re-check the line count. If still over 500, look for structural improvements: extract types into submodules, consolidate duplicated logic, simplify verbose patterns.
+3. Identify patterns from the catalog below that apply
+4. Apply transformations in order of impact: biggest readability wins first
+5. Verify that no semantic changes were introduced — the refactored code must do exactly what the original did
+6. If you're unsure whether a transformation preserves performance, leave a brief note and keep the original
 
 Read `references/patterns.md` for the full catalog of ergonomic patterns with before/after examples covering iterator chains, error handling, type design, `#[inline]` usage, and more.
 

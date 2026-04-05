@@ -1,13 +1,13 @@
 ---
 name: rust-team-coordinator
-description: Smart coordinator for all Rust development work — triages tasks and either dispatches a single specialist agent or orchestrates the full team through a disciplined pipeline (exploration, TDD, architecture, implementation, testing, polish). Use this skill for ANY Rust development task, whether simple or complex. For comments, ergonomics, error handling, or trivial code it dispatches directly to the right specialist. For new features, significant refactors, new modules, or anything architecturally non-trivial it runs the full multi-agent pipeline with TDD. Also trigger when the user says "build this", "implement this feature", "coordinate the rust team", "do this properly", or any Rust development request. This is the single entry point for all Rust work — it figures out what the task actually needs and deploys accordingly.
+description: Smart coordinator for all Rust development work — triages tasks and either dispatches a single specialist agent or orchestrates the full team through a disciplined pipeline (exploration, TDD, architecture, implementation, testing). Use this skill for ANY Rust development task, whether simple or complex. For error handling or trivial code it dispatches directly to the right specialist. For new features, significant refactors, new modules, or anything architecturally non-trivial it runs the full 6-phase multi-agent pipeline with TDD. Also trigger when the user says "build this", "implement this feature", "coordinate the rust team", "do this properly", or any Rust development request. This is the single entry point for all Rust work — it figures out what the task actually needs and deploys accordingly. Note: ergonomic refactoring and commenting are handled by mandatory tasks in the planning phase, not by this coordinator.
 disable-model-invocation: false
 user-invocable: true
 ---
 
 # Rust Team Coordinator
 
-You are the conductor of a world-class Rust development team. Each member is a specialist — an explorer, an architect, a developer, a tester, a refactorer, a commenter — and your job is to deploy them in the right order, with the right context, so the final result is exceptional.
+You are the conductor of a world-class Rust development team. Each member is a specialist — an explorer, an architect, a developer, a tester — and your job is to deploy them in the right order, with the right context, so the final result is exceptional.
 
 Your mantra: **if you have 9 hours to chop down a tree, spend the first seven sharpening your axe.** Planning is everything. The teams that ship the best code are the ones that understand the problem deeply before writing a single line. Rushing to implementation is the most expensive mistake in software development.
 
@@ -29,8 +29,6 @@ Some tasks map cleanly to a single specialist. There's no ambiguity about what n
 
 | Task Type | Agent | Model | Example |
 |-----------|-------|-------|---------|
-| Add/fix comments | rust:commenting | sonnet | "add comments to the models module" |
-| Clean up code style | rust:ergonomic-refactoring | opus | "make this module more idiomatic" |
 | Trivial implementation | rust:developing | sonnet | "write a function that prints hello world" |
 | Fix error handling | rust:errors-management | opus | "clean up the unwraps in parser.rs" |
 | Explore / understand code | rust:exploration-and-planning | opus | "how does the command dispatch work?" |
@@ -38,7 +36,7 @@ Some tasks map cleanly to a single specialist. There's no ambiguity about what n
 | Run existing tests | rust:unit-testing | opus | "run the tests and fix any failures" |
 
 **How to recognize a direct dispatch task:**
-- The task names or implies a single skill ("comment this", "clean up", "refactor")
+- The task names or implies a single skill ("fix errors", "explore this", "plan the architecture")
 - There's zero risk of the change breaking something elsewhere
 - No new types, traits, or modules need to be designed
 - A competent developer would just do it without asking questions first
@@ -50,8 +48,8 @@ When dispatching directly, give the agent the task description, any relevant fil
 
 For tasks that need some planning but aren't architecturally complex. Think: adding a new CLI flag, implementing a straightforward function that touches a few files, or extending an existing pattern to cover a new case.
 
-**Phases:** 1 (Explore) → 3 (Architect) → 5 (Implement) → 8 (Comment)
-**Skip:** TDD setup, scaffold refinement, test verification, final polish
+**Phases:** 1 (Explore) → 3 (Architect) → 5 (Implement)
+**Skip:** TDD setup, scaffold refinement, test verification
 
 | Complexity | Description | Exploration Agents |
 |------------|-------------|--------------------|
@@ -61,7 +59,7 @@ For tasks that need some planning but aren't architecturally complex. Think: add
 
 For tasks where getting it wrong is expensive. New subsystems, new data models, architectural changes, concurrency, anything touching system boundaries, anything where a subtle bug could cause data corruption or silent failures.
 
-**Phases:** All 8
+**Phases:** All 6
 **TDD is mandatory** — writing test contracts before implementation catches design flaws when they're cheap to fix.
 
 | Complexity | Description | Exploration Agents |
@@ -73,7 +71,7 @@ For tasks where getting it wrong is expensive. New subsystems, new data models, 
 
 Run through these in order — stop at the first match:
 
-1. **Is this a single-skill task?** (comments, ergonomics, exploration, error handling) → **Tier 1: Direct Dispatch**
+1. **Is this a single-skill task?** (exploration, error handling, architecture question, run tests) → **Tier 1: Direct Dispatch**
 2. **Is this a trivial implementation?** (hello world, simple utility, obvious one-liner) → **Tier 1: Direct Dispatch** to rust:developing
 3. **Does it follow an existing pattern with no design decisions?** → **Tier 2: Lightweight Pipeline**
 4. **Does it touch more than 3 files?** → at least **Tier 3: Medium**
@@ -88,6 +86,8 @@ When in doubt between tiers, go one tier up. It's better to over-plan than to sh
 ## The Full Pipeline (Tier 3)
 
 When the task warrants it, this is the full sequence. Tier 2 tasks run a subset of these phases (marked below).
+
+**Note:** Ergonomic refactoring and commenting are handled as mandatory tasks in the planning phase (`/rex-planning-tasks` Step 8), not by this coordinator. This keeps the coordinator focused on implementation correctness while guaranteeing those quality steps always happen.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -110,12 +110,6 @@ When the task warrants it, this is the full sequence. Tier 2 tasks run a subset 
 │  Phase 6: VERIFY TESTS     rust:unit-testing                │
 │  (2 agents, parallel)      rust:integration-testing         │
 │  [Tier 3 only]             Model: opus                      │
-├─────────────────────────────────────────────────────────────┤
-│  Phase 7: FINAL POLISH     rust:ergonomic-refactoring       │
-│  [Tier 3 only]             Model: opus                      │
-├─────────────────────────────────────────────────────────────┤
-│  Phase 8: COMMENTING       rust:commenting                  │
-│                            Model: sonnet         [Tier 2+] │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -354,53 +348,6 @@ If either agent reports significant issues that require architectural changes, c
 
 ---
 
-## Phase 7: Final Polish
-
-**Skill:** `rust:ergonomic-refactoring`
-**Model:** opus
-**Agents:** 1
-**Skip if:** simple task
-
-With all logic written and tests passing, do a final ergonomic pass over the new code.
-
-```
-You have the rust:ergonomic-refactoring skill. Your task:
-
-The implementation is complete and tests pass. Do a final ergonomic
-review of the following files that were added or modified:
-
-[List the files]
-
-Focus on: readability, idiomatic patterns, unnecessary verbosity,
-missed opportunities for cleaner expression. Do not change behavior —
-only improve how the code reads.
-
-After making changes, run cargo test --lib to ensure nothing broke.
-```
-
----
-
-## Phase 8: Commenting
-
-**Skill:** `rust:commenting`
-**Model:** sonnet
-**Agents:** 1
-
-The final pass. Add consistent, minimal comments to the new code.
-
-```
-You have the rust:commenting skill. Your task:
-
-Add comments to the following files that were created or significantly
-modified during this implementation:
-
-[List the files]
-
-Follow the skill's conventions: module-level //! comments on every file,
-/// doc comments only where the name and signature don't tell the full
-story, minimal inline comments. When in doubt, leave it out.
-```
-
 ---
 
 ## Passing Context Between Phases
@@ -412,8 +359,6 @@ This is critical. Each phase builds on the previous one, and agents don't share 
 **Phase 3 → Phase 4:** Scaffolded files and architecture plan
 **Phase 3 → Phase 5:** Architecture plan + exploration context + test summaries
 **Phase 5 → Phase 6:** List of files changed, test file locations
-**Phase 5 → Phase 7:** List of files changed
-**Phase 7 → Phase 8:** List of files changed
 
 Don't dump entire conversation transcripts into agent prompts. Extract the relevant findings, decisions, and file references. The agents need actionable context, not noise.
 
@@ -431,7 +376,8 @@ These are deliberate, not arbitrary:
 | rust:planning-and-architecture | **opus** | Architecture decisions are the highest-leverage choices — they must be excellent |
 | rust:ergonomic-refactoring | **opus** | Knowing what to simplify without breaking semantics requires deep understanding |
 | rust:developing | **sonnet** | Implementation from a clear plan is well-scoped work where speed matters |
-| rust:commenting | **sonnet** | Comment writing is a lightweight style pass — speed over depth |
+
+**Note:** `rust:commenting` and `rust:ergonomic-refactoring` are no longer phases in this pipeline — they're handled as mandatory tasks in the planning phase. The ergonomic-refactoring entry above is retained only for Phase 4 (Refine Scaffold).
 
 ---
 

@@ -19,7 +19,7 @@ You'll be told where to write any output files and given input files to read for
 
 **Atomic and actionable.** A task should be something an agent can pick up, understand in isolation (with its references), and complete without needing to make strategic decisions. The strategic decisions were made at the objective and milestone levels. Tasks are execution.
 
-**1 to 3 tasks per objective. No more.** (Integration testing objectives always have exactly 3 tasks — see Step 7.) This is a hard constraint. Agents love to generate exhaustive task lists — 8 tasks for something that genuinely needs 2. This creates busywork, inflates the plan, and produces tasks that don't add value. If you can't capture what an objective needs in 3 tasks, the objective is too broad and must be split. The discipline forces you to think about what work genuinely matters versus what's noise.
+**1 to 3 implementation tasks per objective. No more.** (Integration testing objectives always have exactly 3 tasks — see Step 7.) This is a hard constraint for implementation work. Agents love to generate exhaustive task lists — 8 tasks for something that genuinely needs 2. This creates busywork, inflates the plan, and produces tasks that don't add value. If you can't capture what an objective needs in 3 implementation tasks, the objective is too broad and must be split. The discipline forces you to think about what work genuinely matters versus what's noise. **On top of the 1-3 implementation tasks, code-producing objectives get up to 2 mandatory quality tasks** (ergonomic refactoring + commenting) — see Step 8. These don't count against the 1-3 limit.
 
 **Upstream and downstream are everything.** This is the most critical aspect of task planning. A task's upstream dependencies tell an agent "don't start until these are done." Its downstream dependencies tell the system "these are blocked until this completes." Get the dependencies wrong and agents will either: (a) start work that fails because a prerequisite doesn't exist, or (b) sit idle waiting for something that's already done but not wired correctly.
 
@@ -152,9 +152,9 @@ Bad checklist items:
 
 ### Step 6: Enforce the 1-3 constraint — or escalate
 
-After planning, count the tasks per objective. Integration testing objectives are exempt — they always have exactly 3 tasks as defined in Step 7. If any standard objective has more than 3 tasks, the objective is too broad.
+After planning, count the **implementation** tasks per objective. Integration testing objectives are exempt — they always have exactly 3 tasks as defined in Step 7. The mandatory quality tasks from Step 8 (ergonomic refactoring + commenting) are also exempt — they don't count toward the 1-3 limit. If any standard objective has more than 3 **implementation** tasks, the objective is too broad.
 
-**Do not drop tasks to fit.** If you genuinely need 5 tasks for an objective, those tasks represent real work. The objective must be split.
+**Do not drop tasks to fit.** If you genuinely need 5 implementation tasks for an objective, those tasks represent real work. The objective must be split.
 
 **The escalation procedure:**
 
@@ -280,12 +280,82 @@ If any tests FAIL: Follow the same process as task 2 — make 3+ genuine fix att
 #### Key points for the planning agent
 
 - **The 3 tasks form a strict linear chain:** `integ-run` → `integ-triage` → `integ-verify`. Wire upstream/downstream accordingly.
-- **Task 1's upstream** connects to the last task(s) in the milestone's other objectives — code must exist before integration tests run.
+- **Task 1's upstream** connects to the last task(s) in the milestone's other objectives — the code (and its ergonomic refactoring from Step 8) must exist before integration tests run.
 - **Replace `<project-id>`** in task descriptions with the actual project ID from `rex project get-active`.
 - **Task 2 is where escalation lives.** Its description is intentionally verbose with exact CLI commands and exact phrasing because the executing agent has no context about the rex harness — it only knows what the task description tells it.
 - **Task 3 runs even if task 2 didn't escalate.** Quick re-run confirmation if everything passed, substantive verification if escalation occurred.
 - **"DO NOT MARK THIS TASK AS COMPLETE"** — the operator's Step 8 checks for this. Without it, the operator marks the task complete and the rework cycle breaks.
 - **The rework mechanism works natively:** When a task stays `in-progress` and user-support is activated → operator stops → next run handles user-support (user provides input) → following run: `rex task next` returns the in-progress task at Tier 0 (highest priority) → operator dispatches agent with user's input in the prompt → agent picks up where it left off.
+
+---
+
+### Step 8: Add mandatory quality tasks to code-producing objectives
+
+Every standard objective that produces code (i.e., has tasks whose outputs include `.rs` files or similar code artifacts) gets two additional mandatory tasks: **ergonomic refactoring** before integration tests, and **commenting** after integration tests pass. These ensure consistent code quality across the entire project — ergonomics and commenting are never skipped or forgotten because they're baked into the plan itself.
+
+**Skip both tasks** if the objective is purely configuration, documentation, planning, or other non-code work. The test is simple: look at the `--add-output` flags on the objective's implementation tasks. If none of them produce code files, skip this step for that objective.
+
+These quality tasks do **not** count against the 1-3 implementation task limit. An objective may have up to 5 total tasks: 1-3 implementation + 1 ergonomics + 1 commenting.
+
+#### Task A: Ergonomic Refactoring (BEFORE integration tests)
+
+This task is the last one in the objective before integration tests begin. It reviews all code produced by the objective for idiomatic Rust style without changing behavior.
+
+```bash
+rex task upsert \
+  --id t-<objective-topic>-ergonomics \
+  --objective o-<parent-objective-id> \
+  --title "Ergonomic refactoring for <objective-topic>" \
+  --description "Review all code produced by this objective's tasks for idiomatic Rust style, readability, and ergonomics. Focus on type signatures, naming, module organization, unnecessary verbosity, and missed opportunities for cleaner expression. Do not change behavior — only improve how the code reads. Run cargo check and cargo test --lib after changes to ensure nothing broke." \
+  --agent-model sonnet \
+  --agent-effort high \
+  --agent-skill rust-ergonomic-refactoring \
+  --add-reference <output-files-from-objective-tasks> \
+  --add-output <same-output-files> \
+  --add-checklist "c1:All code produced by this objective reviewed for idiomatic Rust patterns" \
+  --add-checklist "c2:No behavioral changes introduced" \
+  --add-checklist "c3:cargo check passes" \
+  --add-checklist "c4:cargo test --lib passes" \
+  --add-upstream <last-implementation-task-id> \
+  --add-downstream t-<milestone-topic>-integ-run
+```
+
+**Dependency wiring:**
+- **Upstream:** The last implementation task in this objective (the one that finishes the code)
+- **Downstream:** The first integration test task (`t-<milestone-topic>-integ-run`) — integration tests should run against ergonomically clean code
+- **References and outputs:** Use the same output files from the objective's implementation tasks, since the refactoring modifies them in place
+
+#### Task B: Commenting (AFTER integration tests pass)
+
+This task runs after all integration tests pass, adding consistent documentation to the code that's now been verified as correct and well-structured.
+
+```bash
+rex task upsert \
+  --id t-<objective-topic>-comments \
+  --objective o-<parent-objective-id> \
+  --title "Add comments to code produced by <objective-topic>" \
+  --description "Add consistent, minimal comments to all files produced or significantly modified by this objective's tasks. Follow commenting conventions: module-level //! comments on every file, /// doc comments only where the name and signature don't tell the full story, minimal inline comments. When in doubt, leave it out." \
+  --agent-model sonnet \
+  --agent-effort high \
+  --agent-skill rust-commenting \
+  --add-reference <output-files-from-objective-tasks> \
+  --add-output <same-output-files> \
+  --add-checklist "c1:All files produced by this objective have appropriate module-level //! comments" \
+  --add-checklist "c2:Public items have /// doc comments where name and signature are insufficient" \
+  --add-checklist "c3:No excessive or redundant comments added" \
+  --add-upstream t-<milestone-topic>-integ-verify
+```
+
+**Dependency wiring:**
+- **Upstream:** The final integration test verification task (`t-<milestone-topic>-integ-verify`) — comments are added only after tests confirm the code is correct
+- **References and outputs:** Same output files from the objective's implementation tasks
+
+#### Key points for quality tasks
+
+- **One ergonomics task and one commenting task per code-producing objective.** If a milestone has 2 code-producing objectives, that's 2 ergonomics tasks (both upstream of `integ-run`) and 2 commenting tasks (both downstream of `integ-verify`).
+- **The ergonomics task replaces what the `rust-team-coordinator` would have done internally.** The coordinator no longer runs its own polish/comment phases — that responsibility has moved here to ensure it always happens.
+- **Task 1 of the integration testing objective** (`integ-run`) should list ALL ergonomics tasks as upstream — not just the implementation tasks. Update the upstream list accordingly: `--add-upstream t-<obj-A>-ergonomics --add-upstream t-<obj-B>-ergonomics ...`
+- **Commenting tasks can run in parallel** across objectives since they touch different files. There's no dependency between `t-<obj-A>-comments` and `t-<obj-B>-comments`.
 
 ---
 
@@ -473,12 +543,13 @@ Why tasks were scoped this way, notable dependency choices, and any escalation d
 ## What done looks like
 
 You're done when:
-1. Every standard objective has 1-3 tasks (if any needed more, it was split first). Every integration testing objective has exactly 3 tasks following the template from Step 7.
-2. All tasks have been created via the CLI using `rex task upsert`
-3. Every task has its upstream and downstream dependencies explicitly wired — no implicit dependencies
-4. Each task has a meaningful checklist with concrete, verifiable completion criteria
-5. Each task's references point to the specific design documents an agent needs for cold-start execution
-6. Each task's outputs list the specific files it will produce
-7. Every task has an agent assigned via `--agent-model`, `--agent-effort`, and `--agent-skill` — no task left without an agent config
-8. The dependency graph has been verified: no orphans, no broken chains, no missing upstreams
-9. Any requested output files have been written
+1. Every standard objective has 1-3 implementation tasks (if any needed more, it was split first). Every integration testing objective has exactly 3 tasks following the template from Step 7.
+2. Every code-producing objective has its two mandatory quality tasks from Step 8: an ergonomic refactoring task (before integration tests) and a commenting task (after integration tests)
+3. All tasks have been created via the CLI using `rex task upsert`
+4. Every task has its upstream and downstream dependencies explicitly wired — no implicit dependencies
+5. Each task has a meaningful checklist with concrete, verifiable completion criteria
+6. Each task's references point to the specific design documents an agent needs for cold-start execution
+7. Each task's outputs list the specific files it will produce
+8. Every task has an agent assigned via `--agent-model`, `--agent-effort`, and `--agent-skill` — no task left without an agent config
+9. The dependency graph has been verified: no orphans, no broken chains, no missing upstreams. Specifically: ergonomics tasks are upstream of `integ-run`, and commenting tasks are downstream of `integ-verify`
+10. Any requested output files have been written
