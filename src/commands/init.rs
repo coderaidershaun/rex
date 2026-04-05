@@ -48,6 +48,64 @@ When assigning agents to tasks, use the `rex-model-router` skill as the single s
 | [history](rex/docs/history.md) | Session history tracking |
 | [operator](rex/docs/operator.md) | The orchestration heartbeat |
 | [planning](rex/docs/planning-overview.md) | Three-level planning hierarchy |
+
+## Table of Contents
+
+When file structure changes, this MUST be kept up-to-date.
+
+### Root
+
+| File | Purpose |
+|------|---------|
+| `Cargo.toml` | Package manifest — dependencies, features, dev-dependencies |
+| `CLAUDE.md` | This file — project context and quick reference |
+| `.gitignore` | Git ignore rules — `/target`, `.env`, `.env.*` |
+
+### `src/`
+
+| File | Purpose |
+|------|---------|
+| `main.rs` or `lib.rs` | Crate entry point (binary or library depending on project category) |
+
+### `.claude/`
+
+| File | Purpose |
+|------|---------|
+| `settings.json` | Claude Code configuration — hooks and permissions |
+| `hooks/commit-and-push.sh` | Auto-commit hook triggered on agent stop |
+| `skills/` | Skill definitions used by the rex operator and agents |
+
+### `rex/`
+
+| File | Purpose |
+|------|---------|
+| `projects.json` | Project registry — active project and inactive list |
+| `docs/README.md` | End-to-end process overview |
+| `docs/projects.md` | Project lifecycle and registry docs |
+| `docs/checklist.md` | Onboarding, design, and planning checklists |
+| `docs/milestones.md` | Major project checkpoints |
+| `docs/objectives.md` | Strategic outcomes under milestones |
+| `docs/tasks.md` | Atomic work units and priority scoring |
+| `docs/history.md` | Session history tracking |
+| `docs/operator.md` | The orchestration heartbeat |
+| `docs/planning-overview.md` | Three-level planning hierarchy |
+| `docs/monorepo.md` | Monorepo support and configuration |
+| `docs/init.md` | Harness initialization reference |
+| `docs/rex-autorun.md` | Autorun loop documentation |
+| `docs/telegram.md` | Telegram integration guide |
+| `docs/research/` | Research output directory (initially empty) |
+
+### `rex/<project-id>/`
+
+| File | Purpose |
+|------|---------|
+| `project-status.json` | Full project status — onboarding, design, planning, execution steps |
+| `onboarding/` | Onboarding phase outputs |
+| `user-support/` | User support artifacts |
+| `design/` | Design phase outputs |
+| `planning/` | Planning phase outputs |
+| `execution/` | Execution phase outputs |
+| `uat/` | User acceptance testing outputs |
 ";
 
 pub fn init() -> RexResult<()> {
