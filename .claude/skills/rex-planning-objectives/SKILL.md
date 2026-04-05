@@ -23,7 +23,7 @@ You are decomposing milestones into their essential conditions — the things th
 
 **Right-sized scoping.** An objective is not a task and not a milestone. The sizing test: Could a single agent complete this in one work session? Then it's a task — push it down. Could this stand alone as a major project checkpoint? Then it's a milestone — push it up. An objective occupies the middle: it requires multiple tasks to achieve, but it's one coherent goal within a larger milestone.
 
-**1 to 3 objectives per milestone. No more.** This is a hard constraint, not a suggestion. Agents have a habit of generating exhaustive lists of objectives that don't add value — turning a clean milestone into a bureaucratic maze. If you can't capture what a milestone needs in 3 objectives, the milestone itself is too broad and must be split. The discipline of staying within 1-3 forces you to think at the right altitude: strategic outcomes, not implementation checklists.
+**1 to 3 objectives per milestone. No more.** (Exception: integration testing objectives are exempt from this limit — see Step 8.) This is a hard constraint, not a suggestion. Agents have a habit of generating exhaustive lists of objectives that don't add value — turning a clean milestone into a bureaucratic maze. If you can't capture what a milestone needs in 3 objectives, the milestone itself is too broad and must be split. The discipline of staying within 1-3 forces you to think at the right altitude: strategic outcomes, not implementation checklists.
 
 **Necessary and sufficient.** For each milestone, your objectives should be collectively sufficient — if every objective is met, the milestone is achieved. They should also be individually necessary — removing any one would leave the milestone incomplete. If an objective could be removed without affecting the milestone, it doesn't belong there.
 
@@ -156,7 +156,7 @@ Before writing them to the CLI, interrogate your plan:
 
 ### Step 7: Enforce the 1-3 constraint — or escalate
 
-After your challenge round, count the objectives per milestone. If any work milestone has more than 3 objectives, you have a structural problem — the milestone is too broad.
+After your challenge round, count the objectives per milestone. Exclude integration testing objectives from the count — they are exempt (see Step 8). If any work milestone has more than 3 standard objectives, you have a structural problem — the milestone is too broad.
 
 **Do not simply drop objectives to fit.** If you genuinely identified 5 necessary outcomes for a milestone, those outcomes don't disappear by pretending they don't exist. Instead, the milestone must be split.
 
@@ -172,11 +172,61 @@ After your challenge round, count the objectives per milestone. If any work mile
 
 This is an exceptional case, not the normal flow. If you find yourself needing to split milestones frequently, the milestones planning was done at too high a level. But it's better to fix the structure than to force-fit too many objectives or silently omit necessary ones.
 
+### Step 8: Add integration testing objectives (when applicable)
+
+**Integration testing objectives are conditional, not automatic.** Only add one when both conditions are met:
+
+1. The design phase produced `rex/<project-id>/design/integration-tests.md` with test specifications that cover this milestone's scope
+2. The milestone involves executable code with external boundaries (API calls, database operations, network connections, file I/O, configuration-dependent behavior, or core business logic)
+
+**Check the design integration test plan.** Read `rex/<project-id>/design/integration-tests.md` and identify which CRITICAL and IMPORTANT tests fall within each milestone's scope. If no tests in the plan relate to a milestone's code, do not add an integration testing objective for it.
+
+**When NOT to add an integration testing objective:**
+- The design phase did not produce an integration test plan (the `design/integration-tests.md` file doesn't exist or the design step was marked not-required)
+- No tests in the design plan cover this milestone's scope
+- The milestone only produces type definitions, data models, or error types without executable behavior
+- Review milestones (they already have audit/fix structure)
+- Milestones whose work is purely internal refactoring with no external-facing behavior changes
+
+For each qualifying work milestone, add **one additional integration testing objective**. This objective is **exempt from the 1-3 limit** — it sits on top of the standard objectives. A milestone with 3 standard objectives plus 1 integration testing objective (4 total) is valid.
+
+**The integration testing objective:**
+
+- **ID convention:** `o-<milestone-topic>-integration-testing`
+- **Title pattern:** "Integration tests validate <milestone-topic> against real-world conditions"
+- **Description:** Reference the design phase integration test plan and describe which CRITICAL/IMPORTANT tests from the plan cover this milestone's scope. Mention specific failure modes.
+- **Upstream dependencies:** MUST depend on ALL other objectives within the same milestone. Integration tests cannot run until the code they test exists. Use `--add-upstream` for every sibling objective.
+- **References:** Must include `rex/<project-id>/design/integration-tests.md`
+- **Checklist items:**
+  - "All CRITICAL integration tests for <scope> pass against real data"
+  - "All IMPORTANT integration tests for <scope> pass or have documented blockers"
+  - "Agent made at least 3 genuine fix attempts per failure before escalating"
+  - "Final verification confirms all tests pass after any user-support resolution"
+
+**Example:**
+
+```bash
+rex objective upsert \
+  --id o-core-engine-integration-testing \
+  --milestone m-core-engine \
+  --title "Integration tests validate core engine against real-world conditions" \
+  --description "Implement and run the CRITICAL and IMPORTANT integration tests from the design plan that cover the core engine scope. Tests use real data and real connections. Failures the agent cannot resolve after multiple attempts are escalated to user-support." \
+  --add-reference rex/<project-id>/design/integration-tests.md \
+  --add-checklist "c1:All CRITICAL integration tests for core engine pass against real data" \
+  --add-checklist "c2:All IMPORTANT integration tests pass or have documented blockers" \
+  --add-checklist "c3:Agent made at least 3 genuine fix attempts per failure before escalating" \
+  --add-checklist "c4:Final verification confirms all tests pass after any user-support resolution" \
+  --add-upstream o-core-engine-logic \
+  --add-upstream o-core-engine-wiring
+```
+
+**Do not skip this step.** Integration testing objectives ensure code is validated against production conditions before the project moves on. Omitting them for a qualifying milestone creates a gap where broken code propagates to downstream milestones.
+
 ---
 
 ## Writing the objectives using the CLI
 
-Once you've planned all objectives (1-3 per work milestone, no exceptions), write them using the rex CLI. **Do not write planning.json directly.**
+Once you've planned all objectives (1-3 standard objectives per work milestone, plus any integration testing objectives from Step 8), write them using the rex CLI. **Do not write planning.json directly.**
 
 ### Objective creation
 
@@ -255,7 +305,7 @@ Why objectives were scoped this way, what alternatives were considered, what tra
 ## What done looks like
 
 You're done when:
-1. Every work milestone has 1-3 objectives (no exceptions — if any milestone needed more, it was split first)
+1. Every work milestone has 1-3 standard objectives (if any milestone needed more, it was split first), plus an integration testing objective for milestones that qualify (see Step 8)
 2. Objectives are collectively sufficient and individually necessary for each milestone
 3. All objectives have been created via the CLI using `rex objective upsert`
 4. All intra-milestone and cross-milestone dependencies are correctly wired

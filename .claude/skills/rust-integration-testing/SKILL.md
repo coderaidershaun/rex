@@ -28,6 +28,14 @@ Unit tests verify logic. Integration tests verify reality. The gap between "work
 
 Stop. Think. This is the most important step.
 
+### Step 0: Check for a design integration test plan
+
+Before doing your own failure mode analysis, check if a design-phase integration test plan exists. When working within a rex project, this file is at `rex/<project-id>/design/integration-tests.md`. Read it if it exists.
+
+If the design plan exists, it is your **primary guide** — it contains pre-analyzed failure modes classified as CRITICAL/IMPORTANT/NICE-TO-HAVE, real-world data patterns, test infrastructure requirements, and specific test specifications. Your job is to **implement those tests**, not re-plan them from scratch. Use the design plan's failure modes, data values, and pass criteria directly.
+
+If the design plan doesn't exist (standalone usage or greenfield project), proceed with Step 1 below to do your own failure mode analysis.
+
 ### Step 1: Failure Mode Analysis
 
 Before writing code, write a list. For the system under test, enumerate every way it could break in production. Think about:
@@ -169,54 +177,76 @@ fn fetches_live_market_data() {
 
 ## When Tests Fail and You Can't Fix Them
 
-Sometimes a test fails for reasons outside your control: missing API keys, a third-party service is down, credentials the user hasn't provided yet. This is expected.
+Sometimes integration tests fail. Before escalating, you MUST make genuine, sustained effort to fix each failure yourself.
 
-When you've exhausted your debugging and the failure is not a code bug:
+### The "try harder" rule: 3 distinct attempts minimum
 
-### Step 1: Write a Failing Test Report
+For each failing test, you must make **at least 3 substantive, distinct attempts** to fix it before classifying it as requiring user input. Giving up after one attempt is unacceptable. Work through these approaches:
 
-Create a report at `harnessx/<project-id>/integration-tests/failing.md`:
+1. **Re-read the error carefully.** Error messages almost always point to the exact issue. Read the full stack trace. Check if it's a compile error, runtime panic, assertion failure, or timeout.
+2. **Check the code under test.** The failure might be a code bug, not a test bug. Read the production code the test exercises. Look for logic errors, missing error handling, wrong assumptions about data format.
+3. **Check environmental setup.** Is the right config loaded? Are paths correct? Is the test data in the right format? Is the test running from the right directory?
+4. **Search the codebase for working patterns.** Find similar code or tests that work. What are they doing differently?
+5. **Try alternative approaches.** Different test data, different setup sequence, different assertion strategy.
+
+Only classify a failure as requiring user input when the blocker is **genuinely external** to the codebase:
+- Missing API credentials the user hasn't provided
+- Services behind authentication you don't have access to
+- Geo-blocked or IP-restricted endpoints
+- Infrastructure not yet provisioned (databases, message queues, etc.)
+- Rate limits that can't be worked around
+- Platform-specific restrictions (OS, hardware)
+
+### When you've exhausted your attempts
+
+If after 3+ genuine attempts a failure is truly outside your control:
+
+#### Step 1: Write a detailed escalation report
+
+Write to `rex/<project-id>/user-support/requested.md`:
 
 ```markdown
-# Failing Integration Test Report
+# Integration Test Escalation
 
-## Test: `test_name_here`
-**File:** `tests/integration/module.rs`
-**Date:** YYYY-MM-DD
-**Status:** Blocked — requires user input
+## Failing Test(s)
+- `test_name_here` in `tests/integration/module.rs`
 
-### What the test does
-[Brief description of what it verifies]
+## Error Output
+[Exact error message / stack trace]
 
-### What failed
-[Exact error message or behavior]
+## What I Tried
+1. [First approach — what I did and what happened]
+2. [Second approach — what I did and what happened]
+3. [Third approach — what I did and what happened]
 
-### What I tried
-1. [First approach and result]
-2. [Second approach and result]
-3. [Third approach and result]
+## Root Cause
+[Your assessment — e.g., "EXCHANGE_API_KEY environment variable is not set"]
 
-### Root cause
-[Your best assessment — e.g., "Missing API key", "Service endpoint not configured", "Rate limit exceeded"]
+## What the User Needs to Do
+[Specific, actionable steps — e.g., "Set the EXCHANGE_API_KEY env var with a valid API key from the exchange dashboard"]
 
-### What the user needs to do
-[Specific, actionable steps — e.g., "Set EXCHANGE_API_KEY env var with a valid key from..."]
+## Files to Look At
+- [relevant file paths]
 
-### Impact if not resolved
+## Impact if Not Resolved
 [What functionality remains unverified]
 ```
 
-### Step 2: Mark as Requiring User Input
+#### Step 2: Activate user-support
 
 ```bash
-harnessx progress update user_input_required not_started
+rex project update-status user-input not-started
 ```
 
-This signals to the project workflow that you've hit a blocker that only the user can resolve.
+#### Step 3: Tell the operator to keep this task open
 
-### Step 3: Don't Delete the Test
+Say exactly this in your response: **"This task must remain in-progress. I have escalated to user-support. DO NOT MARK THIS TASK AS COMPLETE."**
 
-Leave the failing test in place with `#[ignore]`. It represents a real verification that needs to happen — removing it just hides the gap.
+This is critical — the operator reads your response and will leave the task in-progress. On the next run, the user provides input, and then this task is resumed with the user's answer.
+
+#### Step 4: Don't delete the failing test
+
+Leave it in place with `#[ignore]`. It represents a real verification that needs to happen — removing it just hides the gap.
 
 ---
 
@@ -224,7 +254,7 @@ Leave the failing test in place with `#[ignore]`. It represents a real verificat
 
 **`/rust:planning-and-architecture`** — If your integration tests reveal that the code needs structural changes to be testable or robust (e.g., no retry logic, no timeout handling, hardcoded endpoints), invoke this skill to plan the fix. Only do this when integration testing surfaces a real architectural issue — not for cosmetic improvements.
 
-**`/hx:user-troubleshooting`** — If failures are outside your control (missing credentials, external service down, user decision needed), write the failure report to `failing.md`, mark `user_input_required` as not_started, and the pipeline will route to the troubleshooting skill to work with the user on resolution.
+**User-support escalation** — If failures are outside your control (missing credentials, external service down, user decision needed), follow the escalation steps in "When Tests Fail and You Can't Fix Them" above. Write to `rex/<project-id>/user-support/requested.md`, run `rex project update-status user-input not-started`, and tell the operator not to mark the task complete.
 
 ---
 
@@ -291,7 +321,8 @@ Notice: three tests, three different failure modes, all against real endpoints. 
 - [ ] Each test targets one specific production failure mode
 - [ ] All tests use real data / real connections (no mocks, no synthetic data)
 - [ ] All passing tests marked `#[ignore]`
-- [ ] Tests that can't pass are documented in `harnessx/<project-id>/integration-tests/failing.md`
-- [ ] `harnessx progress update user_input_required not_started` called if blocked
+- [ ] Tests that can't pass (after 3+ fix attempts) are documented in `rex/<project-id>/user-support/requested.md`
+- [ ] `rex project update-status user-input not-started` called if blocked on user input
+- [ ] Operator told "DO NOT MARK THIS TASK AS COMPLETE" if escalated
 - [ ] `cargo test -- --ignored` runs clean for all non-blocked tests
 - [ ] No unnecessary code — every line earns its place

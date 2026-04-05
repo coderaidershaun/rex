@@ -63,14 +63,14 @@ Understanding what each planning skill was supposed to do helps you know what to
 
 **Objectives (`rex-planning-objectives`):**
 - Strategic outcomes within a milestone — "what must be true"
-- 1-3 per work milestone (review milestones already have theirs)
+- 1-3 standard objectives per work milestone (review milestones already have theirs), plus an optional integration testing objective (exempt from the 1-3 limit)
 - Collectively sufficient and individually necessary for the parent milestone
 - Dependencies within and across milestones
 - Meaningful success criteria in checklists
 
 **Tasks (`rex-planning-tasks`):**
 - Atomic, actionable work items — completable in one session
-- 1-3 per objective
+- 1-3 per standard objective; integration testing objectives always have exactly 3
 - Every task has agent assignment (`model`, `effort`, `skill`)
 - Explicit upstream/downstream dependencies at the task level
 - References to specific design documents for cold-start execution
@@ -98,8 +98,8 @@ As you read, build a mental map of:
 These are mechanical checks that can be verified systematically. Every item in this list has a definitive yes/no answer.
 
 **Constraint violations:**
-- Does any milestone have more than 3 objectives? (review milestones exempt — they always have exactly 2)
-- Does any objective have more than 3 tasks?
+- Does any work milestone have more than 3 standard objectives? (review milestones exempt — exactly 2; integration testing objectives also exempt — work milestones may have up to 3 standard + 1 integration testing)
+- Does any standard objective have more than 3 tasks? (integration testing objectives must have exactly 3 — not more, not fewer)
 - Does any work milestone lack objectives entirely?
 - Does any objective lack tasks entirely?
 - Does every heavy milestone have a following review milestone?
@@ -293,8 +293,8 @@ Non-issues worth noting — valid choices that carry trade-offs the team should 
 
 | Check | Status | Notes |
 |-------|--------|-------|
-| All milestones have 1-3 objectives | Pass/Fail | details |
-| All objectives have 1-3 tasks | Pass/Fail | details |
+| All milestones have 1-3 standard objectives (+ optional integration testing objective) | Pass/Fail | details |
+| All standard objectives have 1-3 tasks; integration testing objectives have exactly 3 | Pass/Fail | details |
 | All heavy milestones have review milestones | Pass/Fail | details |
 | All review milestones have exactly 2 objectives | Pass/Fail | details |
 | All tasks have agent assignments | Pass/Fail | details |

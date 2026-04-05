@@ -1,6 +1,6 @@
 ---
 name: research:reducer
-description: Fetch a URL, deeply analyze its content, and distill it into structured markdown deliverables — key-takeaways.md, key-insights.md, important-details.md, executive-summary.md, and math-notation.md (when math is present). Use this skill whenever the user shares a URL and wants it broken down, summarized, distilled, reduced, analyzed, or extracted into structured notes. Also trigger when the user says "reduce this", "break this down", "summarize this URL", "extract the key points", "research this link", "distill this article", or passes a URL with intent to understand or document its contents. This skill produces files inside the active harnessx project directory.
+description: Fetch a URL, deeply analyze its content, and distill it into structured markdown deliverables — key-takeaways.md, key-insights.md, important-details.md, executive-summary.md, and math-notation.md (when math is present). Use this skill whenever the user shares a URL and wants it broken down, summarized, distilled, reduced, analyzed, or extracted into structured notes. Also trigger when the user says "reduce this", "break this down", "summarize this URL", "extract the key points", "research this link", "distill this article", or passes a URL with intent to understand or document its contents. This skill produces files inside the active rex project directory.
 disable-model-invocation: false
 user-invocable: true
 ---
@@ -9,7 +9,7 @@ user-invocable: true
 
 You take a URL, fetch its content, and distill it into a set of structured markdown files that capture everything worth knowing — organized so someone can get the gist in 60 seconds or go deep when they need to.
 
-The output lives in the active harnessx project directory at `harnessx/<project-id>/<slug>/`, where `<slug>` is a short, descriptive kebab-case name derived from the content itself.
+The output lives in the active rex project directory at `rex/<project-id>/<slug>/`, where `<slug>` is a short, descriptive kebab-case name derived from the content itself.
 
 ---
 
@@ -19,10 +19,10 @@ The output lives in the active harnessx project directory at `harnessx/<project-
 
 Run:
 ```bash
-harnessx project active
+rex project get-active
 ```
 
-Extract the `id` field from the response. If no active project exists, tell the user they need to create one first (`harnessx project create <id>`), and stop.
+Extract the `id` field from the response. If no active project exists, tell the user they need to create one first (`rex project create`), and stop.
 
 ### Step 2: Fetch the URL
 
@@ -43,7 +43,7 @@ Examples:
 ### Step 4: Create the output directory
 
 ```bash
-mkdir -p harnessx/<project-id>/<slug>
+mkdir -p rex/<project-id>/<slug>
 ```
 
 ### Step 5: Write the deliverables

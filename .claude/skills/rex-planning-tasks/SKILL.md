@@ -19,7 +19,7 @@ You'll be told where to write any output files and given input files to read for
 
 **Atomic and actionable.** A task should be something an agent can pick up, understand in isolation (with its references), and complete without needing to make strategic decisions. The strategic decisions were made at the objective and milestone levels. Tasks are execution.
 
-**1 to 3 tasks per objective. No more.** This is a hard constraint. Agents love to generate exhaustive task lists — 8 tasks for something that genuinely needs 2. This creates busywork, inflates the plan, and produces tasks that don't add value. If you can't capture what an objective needs in 3 tasks, the objective is too broad and must be split. The discipline forces you to think about what work genuinely matters versus what's noise.
+**1 to 3 tasks per objective. No more.** (Integration testing objectives always have exactly 3 tasks — see Step 7.) This is a hard constraint. Agents love to generate exhaustive task lists — 8 tasks for something that genuinely needs 2. This creates busywork, inflates the plan, and produces tasks that don't add value. If you can't capture what an objective needs in 3 tasks, the objective is too broad and must be split. The discipline forces you to think about what work genuinely matters versus what's noise.
 
 **Upstream and downstream are everything.** This is the most critical aspect of task planning. A task's upstream dependencies tell an agent "don't start until these are done." Its downstream dependencies tell the system "these are blocked until this completes." Get the dependencies wrong and agents will either: (a) start work that fails because a prerequisite doesn't exist, or (b) sit idle waiting for something that's already done but not wired correctly.
 
@@ -152,7 +152,7 @@ Bad checklist items:
 
 ### Step 6: Enforce the 1-3 constraint — or escalate
 
-After planning, count the tasks per objective. If any objective has more than 3 tasks, the objective is too broad.
+After planning, count the tasks per objective. Integration testing objectives are exempt — they always have exactly 3 tasks as defined in Step 7. If any standard objective has more than 3 tasks, the objective is too broad.
 
 **Do not drop tasks to fit.** If you genuinely need 5 tasks for an objective, those tasks represent real work. The objective must be split.
 
@@ -169,11 +169,129 @@ After planning, count the tasks per objective. If any objective has more than 3 
 
 This cascade (task overflow → split objective → possible milestone split) is rare but essential. The constraint exists because plans that balloon in size produce more work than they're worth. Smaller, focused units keep agents productive.
 
+### Step 7: Create tasks for integration testing objectives
+
+Integration testing objectives (those with IDs matching `o-*-integration-testing`) follow a **fixed 3-task template**. Do not freestyle these tasks — use the template exactly. The 3-task structure handles the full lifecycle: write and run tests, triage failures with genuine effort and user escalation when needed, and post-resolution verification.
+
+**All 3 tasks use the `rust-integration-testing` skill on sonnet/high.** This skill knows how to read the design integration test plan, write production-grade tests, and handle the escalation flow.
+
+Read `rex/<project-id>/design/integration-tests.md` before creating these tasks. You need to know which CRITICAL and IMPORTANT tests fall within this objective's scope so the task descriptions can reference them specifically.
+
+#### Task 1: Write and run integration tests
+
+```bash
+rex task upsert \
+  --id t-<milestone-topic>-integ-run \
+  --objective o-<milestone-topic>-integration-testing \
+  --title "Write and run integration tests for <milestone-topic>" \
+  --description "Read the integration test plan at rex/<project-id>/design/integration-tests.md. Implement all CRITICAL and IMPORTANT tests that cover <milestone-topic>. Use real data, real connections, and real failure modes — no mocks, no synthetic data. Mark tests with #[ignore] so they run separately from unit tests. Run the suite with 'cargo test -- --ignored' and record results. If any tests fail and you can identify the cause, fix the code and re-run. Document the final state clearly: which tests pass, which fail, and the error output for each failure." \
+  --agent-model sonnet \
+  --agent-effort high \
+  --agent-skill rust-integration-testing \
+  --add-reference rex/<project-id>/design/integration-tests.md \
+  --add-output tests/integration/<milestone-topic>.rs \
+  --add-checklist "c1:All CRITICAL tests from the design plan for this scope are implemented" \
+  --add-checklist "c2:All IMPORTANT tests from the design plan for this scope are implemented" \
+  --add-checklist "c3:Tests use real data and real connections — no mocks" \
+  --add-checklist "c4:Test results documented with pass/fail status and error output for failures" \
+  --add-upstream <last-task-id-from-each-sibling-objective>
+```
+
+The upstream dependencies must include the final task(s) from all non-integration-testing objectives in the same milestone — the code must exist before tests can exercise it.
+
+#### Task 2: Triage failures and escalate if needed
+
+```bash
+rex task upsert \
+  --id t-<milestone-topic>-integ-triage \
+  --objective o-<milestone-topic>-integration-testing \
+  --title "Triage integration test failures for <milestone-topic> — fix or escalate" \
+  --description "Run all integration tests for <milestone-topic> with 'cargo test -- --ignored'. For each failing test:
+
+STEP 1 — TRY TO FIX IT YOURSELF (MANDATORY):
+You MUST make at least 3 genuine, distinct attempts to fix each failure before even considering escalation. Work through these:
+  a) Re-read the error message and stack trace carefully — they usually point to the exact issue
+  b) Check the production code the test exercises for bugs, logic errors, or missing error handling
+  c) Check environmental setup — paths, config, test data format, working directory
+  d) Search the codebase for working examples of similar patterns
+  e) Try alternative approaches — different data, different setup, different assertion strategy
+
+STEP 2 — CLASSIFY THE FAILURE:
+After 3+ genuine attempts, classify each remaining failure:
+  - FIXABLE: Code bugs, logic errors, incorrect assertions, missing imports, wrong config paths → fix it
+  - REQUIRES USER INPUT: Missing API credentials, geo-blocked services, services behind auth you don't have, infrastructure not provisioned, rate limits you can't work around → escalate
+
+STEP 3 — IF ALL TESTS PASS: Mark this task as complete.
+
+STEP 4 — IF ANY FAILURES REQUIRE USER INPUT: Follow these exact steps:
+
+  1. Write a detailed report to rex/<project-id>/user-support/requested.md:
+     - Which test(s) failed and exact error messages
+     - What you tried (all 3+ attempts, with what happened each time)
+     - What specific action the user must take
+     - File paths the user should look at
+
+  2. Run this command:
+     rex project update-status user-input not-started
+
+  3. Say EXACTLY in your response: 'This task must remain in-progress. I have escalated to user-support. DO NOT MARK THIS TASK AS COMPLETE.'
+
+WHEN RESUMED AFTER USER-SUPPORT: The user's response will appear in your dispatch prompt under 'User Input (from previous escalation)'. Apply the user's fixes, re-run the failing tests. If they pass now, mark this task complete. If new blockers appear, repeat the escalation." \
+  --agent-model sonnet \
+  --agent-effort high \
+  --agent-skill rust-integration-testing \
+  --add-reference rex/<project-id>/design/integration-tests.md \
+  --add-output tests/integration/<milestone-topic>.rs \
+  --add-checklist "c1:Every failure investigated with at least 3 distinct fix attempts" \
+  --add-checklist "c2:All fixable failures resolved and tests pass" \
+  --add-checklist "c3:Unresolvable failures escalated with detailed report including all attempts made" \
+  --add-checklist "c4:All tests pass before marking this task complete" \
+  --add-upstream t-<milestone-topic>-integ-run
+```
+
+**Critical:** Replace `<project-id>` in the description with the actual project ID from `rex project get-active`.
+
+#### Task 3: Final verification
+
+```bash
+rex task upsert \
+  --id t-<milestone-topic>-integ-verify \
+  --objective o-<milestone-topic>-integration-testing \
+  --title "Final verification: all integration tests for <milestone-topic> pass" \
+  --description "This is the final verification step. Re-run ALL integration tests for <milestone-topic> with 'cargo test -- --ignored'. Every CRITICAL and IMPORTANT test must pass. This confirms:
+  - Tests from task 1 still pass
+  - Fixes from task 2 (including user-support resolutions) hold up
+  - No regressions were introduced
+
+If ALL tests pass: This task is complete.
+
+If any tests FAIL: Follow the same process as task 2 — make 3+ genuine fix attempts, then escalate if truly stuck. Write to rex/<project-id>/user-support/requested.md, run 'rex project update-status user-input not-started', and say 'DO NOT MARK THIS TASK AS COMPLETE.' The cycle repeats until all tests pass." \
+  --agent-model sonnet \
+  --agent-effort high \
+  --agent-skill rust-integration-testing \
+  --add-reference rex/<project-id>/design/integration-tests.md \
+  --add-output tests/integration/<milestone-topic>.rs \
+  --add-checklist "c1:All CRITICAL integration tests pass" \
+  --add-checklist "c2:All IMPORTANT integration tests pass" \
+  --add-checklist "c3:cargo test -- --ignored runs clean for all tests in scope" \
+  --add-upstream t-<milestone-topic>-integ-triage
+```
+
+#### Key points for the planning agent
+
+- **The 3 tasks form a strict linear chain:** `integ-run` → `integ-triage` → `integ-verify`. Wire upstream/downstream accordingly.
+- **Task 1's upstream** connects to the last task(s) in the milestone's other objectives — code must exist before integration tests run.
+- **Replace `<project-id>`** in task descriptions with the actual project ID from `rex project get-active`.
+- **Task 2 is where escalation lives.** Its description is intentionally verbose with exact CLI commands and exact phrasing because the executing agent has no context about the rex harness — it only knows what the task description tells it.
+- **Task 3 runs even if task 2 didn't escalate.** Quick re-run confirmation if everything passed, substantive verification if escalation occurred.
+- **"DO NOT MARK THIS TASK AS COMPLETE"** — the operator's Step 8 checks for this. Without it, the operator marks the task complete and the rework cycle breaks.
+- **The rework mechanism works natively:** When a task stays `in-progress` and user-support is activated → operator stops → next run handles user-support (user provides input) → following run: `rex task next` returns the in-progress task at Tier 0 (highest priority) → operator dispatches agent with user's input in the prompt → agent picks up where it left off.
+
 ---
 
 ## Writing the tasks using the CLI
 
-Once you've planned all tasks (1-3 per objective, no exceptions), write them using the rex CLI. **Do not write planning.json directly.**
+Once you've planned all tasks (1-3 per standard objective, plus the fixed 3-task template for integration testing objectives per Step 7), write them using the rex CLI. **Do not write planning.json directly.**
 
 ### Task creation
 
@@ -355,7 +473,7 @@ Why tasks were scoped this way, notable dependency choices, and any escalation d
 ## What done looks like
 
 You're done when:
-1. Every objective has 1-3 tasks (no exceptions — if any objective needed more, it was split first, and any resulting milestone splits were handled too)
+1. Every standard objective has 1-3 tasks (if any needed more, it was split first). Every integration testing objective has exactly 3 tasks following the template from Step 7.
 2. All tasks have been created via the CLI using `rex task upsert`
 3. Every task has its upstream and downstream dependencies explicitly wired — no implicit dependencies
 4. Each task has a meaningful checklist with concrete, verifiable completion criteria
