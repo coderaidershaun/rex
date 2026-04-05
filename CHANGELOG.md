@@ -2,6 +2,10 @@
 
 All notable changes to **rex-cli** are documented here.
 
+## 0.2.7 — 2026-04-05
+
+- **Research directory scaffolding** — `rex init` and `rex project create` now ensure `rex/docs/research/` exists, and the generated CLAUDE.md directs agents to store research output there by default.
+
 ## 0.2.6 — 2026-04-05
 
 - **Fix task count path in daemon** — `task_counts()` in rex-chat now correctly looks for planning data in the `rex/<project-id>/` subdirectory instead of the project root, fixing incorrect 0/0 task counts in Telegram status messages.
