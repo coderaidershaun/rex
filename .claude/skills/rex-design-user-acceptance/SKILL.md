@@ -11,6 +11,8 @@ You present the design proposal to the user and facilitate their decision: accep
 
 This is the human gate. Nothing proceeds to implementation until the user explicitly approves.
 
+**Integration testing context:** If an `integration-testing.md` file from onboarding is among your inputs, read it and factor the user's integration testing preferences, priorities, and constraints into the discussion. Surface any tensions between the proposed architecture and the user's stated testing expectations.
+
 ---
 
 ## On startup: check for existing discussion
