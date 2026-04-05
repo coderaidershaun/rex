@@ -759,7 +759,7 @@ async fn show_autorun_status(
 
     // Load task counts from planning data
     let proj_path = Path::new(&proj.directory);
-    let (tasks_done, tasks_total) = task_counts(proj_path);
+    let (tasks_done, tasks_total) = task_counts(proj_path, &proj.id);
 
     let msg = format!(
         "📊 <b>Status</b>  ·  <code>{pid}</code>\n\
@@ -970,7 +970,7 @@ async fn show_all_running_status(tg: &mut ChatTelegramClient, scan_dir: &Path) {
         if let Some(ref state) = proj.autorun_state {
             let uptime = format_duration_since(&state.stats.started_at);
             let proj_path = Path::new(&proj.directory);
-            let (tasks_done, tasks_total) = task_counts(proj_path);
+            let (tasks_done, tasks_total) = task_counts(proj_path, &proj.id);
             msg.push_str(&format!(
                 "\n🟢 <code>{id}</code>\n\
                  ⏱ {uptime} · 🔄 #{inv} · 📋 {done}/{total} · 💰 ${cost:.2}\n",
@@ -1035,8 +1035,9 @@ fn format_duration_since(started_at: &str) -> String {
 }
 
 /// Count (completed, total) tasks from planning.json.
-fn task_counts(project_dir: &Path) -> (usize, usize) {
-    let Ok(store) = PlanningStore::load(project_dir) else {
+fn task_counts(project_dir: &Path, project_id: &str) -> (usize, usize) {
+    let rex_project_dir = project_dir.join("rex").join(project_id);
+    let Ok(store) = PlanningStore::load(&rex_project_dir) else {
         return (0, 0);
     };
     let total = store.tasks.len();
