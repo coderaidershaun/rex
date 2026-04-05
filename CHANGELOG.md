@@ -2,6 +2,11 @@
 
 All notable changes to **rex-cli** are documented here.
 
+## 0.2.6 — 2026-04-05
+
+- **Fix task count path in daemon** — `task_counts()` in rex-chat now correctly looks for planning data in the `rex/<project-id>/` subdirectory instead of the project root, fixing incorrect 0/0 task counts in Telegram status messages.
+- **Model routing guidance in init** — Generated CLAUDE.md now includes a section pointing agents to the `rex-model-router` skill for model, effort, and context decisions.
+
 ## 0.2.5 — 2026-04-05
 
 - **Refactor project validation** — `project create` with the refactor category now requires the target directory to already exist, instead of scaffolding a new project with `cargo new`.
