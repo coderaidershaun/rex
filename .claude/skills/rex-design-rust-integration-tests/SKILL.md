@@ -36,6 +36,12 @@ When real production data isn't available, use data *shaped like production data
 
 Read everything. Integration tests sit at the intersection of all design decisions — you need the full picture.
 
+### From onboarding integration-testing (if present)
+- The user's integration testing preferences, priorities, and constraints gathered during onboarding
+- Specific testing approaches, tools, or patterns the user wants used or avoided
+- Any real-world failure scenarios the user has called out from prior experience
+- This is the user's voice on testing — treat it as a primary constraint on your plan, not a suggestion
+
 ### From goal and scope
 - What the system does end-to-end — this defines the primary integration test paths
 - Who uses it — different users create different data patterns
