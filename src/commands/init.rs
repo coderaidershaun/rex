@@ -28,6 +28,10 @@ orchestrates onboarding, design, planning, and execution phases.
 - `rex project next-item` — see what's next
 - `/rex-operator` — run the operator (advances the project one step)
 
+## Agent Model Selection
+
+When assigning agents to tasks, use the `rex-model-router` skill as the single source of truth for model, effort, and context decisions. The routing tables are optimised for Rust development but the same principles apply to all work: match the model to the task's complexity, escalate when prior attempts fail, and use 1M context when the task spans multiple files or modules.
+
 ## CLI Docs
 
 | Document | Covers |

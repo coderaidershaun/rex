@@ -11,6 +11,8 @@ You are a routing layer. Your job is to take a task, classify it, and spawn exac
 
 You never do the work yourself. You dispatch.
 
+**This skill is also the canonical reference for all model, effort, and routing decisions in the rex system.** The tables below are the single source of truth. Other skills (rex-planning-tasks, rust-team-coordinator, rex-operator) reference these tables rather than maintaining their own.
+
 ---
 
 ## What you receive
@@ -18,9 +20,10 @@ You never do the work yourself. You dispatch.
 The caller provides:
 
 1. **Task description** — what needs to be done
-2. **Skill(s)** — which skill(s) the spawned agent should use (optional — if omitted, you infer from the task)
+2. **Skill(s)** — which skill(s) the spawned agent should use (optional — if omitted, you infer from the Task Classification Table)
 3. **File paths / context** — files the agent should read, design docs, etc. (optional)
 4. **Prior failures** — if this task already failed at a lower tier, the caller should mention it
+5. **Pipeline phase** — if the caller is `rust-team-coordinator` running a multi-phase pipeline, it will tell you which phase. Use the Pipeline Phase Routing table instead of the Task Classification Table.
 
 ---
 
@@ -28,25 +31,48 @@ The caller provides:
 
 Read the task description carefully. Match it against this routing table, starting from the top. Pick the first row that fits — but if the task has characteristics that push it toward a higher tier, go up.
 
-### Routing Table
+### Task Classification Table
 
-| Task pattern | Model | Effort | 1M context |
+Use this table for **standalone tasks** (assigned during planning) and **Tier 1 direct dispatch** (from rust-team-coordinator). Match the task description to the first row that fits.
+
+| Task pattern | Skill | Model | Effort | 1M context |
+|---|---|---|---|---|
+| Typo, formatting, rename, mechanical find-replace | rust-developing | haiku | low | no |
+| Boilerplate, derives, simple trait impls, scaffolding | rust-developing | sonnet | medium | no |
+| Write idiomatic iterators, closures, combinators | rust-developing | sonnet | medium | no |
+| Write Rust logic (single file, clear spec) | rust-developing | sonnet | high | no |
+| Write Rust logic (cross-file or large) | rust-team-coordinator | sonnet | high | yes |
+| Debug borrow checker / lifetime errors | rust-developing | sonnet | high | no |
+| Error type design / propagation | rust-errors-management | sonnet | high | no |
+| Unit test writing | rust-unit-testing | sonnet | high | no |
+| Ergonomic refactoring | rust-ergonomic-refactoring | sonnet | high | no |
+| Code commenting | rust-commenting | sonnet | high | no |
+| Code exploration | rust-exploration-and-planning | sonnet | high | no |
+| Design trait hierarchies (small surface) | rust-planning-and-architecture | opus | high | no |
+| Design trait hierarchies (large codebase) | rust-planning-and-architecture | opus | high | yes |
+| Async runtime architecture | rust-planning-and-architecture | opus | high | yes |
+| Planning and architecture | rust-planning-and-architecture | opus | max | yes |
+| Integration test writing | rust-integration-testing | sonnet | high | no |
+| Fixing failing integration tests | rust-integration-testing | opus | max | yes |
+| Unsafe code / soundness proofs (single module) | rust-developing | opus | max | no |
+| Unsafe code / soundness proofs (multi-module) | rust-developing | opus | max | yes |
+| proc-macro design | rust-planning-and-architecture | opus | max | no |
+| Intractable / unknown failure | rust-team-coordinator | opus | ultrathink | yes |
+
+### Pipeline Phase Routing Table
+
+Use this table **only** when the caller is `rust-team-coordinator` running a multi-phase pipeline. Pipeline phases warrant higher models than standalone tasks because each phase builds on the last and errors compound.
+
+| Pipeline phase | Skill | Model | Effort |
 |---|---|---|---|
-| Typo, formatting, rename, mechanical find-replace | haiku | low | no |
-| Boilerplate, derives, simple trait impls, scaffolding | sonnet | medium | no |
-| Write idiomatic iterators, closures, combinators | sonnet | medium | no |
-| Write Rust logic (single file, clear spec) | sonnet | high | no |
-| Write Rust logic (cross-file or large) | sonnet | high | yes |
-| Debug borrow checker / lifetime errors | sonnet | high | no |
-| Design trait hierarchies (small surface) | opus | high | no |
-| Design trait hierarchies (large codebase) | opus | high | yes |
-| Async runtime architecture | opus | high | yes |
-| Planning and architecture | opus | high | yes |
-| Fixing integration tests | opus | max | yes |
-| Unsafe code / soundness proofs (single module) | opus | max | no |
-| Unsafe code / soundness proofs (multi-module) | opus | max | yes |
-| proc-macro design | opus | max | no |
-| Intractable / unknown failure | opus | ultrathink | yes |
+| Phase 1: Explore | rust-exploration-and-planning | opus | high |
+| Phase 2: TDD Setup (unit) | rust-unit-testing | opus | high |
+| Phase 2: TDD Setup (integration) | rust-integration-testing | opus | high |
+| Phase 3: Architect | rust-planning-and-architecture | opus | max |
+| Phase 4: Refine Scaffold | rust-ergonomic-refactoring | opus | high |
+| Phase 5: Implement | rust-developing | sonnet | high |
+| Phase 6: Verify (unit) | rust-unit-testing | opus | high |
+| Phase 6: Verify (integration) | rust-integration-testing | opus | high |
 
 ### Escalation signals
 
@@ -93,7 +119,9 @@ Construct a prompt for the spawned agent that includes:
 5. **Context** — any design docs, prior exploration results, or constraints the caller provided
 6. **Effort instruction** — mapped from the effort level (see below)
 
-### Effort mapping
+### Effort mapping (canonical — single source of truth)
+
+This is the authoritative effort-to-prompt-text mapping for the entire rex system. Other skills (rex-operator) may duplicate it inline for convenience but reference this table as the canonical source.
 
 Include the effort instruction as the final line of the agent prompt:
 

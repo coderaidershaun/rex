@@ -142,7 +142,7 @@ These require understanding the content, not just the structure.
 - Do task references point to specific, relevant design documents — not just generic top-level files?
 - Do task outputs list the specific files the task will produce?
 - Do task checklists have concrete, verifiable items — not vague statements like "code is clean"?
-- Are agent assignments appropriate? (e.g., complex multi-file work gets `rust-team-coordinator` on opus/max, not `rust-developing` on sonnet/high)
+- Are agent assignments appropriate? Cross-reference each task's skill, model, and effort against the Task Classification Table in `rex-model-router/SKILL.md`. Flag any mismatches.
 
 ### Pass 4: Cross-reference against design and onboarding
 
@@ -187,8 +187,8 @@ For issues where the fix is unambiguous — a missing dependency arrow, a wrong 
 # Fix a missing dependency
 rex task upsert --id t-existing-task --add-upstream t-missing-dep
 
-# Fix an incorrect agent assignment
-rex task upsert --id t-some-task --agent-model opus --agent-effort max --agent-skill rust-team-coordinator
+# Fix an incorrect agent assignment (consult rex-model-router/SKILL.md for correct values)
+rex task upsert --id t-some-task --agent-model <model> --agent-effort <effort> --agent-skill <skill>
 
 # Fix a missing checklist item
 rex objective upsert --id o-some-objective --add-checklist "c3:Missing verification point"

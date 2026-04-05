@@ -27,13 +27,13 @@ Some tasks map cleanly to a single specialist. There's no ambiguity about what n
 
 **Dispatch directly when the task is:**
 
-| Task Type | Agent | Model | Example |
-|-----------|-------|-------|---------|
-| Trivial implementation | rust:developing | sonnet | "write a function that prints hello world" |
-| Fix error handling | rust:errors-management | opus | "clean up the unwraps in parser.rs" |
-| Explore / understand code | rust:exploration-and-planning | opus | "how does the command dispatch work?" |
-| Architecture question | rust:planning-and-architecture | opus | "should I use channels or shared state here?" |
-| Run existing tests | rust:unit-testing | opus | "run the tests and fix any failures" |
+| Task Type | Agent | Example |
+|-----------|-------|---------|
+| Trivial implementation | rust:developing | "write a function that prints hello world" |
+| Fix error handling | rust:errors-management | "clean up the unwraps in parser.rs" |
+| Explore / understand code | rust:exploration-and-planning | "how does the command dispatch work?" |
+| Architecture question | rust:planning-and-architecture | "should I use channels or shared state here?" |
+| Run existing tests | rust:unit-testing | "run the tests and fix any failures" |
 
 **How to recognize a direct dispatch task:**
 - The task names or implies a single skill ("fix errors", "explore this", "plan the architecture")
@@ -42,7 +42,7 @@ Some tasks map cleanly to a single specialist. There's no ambiguity about what n
 - A competent developer would just do it without asking questions first
 - You could explain the entire task in one sentence
 
-When dispatching directly, give the agent the task description, any relevant file paths, and let it work. Report back what it did. Done.
+When dispatching directly, invoke the `rex-model-router` skill with the task description, the skill from the table above, and any relevant file paths. The router handles model/effort selection and agent spawning. Report back what it did. Done.
 
 ### Tier 2: Lightweight Pipeline — Explore, Build, Polish
 
@@ -92,59 +92,58 @@ When the task warrants it, this is the full sequence. Tier 2 tasks run a subset 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  Phase 1: EXPLORE          rust:exploration-and-planning    │
-│  (1-3 agents, parallel)    Model: opus           [Tier 2+] │
+│  (1-3 agents, parallel)                          [Tier 2+] │
 ├─────────────────────────────────────────────────────────────┤
 │  Phase 2: TDD SETUP        rust:unit-testing                │
 │  (2 agents, parallel)      rust:integration-testing         │
-│  [Tier 3 only]             Model: opus                      │
+│  [Tier 3 only]                                              │
 ├─────────────────────────────────────────────────────────────┤
 │  Phase 3: ARCHITECT        rust:planning-and-architecture   │
-│                            Model: opus           [Tier 2+] │
+│                                                  [Tier 2+] │
 ├─────────────────────────────────────────────────────────────┤
 │  Phase 4: REFINE SCAFFOLD  rust:ergonomic-refactoring       │
-│  [Tier 3 only]             Model: opus                      │
+│  [Tier 3 only]                                              │
 ├─────────────────────────────────────────────────────────────┤
 │  Phase 5: IMPLEMENT        rust:developing                  │
-│                            Model: sonnet         [Tier 2+] │
+│                                                  [Tier 2+] │
 ├─────────────────────────────────────────────────────────────┤
 │  Phase 6: VERIFY TESTS     rust:unit-testing                │
 │  (2 agents, parallel)      rust:integration-testing         │
-│  [Tier 3 only]             Model: opus                      │
+│  [Tier 3 only]                                              │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+Model and effort for each phase are determined by the `rex-model-router` — invoke it for every agent dispatch. See the Pipeline Phase Routing Table in `rex-model-router/SKILL.md` for the FYI reference.
 
 ---
 
 ## Phase 1: Explore the Codebase
 
 **Skill:** `rust:exploration-and-planning`
-**Model:** opus
 **Agents:** 1-3 (based on complexity)
 
-Before anyone writes anything, you need to understand the landscape. Spawn exploration agents to map the relevant parts of the codebase.
+Before anyone writes anything, you need to understand the landscape. Invoke the `rex-model-router` to spawn exploration agents.
 
-**For 1 agent (simple/medium):** Give it the full task description and ask it to explore the relevant modules, find reusable code, identify conventions, and produce an implementation plan.
+**For 1 agent (simple/medium):** Invoke the router with the full task description, skill `rust:exploration-and-planning`, and relevant file paths.
 
-**For 2-3 agents (complex):** Divide the exploration by concern. For example:
+**For 2-3 agents (complex):** Invoke the router once per agent, each with a different focus area. For example:
 - Agent 1: Explore the data model layer — structs, enums, serialization, existing types
 - Agent 2: Explore the command/handler layer — how similar features are wired up, CLI parsing, dispatch
 - Agent 3: Explore cross-cutting concerns — error handling patterns, testing conventions, module organization
 
-Launch all exploration agents in parallel. Each agent MUST use the `rust:exploration-and-planning` skill.
+Launch all router invocations in parallel.
 
-**What to include in the agent prompt:**
+**What to tell the router for each agent:**
 ```
-You have the rust:exploration-and-planning skill. Your task:
+Task: [Full task description from the user]
+Skill: rust:exploration-and-planning
+Pipeline phase: Phase 1 (Explore)
+Files: [relevant file paths]
+Focus: [specific area for this agent]
 
-[Full task description from the user]
-
-[Any additional context provided]
-
-Focus your exploration on: [specific area for this agent]
-
-Produce a structured exploration report following the skill's output format —
-architecture map, reuse inventory, new code needed, interaction map, risks,
-and recommended implementation order.
+The agent should produce a structured exploration report following the
+skill's output format — architecture map, reuse inventory, new code needed,
+interaction map, risks, and recommended implementation order.
 ```
 
 **Wait for all agents to complete.** Read every exploration report. Synthesize them into a unified understanding before proceeding. If agents found conflicting information or the reports reveal the task is more complex than initially assessed, adjust your complexity rating and phases accordingly.
@@ -154,53 +153,39 @@ and recommended implementation order.
 ## Phase 2: TDD Setup — Write Failing Tests
 
 **Skills:** `rust:unit-testing` + `rust:integration-testing`
-**Model:** opus
 **Agents:** 2 (parallel)
 **Skip if:** simple task
 
 This is test-driven development. Write the test contracts *before* implementation. These tests define what "correct" means — they are the specification in code form.
 
-Launch two agents in parallel:
+Invoke the `rex-model-router` twice in parallel — once for each agent:
 
-**Unit test agent:**
+**Unit test agent — tell the router:**
 ```
-You have the rust:unit-testing skill. Your task:
+Task: Based on the following exploration findings and task description, write
+unit test stubs that define the expected behavior of the code we're about to
+implement. Tests should be well-named specifications, contain setup/act/assert
+with assertions, FAIL by default, and cover critical paths and key edge cases.
 
-Based on the following exploration findings and task description, write
-unit test stubs that define the expected behavior of the code we're about
-to implement. These tests should:
-
-- Be well-named specifications of expected behavior
-- Contain the test structure (setup, act, assert) with assertions
-- FAIL by default because the code under test doesn't exist yet
-- Cover the critical paths and key edge cases identified during exploration
+Skill: rust:unit-testing
+Pipeline phase: Phase 2 (TDD Setup)
 
 [Paste exploration findings]
 [Paste task description]
-
-Write the tests in appropriate #[cfg(test)] modules. They will fail — that's
-the point. The implementation phase will make them pass.
 ```
 
-**Integration test agent:**
+**Integration test agent — tell the router:**
 ```
-You have the rust:integration-testing skill. Your task:
+Task: Based on the following exploration findings and task description, write
+integration test stubs that define what "works in production" means. Tests
+should target real failure modes, use real data/connections, be marked with
+#[ignore], FAIL by default, and focus on system boundaries.
 
-Based on the following exploration findings and task description, write
-integration test stubs that define what "works in production" means for
-this feature. These tests should:
-
-- Target real failure modes (not synthetic scenarios)
-- Use real data / real connections where possible
-- Be marked with #[ignore] per the skill's conventions
-- FAIL by default because the code under test doesn't exist yet
-- Focus on system boundaries and end-to-end correctness
+Skill: rust:integration-testing
+Pipeline phase: Phase 2 (TDD Setup)
 
 [Paste exploration findings]
 [Paste task description]
-
-Write tests in the tests/ directory following the skill's structure. They
-will fail — the implementation phase will make them pass.
 ```
 
 These tests are the contract. Everything that follows must satisfy them.
@@ -210,28 +195,27 @@ These tests are the contract. Everything that follows must satisfy them.
 ## Phase 3: Architect the Solution
 
 **Skill:** `rust:planning-and-architecture`
-**Model:** opus
 **Agents:** 1
 
 Now that you understand the codebase (Phase 1) and have defined what success looks like (Phase 2), it's time to make the hard design decisions.
 
+Invoke the `rex-model-router` with:
 ```
-You have the rust:planning-and-architecture skill. Your task:
-
-Design the architecture for the following implementation task.
+Task: Design the architecture for the following implementation task.
+Skill: rust:planning-and-architecture
+Pipeline phase: Phase 3 (Architect)
 
 [Full task description]
 
-Here are the exploration findings from the codebase analysis:
+Exploration findings:
 [Paste synthesized exploration reports]
 
-Here are the test contracts that define expected behavior:
+Test contracts:
 [Paste or summarize the tests from Phase 2, if they exist]
 
-Produce a concrete architecture plan: data structures, module placement,
-trait design, error handling approach, and implementation order. Make
-definitive recommendations — don't just list options. The developer
-receiving this plan should be able to start coding immediately.
+The agent should produce a concrete architecture plan: data structures,
+module placement, trait design, error handling approach, and implementation
+order. Definitive recommendations, not options.
 ```
 
 The architecture plan becomes the blueprint for everything that follows. Review it — if something looks wrong or contradicts the exploration findings, either ask the user or spawn another agent to resolve the conflict.
@@ -241,23 +225,21 @@ The architecture plan becomes the blueprint for everything that follows. Review 
 ## Phase 4: Refine the Scaffold
 
 **Skill:** `rust:ergonomic-refactoring`
-**Model:** opus
 **Agents:** 1
 **Skip if:** simple task
 
 If the architecture phase produced scaffolding code (struct definitions, trait signatures, module files), run an ergonomic pass to clean it up before the implementation developer sees it. The developer's job is to write logic, not to fix awkward type signatures.
 
+Invoke the `rex-model-router` with:
 ```
-You have the rust:ergonomic-refactoring skill. Your task:
+Task: The architecture phase has produced scaffold code. Clean it up for
+ergonomics and idiomatic Rust style before the implementation developer
+works with it. Focus on type signatures, naming, module organization,
+trait ergonomics. Do not add implementation logic.
 
-The architecture phase has produced the following scaffold code. Clean it
-up for ergonomics and idiomatic Rust style before the implementation
-developer works with it.
-
-[Point to or paste the scaffolded files]
-
-Focus on: type signatures, naming, module organization, trait ergonomics.
-Do not add implementation logic — that's the next phase.
+Skill: rust:ergonomic-refactoring
+Pipeline phase: Phase 4 (Refine Scaffold)
+Files: [scaffolded file paths]
 ```
 
 ---
@@ -265,15 +247,15 @@ Do not add implementation logic — that's the next phase.
 ## Phase 5: Implement
 
 **Skill:** `rust:developing`
-**Model:** sonnet
 **Agents:** 1
 
 This is where the code gets written. The developer receives the full context from every previous phase and writes the implementation.
 
+Invoke the `rex-model-router` with:
 ```
-You have the rust:developing skill. Your task:
-
-Implement the following feature based on the architecture plan below.
+Task: Implement the following feature based on the architecture plan below.
+Skill: rust:developing
+Pipeline phase: Phase 5 (Implement)
 
 [Full task description]
 
@@ -297,51 +279,31 @@ The developer skill is focused and disciplined — it writes logic, not tests, n
 ## Phase 6: Verify Tests Pass
 
 **Skills:** `rust:unit-testing` + `rust:integration-testing`
-**Model:** opus
 **Agents:** 2 (parallel)
 **Skip if:** simple task
 
-Now that the code is written, verify that the test contracts from Phase 2 are satisfied. Launch both agents in parallel.
+Now that the code is written, verify that the test contracts from Phase 2 are satisfied. Invoke the `rex-model-router` twice in parallel:
 
-**Unit test verification agent:**
+**Unit test verification — tell the router:**
 ```
-You have the rust:unit-testing skill. Your task:
+Task: Run the unit tests from the TDD setup phase. Run cargo test --lib.
+If tests fail, diagnose and fix (small implementation fixes or test
+corrections). Apply the keep/remove decision process. Run cargo test --lib
+one final time to confirm.
 
-Run the unit tests that were written in the TDD setup phase.
-
-Run: cargo test --lib
-
-If tests fail:
-- Diagnose why — is it a test bug or an implementation bug?
-- Fix implementation bugs (small fixes only — if it's an architectural
-  issue, flag it)
-- Fix test bugs if the test assumptions were wrong given the actual
-  implementation
-- Ensure all tests pass
-- Apply the skill's keep/remove decision process — keep tests that provide
-  ongoing value, remove those that were purely for development verification
-
-Run cargo test --lib one final time to confirm everything passes.
+Skill: rust:unit-testing
+Pipeline phase: Phase 6 (Verify)
 ```
 
-**Integration test verification agent:**
+**Integration test verification — tell the router:**
 ```
-You have the rust:integration-testing skill. Your task:
+Task: Run the integration tests from the TDD setup phase. Run cargo test
+-- --ignored. If tests fail, diagnose and fix. If blocked by external
+factors, write failure report to failing.md. Run cargo test -- --ignored
+one final time to confirm.
 
-Run the integration tests that were written in the TDD setup phase.
-
-Run: cargo test -- --ignored
-
-If tests fail:
-- Diagnose the failure — is it a code bug, a test bug, or an external
-  blocker?
-- Fix code bugs with small, targeted fixes
-- Fix test bugs if assumptions were wrong
-- If blocked by external factors (missing credentials, service down),
-  write the failure report to failing.md per the skill's conventions
-- Ensure all runnable tests pass
-
-Run cargo test -- --ignored one final time to confirm.
+Skill: rust:integration-testing
+Pipeline phase: Phase 6 (Verify)
 ```
 
 If either agent reports significant issues that require architectural changes, consider whether to loop back to Phase 3. Use your judgment — minor fixes are fine to handle in-phase, but if the tests reveal a fundamental design problem, it's better to re-architect than to patch.
@@ -363,21 +325,6 @@ This is critical. Each phase builds on the previous one, and agents don't share 
 Don't dump entire conversation transcripts into agent prompts. Extract the relevant findings, decisions, and file references. The agents need actionable context, not noise.
 
 ---
-
-## Model Assignments
-
-These are deliberate, not arbitrary:
-
-| Skill | Model | Why |
-|-------|-------|-----|
-| rust:exploration-and-planning | **opus** | Deep codebase analysis requires strong reasoning across many files |
-| rust:unit-testing | **opus** | TDD test design requires understanding what matters to test; verification needs diagnostic skill |
-| rust:integration-testing | **opus** | Failure mode analysis and real-world testing requires maximum thinking depth |
-| rust:planning-and-architecture | **opus** | Architecture decisions are the highest-leverage choices — they must be excellent |
-| rust:ergonomic-refactoring | **opus** | Knowing what to simplify without breaking semantics requires deep understanding |
-| rust:developing | **sonnet** | Implementation from a clear plan is well-scoped work where speed matters |
-
-**Note:** `rust:commenting` and `rust:ergonomic-refactoring` are no longer phases in this pipeline — they're handled as mandatory tasks in the planning phase. The ergonomic-refactoring entry above is retained only for Phase 4 (Refine Scaffold).
 
 ---
 

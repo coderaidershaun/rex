@@ -233,11 +233,12 @@ When the dispatch mode is **direct invoke**, the operator does NOT spawn a sub-a
 Prepare as follows:
 
 1. **Read all `inputs` files yourself.** Don't delegate this — you need the context.
-2. **Note the effort level.** Before invoking the skill, state the effort level in your output:
-   - `"medium"` → "Applying moderate reasoning depth."
-   - `"high"` → "Thinking carefully and thoroughly."
-   - `"max"` → "ultrathink. Thinking very deeply about this item."
-   - `"ultrathink"` → "ultrathink. Thinking extremely deeply about this critical item."
+2. **Note the effort level.** Before invoking the skill, state the effort level in your output (canonical mapping from `rex-model-router/SKILL.md`):
+   - `"low"` → "This is a straightforward mechanical task. Be quick and precise."
+   - `"medium"` → "Apply moderate reasoning depth."
+   - `"high"` → "Think carefully and thoroughly."
+   - `"max"` → "ultrathink. Think very deeply about this item."
+   - `"ultrathink"` → "ultrathink. Think extremely deeply about this critical item."
    
    The literal word `ultrathink` must appear for max/ultrathink levels — it triggers deep reasoning.
 3. **`agent.model` is informational only** — you run on the session's model. This is fine because interactive items benefit from the user's chosen model.
@@ -277,10 +278,11 @@ The prompt you give each sub-agent must include:
    ```
 5. **Input files** — list every file in `inputs` and instruct the agent to read them before starting work.
 6. **Output files** — list every file in `outputs` and instruct the agent to write its results there.
-7. **Effort level** — include the effort level as a literal instruction at the end of the prompt. Map the effort field:
+7. **Effort level** — include the effort level as a literal instruction at the end of the prompt. Map the effort field (canonical mapping from `rex-model-router/SKILL.md`):
+   - `"low"` → "This is a straightforward mechanical task. Be quick and precise."
    - `"medium"` → "Apply moderate reasoning depth."
    - `"high"` → "Think carefully and thoroughly."
-   - `"max"` → "Think very deeply. Take your time and consider all angles. ultrathink"
+   - `"max"` → "ultrathink. Think very deeply. Take your time and consider all angles."
    - `"ultrathink"` → "ultrathink. Think extremely deeply. This is a critical task — exhaust every consideration before concluding."
 
    **Important:** For `"max"` and `"ultrathink"` effort levels, the literal word `ultrathink` must appear in the prompt — it triggers deep reasoning mode.

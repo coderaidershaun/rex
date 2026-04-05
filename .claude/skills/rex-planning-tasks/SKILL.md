@@ -173,7 +173,7 @@ This cascade (task overflow → split objective → possible milestone split) is
 
 Integration testing objectives (those with IDs matching `o-*-integration-testing`) follow a **fixed 3-task template**. Do not freestyle these tasks — use the template exactly. The 3-task structure handles the full lifecycle: write and run tests, triage failures with genuine effort and user escalation when needed, and post-resolution verification.
 
-**All 3 tasks use the `rust-integration-testing` skill on sonnet/high.** This skill knows how to read the design integration test plan, write production-grade tests, and handle the escalation flow.
+**Task 1 (write and run) uses sonnet/high** — writing new integration tests is standard work. **Tasks 2 and 3 (triage and verification) use opus/max** — diagnosing and fixing test failures is hard diagnostic work. All 3 use the `rust-integration-testing` skill. These assignments match the Task Classification Table in `rex-model-router/SKILL.md` ("Integration test writing" vs "Fixing failing integration tests").
 
 Read `rex/<project-id>/design/integration-tests.md` before creating these tasks. You need to know which CRITICAL and IMPORTANT tests fall within this objective's scope so the task descriptions can reference them specifically.
 
@@ -237,8 +237,8 @@ STEP 4 — IF ANY FAILURES REQUIRE USER INPUT: Follow these exact steps:
   3. Say EXACTLY in your response: 'This task must remain in-progress. I have escalated to user-support. DO NOT MARK THIS TASK AS COMPLETE.'
 
 WHEN RESUMED AFTER USER-SUPPORT: The user's response will appear in your dispatch prompt under 'User Input (from previous escalation)'. Apply the user's fixes, re-run the failing tests. If they pass now, mark this task complete. If new blockers appear, repeat the escalation." \
-  --agent-model sonnet \
-  --agent-effort high \
+  --agent-model opus \
+  --agent-effort max \
   --agent-skill rust-integration-testing \
   --add-reference rex/<project-id>/design/integration-tests.md \
   --add-output tests/integration/<milestone-topic>.rs \
@@ -266,8 +266,8 @@ rex task upsert \
 If ALL tests pass: This task is complete.
 
 If any tests FAIL: Follow the same process as task 2 — make 3+ genuine fix attempts, then escalate if truly stuck. Write to rex/<project-id>/user-support/requested.md, run 'rex project update-status user-input not-started', and say 'DO NOT MARK THIS TASK AS COMPLETE.' The cycle repeats until all tests pass." \
-  --agent-model sonnet \
-  --agent-effort high \
+  --agent-model opus \
+  --agent-effort max \
   --agent-skill rust-integration-testing \
   --add-reference rex/<project-id>/design/integration-tests.md \
   --add-output tests/integration/<milestone-topic>.rs \
@@ -427,32 +427,19 @@ Every task must be assigned an agent configuration — the skill, model, and eff
 
 **This is mandatory.** Every task you create must have an agent assigned. Without it, the task falls back to a generic default during execution, which wastes resources on simple tasks and under-powers complex ones.
 
-#### Built-in Rust skills reference
+#### Agent assignment — using the model router
 
-Use these `rust-*` skills for standard Rust development work. **Only assign non-`rex-*` skills** — the `rex-*` skills are for the rex framework's own phases.
+Every task's agent configuration (skill, model, effort) is determined by the **Task Classification Table** in `.claude/skills/rex-model-router/SKILL.md`. Read that file and match the task's description against the table to determine the correct `--agent-skill`, `--agent-model`, and `--agent-effort` values.
 
-| Task type | Skill | Model | Effort | When to use |
-|-----------|-------|-------|--------|-------------|
-| Planning & architecture decisions | `rust-planning-and-architecture` | opus | max | Tasks that require choosing between approaches, designing data structures, evaluating concurrency strategies, or making significant structural decisions. **The only task type that warrants opus/max.** |
-| Complex implementation (new modules, core logic, state machines, multi-file features) | `rust-team-coordinator` | sonnet | high | The default for any substantial implementation work. It triages internally and orchestrates exploration → architecture → implementation → testing → polish. |
-| Integration testing | `rust-integration-testing` | sonnet | high | Writing integration tests that exercise real data flows, real connections, and real failure modes. |
-| Ergonomic refactoring | `rust-ergonomic-refactoring` | sonnet | high | Cleaning up code for idiomatic style, readability, and ergonomics — especially when touching multiple files or modules. |
-| Unit testing | `rust-unit-testing` | sonnet | high | Writing focused unit tests for specific functions, methods, or modules. |
-| Comments & documentation | `rust-commenting` | sonnet | high | Adding or updating comments on existing code. |
-| Error handling | `rust-errors-management` | sonnet | high | Defining error types, replacing unwraps, setting up thiserror-based error propagation. |
-| Simple/straightforward implementation | `rust-developing` | sonnet | high | Small, well-defined tasks where the design is already decided — a single function, a derive macro addition, a config struct, wiring glue code. No design decisions needed. |
-| Code exploration | `rust-exploration-and-planning` | sonnet | high | Understanding an existing codebase area before working on it. Typically an upstream of an implementation task. |
+Apply the router's escalation signals for borderline cases: prior failures, hidden complexity, and multiple interacting concerns all push up one tier.
+
+**Key principle:** Quality beats cost, but don't use Opus for a typo fix. When genuinely uncertain, go up one gear.
+
+**Only assign non-`rex-*` skills** — the `rex-*` skills are for the rex framework's own phases.
 
 #### Custom project skills
 
-During onboarding, custom skills may have been created for project-specific specialist work (e.g., a domain-specific skill for financial calculations, protocol parsing, etc.). Check the onboarding `skill-building.md` output for any custom skills that were created. Assign these to tasks that match their domain. Use sonnet/high for all domain work — reserve opus/max only for planning and architecture decisions.
-
-#### How to decide
-
-1. **Does it require planning or architecture decisions?** (choosing between approaches, designing data structures, evaluating concurrency strategies) → `rust-planning-and-architecture` on opus/max. This is the **only** task type that uses opus.
-2. **Is it complex, multi-file implementation work?** → `rust-team-coordinator` on sonnet/high. It triages internally and won't over-engineer simple work.
-3. **Is it a focused specialist task?** (tests, comments, error types, refactoring, exploration) → Use the matching specialist skill on sonnet/high.
-4. **Does it match a custom project skill?** → Use that skill on sonnet/high.
+During onboarding, custom skills may have been created for project-specific specialist work (e.g., a domain-specific skill for financial calculations, protocol parsing, etc.). Check the onboarding `skill-building.md` output for any custom skills that were created. Assign these to tasks that match their domain. For custom skills, default to sonnet/high unless the router's escalation signals suggest otherwise.
 
 #### Example with agent flags
 
