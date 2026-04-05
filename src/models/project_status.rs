@@ -66,6 +66,7 @@ pub const ONBOARDING_ITEMS: &[&str] = &[
     "research",
     "resources",
     "user-expertise",
+    "integration-testing",
     "success-measures",
     "known-risks",
     "uat",
