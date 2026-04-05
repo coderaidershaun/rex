@@ -28,6 +28,10 @@ orchestrates onboarding, design, planning, and execution phases.
 - `rex project next-item` — see what's next
 - `/rex-operator` — run the operator (advances the project one step)
 
+## Research
+
+Any research agents perform should be saved to `rex/docs/research/` unless the agent's instructions specify a different location.
+
 ## Agent Model Selection
 
 When assigning agents to tasks, use the `rex-model-router` skill as the single source of truth for model, effort, and context decisions. The routing tables are optimised for Rust development but the same principles apply to all work: match the model to the task's complexity, escalate when prior attempts fail, and use 1M context when the task spans multiple files or modules.
@@ -83,6 +87,13 @@ pub fn init() -> RexResult<()> {
     // 5. Copy rex/docs/*
     fs::create_dir_all(&docs_dir)?;
     copy_embedded_dir(&DOCS_DIR, &docs_dir, &mut created, &mut skipped)?;
+
+    // 5b. Ensure rex/docs/research/ exists (empty dirs aren't captured by include_dir)
+    let research_dir = docs_dir.join("research");
+    if !research_dir.exists() {
+        fs::create_dir_all(&research_dir)?;
+        created.push("rex/docs/research/".into());
+    }
 
     // 6. Create empty rex/projects.json if missing
     let projects_path = rex_dir.join("projects.json");

@@ -327,6 +327,7 @@ pub fn create(with_git_repo: Option<RepoVisibility>) -> RexResult<()> {
         for sub in &["onboarding", "user-support", "planning", "design", "execution", "uat"] {
             fs::create_dir_all(project_meta_dir.join(sub))?;
         }
+        fs::create_dir_all(base.join("rex/docs/research"))?;
 
         let status = ProjectStatus::new(&id, &tab_result.selected_items, &design_result.selected_items, &category);
         status.save(&project_meta_dir)?;
@@ -366,6 +367,7 @@ pub fn create(with_git_repo: Option<RepoVisibility>) -> RexResult<()> {
         for sub in &["onboarding", "user-support", "planning", "design", "execution", "uat"] {
             fs::create_dir_all(format!("{project_dir}/{sub}"))?;
         }
+        fs::create_dir_all("rex/docs/research")?;
 
         let status = ProjectStatus::new(&id, &tab_result.selected_items, &design_result.selected_items, &category);
         status.save(Path::new(&project_dir))?;
