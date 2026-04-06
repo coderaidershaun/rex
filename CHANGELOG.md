@@ -2,6 +2,12 @@
 
 All notable changes to **rex-cli** are documented here.
 
+## 0.2.9 — 2026-04-06
+
+- **Fix autorun task count path** — Autorun's Telegram status message now reads task counts from `rex/{project_id}/planning/planning.json` instead of `./planning/planning.json`, fixing the 0/0 display.
+- **Show items completed in autorun status** — Autorun's query response now includes an "Items completed" line, matching rex-chat's status format.
+- **Add task counts to other autoruns** — The "Other autoruns" section in the query response now shows task progress (`📋 done/total`) for each running project.
+
 ## 0.2.8 — 2026-04-06
 
 - **Fix integration-testing naming collision** — Rename the design-phase `integration-testing` item to `integration-testing-design` so it no longer collides with the onboarding-phase item of the same name. The collision caused `update_status` to mark the wrong step complete, making the design step repeat endlessly.
