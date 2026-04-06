@@ -1275,7 +1275,8 @@ fn build_query_response(
 
     // Load task counts from planning data
     let (tasks_done, tasks_total) = {
-        if let Ok(store) = crate::models::planning::PlanningStore::load(std::path::Path::new(".")) {
+        let rex_project_dir = std::path::Path::new("rex").join(project_id);
+        if let Ok(store) = crate::models::planning::PlanningStore::load(&rex_project_dir) {
             let total = store.tasks.len();
             let done = store.tasks.iter()
                 .filter(|t| t.status == crate::models::planning::PlanningStatus::Completed)
@@ -1292,9 +1293,11 @@ fn build_query_response(
          ⏱ <b>Total uptime:</b> <code>{uptime}</code>\n\
          📊 <b>Context:</b> <code>{ctx_last}</code> last  ·  <code>{ctx_avg}</code> avg\n\
          🕐 <b>Session:</b> <code>{dur_last}</code> last  ·  <code>{dur_avg}</code> avg\n\
+         ✅ <b>Items completed:</b> <code>{items}</code>\n\
          📋 <b>Tasks:</b> <code>{tasks_done}/{tasks_total}</code>\n\
          💰 <b>Cost:</b> <code>${cost:.2}</code>",
         pid = escape_html(project_id),
+        items = stats.items_completed,
         cost = stats.total_cost_usd,
     );
 
@@ -1314,8 +1317,27 @@ fn build_query_response(
                 std::path::Path::new(&proj.directory).join(".rex-autorun.json");
             if let Some(state) = super::state::read_state(&state_file) {
                 let dur = format_duration_since(&state.stats.started_at);
+                let other_rex_dir = std::path::Path::new(&proj.directory)
+                    .join("rex")
+                    .join(&proj.id);
+                let (od, ot) = if let Ok(s) =
+                    crate::models::planning::PlanningStore::load(&other_rex_dir)
+                {
+                    let total = s.tasks.len();
+                    let done = s
+                        .tasks
+                        .iter()
+                        .filter(|t| {
+                            t.status
+                                == crate::models::planning::PlanningStatus::Completed
+                        })
+                        .count();
+                    (done, total)
+                } else {
+                    (0, 0)
+                };
                 others.push(format!(
-                    "  <b>{}</b>  ·  ⏱ {dur}  ·  🔄 #{} inv  ·  💰 ${:.2}",
+                    "  <b>{}</b>  ·  ⏱ {dur}  ·  🔄 #{} inv  ·  📋 {od}/{ot}  ·  💰 ${:.2}",
                     escape_html(&proj.id),
                     state.invocation_count,
                     state.stats.total_cost_usd,
