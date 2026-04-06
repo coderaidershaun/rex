@@ -2,6 +2,13 @@
 
 All notable changes to **rex-cli** are documented here.
 
+## 0.2.8 — 2026-04-06
+
+- **Fix integration-testing naming collision** — Rename the design-phase `integration-testing` item to `integration-testing-design` so it no longer collides with the onboarding-phase item of the same name. The collision caused `update_status` to mark the wrong step complete, making the design step repeat endlessly.
+- **Add onboarding integration-testing skill** — Create the missing `rex-onboarding-integration-testing` skill so the onboarding step no longer errors with "Unknown skill."
+- **Wire integration-tests output downstream** — Add `design/integration-tests.md` as an input to all subsequent design steps (foreign-critique, error-handling, architecture-proposal, user-acceptance) and all planning steps (milestones, objectives, tasks, review).
+- **Richer init scaffolding** — `rex init` now generates a CLAUDE.md with a full Table of Contents covering root, src, .claude, and rex directory structures.
+
 ## 0.2.7 — 2026-04-05
 
 - **Research directory scaffolding** — `rex init` and `rex project create` now ensure `rex/docs/research/` exists, and the generated CLAUDE.md directs agents to store research output there by default.
