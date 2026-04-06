@@ -386,8 +386,6 @@
         "rex/delete/onboarding/environment-variables.md",
         "rex/delete/onboarding/idea-generation.md",
         "rex/delete/onboarding/goal.md",
-        "rex/delete/onboarding/user-expertise.md",
-        "rex/delete/onboarding/integration-testing.md",
         "rex/delete/onboarding/checklist.json",
         "rex/delete/onboarding/libraries-and-sdks.md",
         "rex/delete/design/existing-code-exploration.md",
@@ -416,8 +414,6 @@
         "rex/delete/onboarding/environment-variables.md",
         "rex/delete/onboarding/idea-generation.md",
         "rex/delete/onboarding/goal.md",
-        "rex/delete/onboarding/user-expertise.md",
-        "rex/delete/onboarding/integration-testing.md",
         "rex/delete/onboarding/checklist.json",
         "rex/delete/onboarding/libraries-and-sdks.md",
         "rex/delete/design/existing-code-exploration.md",
@@ -428,7 +424,7 @@
       "status": "not-started"
     },
     {
-      "item": "integration-testing",
+      "item": "integration-testing-design",
       "stop-on-finish": true,
       "agent": {
         "count": 1,
@@ -447,8 +443,6 @@
         "rex/delete/onboarding/environment-variables.md",
         "rex/delete/onboarding/idea-generation.md",
         "rex/delete/onboarding/goal.md",
-        "rex/delete/onboarding/user-expertise.md",
-        "rex/delete/onboarding/integration-testing.md",
         "rex/delete/onboarding/checklist.json",
         "rex/delete/onboarding/libraries-and-sdks.md",
         "rex/delete/design/existing-code-exploration.md",
@@ -483,6 +477,7 @@
         "rex/delete/onboarding/environment-variables.md",
         "rex/delete/onboarding/idea-generation.md",
         "rex/delete/onboarding/skill-building.md",
+        "rex/delete/design/integration-tests.md",
         "rex/delete/design/existing-code-exploration.md",
         "rex/delete/design/library-review.md",
         "rex/delete/design/module-design.md",
@@ -504,6 +499,7 @@
         "rex/delete/design/existing-code-exploration.md",
         "rex/delete/design/library-review.md",
         "rex/delete/design/module-design.md",
+        "rex/delete/design/integration-tests.md",
         "rex/delete/design/architecture-design.md"
       ],
       "outputs": ["rex/delete/design/error-handling.md"],
@@ -525,6 +521,7 @@
         "rex/delete/design/existing-code-exploration.md",
         "rex/delete/design/library-review.md",
         "rex/delete/design/module-design.md",
+        "rex/delete/design/integration-tests.md",
         "rex/delete/design/architecture-design.md",
         "rex/delete/design/foreign-critique.md"
       ],
@@ -545,6 +542,7 @@
       },
       "inputs": [
         "rex/delete/onboarding/integration-testing.md",
+        "rex/delete/design/integration-tests.md",
         "rex/delete/design/architecture-proposal.html"
       ],
       "outputs": ["rex/delete/design/user-acceptance.md"],
@@ -579,6 +577,7 @@
         "rex/delete/design/library-review.md",
         "rex/delete/design/module-design.md",
         "rex/delete/design/architecture-design.md",
+        "rex/delete/design/integration-tests.md",
         "rex/delete/design/foreign-critique.md",
         "rex/delete/design/architecture-proposal.md",
         "rex/delete/planning/planning.json"
@@ -613,6 +612,7 @@
         "rex/delete/design/library-review.md",
         "rex/delete/design/module-design.md",
         "rex/delete/design/architecture-design.md",
+        "rex/delete/design/integration-tests.md",
         "rex/delete/design/foreign-critique.md",
         "rex/delete/design/architecture-proposal.md",
         "rex/delete/planning/planning.json"
@@ -636,6 +636,7 @@
         "rex/delete/design/module-design.md",
         "rex/delete/design/architecture-design.md",
         "rex/delete/design/foreign-critique.md",
+        "rex/delete/design/integration-tests.md",
         "rex/delete/design/architecture-proposal.md",
         "rex/delete/planning/planning.json"
       ],
@@ -662,6 +663,7 @@
         "rex/delete/design/module-design.md",
         "rex/delete/design/architecture-design.md",
         "rex/delete/design/architecture-proposal.md",
+        "rex/delete/design/integration-tests.md",
         "rex/delete/planning/milestones.json",
         "rex/delete/planning/objectives.json",
         "rex/delete/planning/tasks.json",

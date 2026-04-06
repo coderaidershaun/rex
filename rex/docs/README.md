@@ -117,7 +117,7 @@ Creates the complete system blueprint. Each item produces documents in `rex/<pro
 | 2 | `library-review` | `rex-design-rust-library-review` | 1 | opus | high | optional | Version check + API docs for unfamiliar crates |
 | 3 | `module-design` | `rex-design-rust-modules` | 1 | opus | max | always | File/folder layout (500-line rule, domain-first) |
 | 4 | `architecture-design` | `rex-design-rust-architecture` | 1 | opus | max | always | Types, traits, enums, function signatures |
-| 5 | `integration-testing` | `rex-design-rust-integration-tests` | 1 | opus | max | optional | Failure mode analysis, real-world test strategy |
+| 5 | `integration-testing-design` | `rex-design-rust-integration-tests` | 1 | opus | max | optional | Failure mode analysis, real-world test strategy |
 | 6 | `foreign-critique` | `rex-design-foreign-critique` | 3 | opus | max | optional | Adversarial cross-document consistency review |
 | 7 | `error-handling` | `rex-design-rust-errors` | 1 | sonnet | high | always | Error types, propagation, thiserror strategy |
 | 8 | `architecture-proposal` | `rex-design-rust-architecture-proposal` | 1 | opus | max | always | Synthesize all design into polished .md + .html |

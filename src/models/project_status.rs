@@ -81,7 +81,7 @@ pub const DESIGN_ITEMS: &[&str] = &[
     "library-review",
     "module-design",
     "architecture-design",
-    "integration-testing",
+    "integration-testing-design",
     "foreign-critique",
     "error-handling",
     "architecture-proposal",
@@ -245,7 +245,7 @@ fn design_agent_config(item: &str) -> (u32, &'static str, &'static str, Vec<&'st
         "library-review" => (1, "high", "sonnet", vec!["rex-design-rust-library-review"]),
         "module-design" => (1, "max", "opus", vec!["rex-design-rust-modules"]),
         "architecture-design" => (1, "max", "opus", vec!["rex-design-rust-architecture"]),
-        "integration-testing" => (
+        "integration-testing-design" => (
             1,
             "high",
             "sonnet",
@@ -289,8 +289,6 @@ fn design_inputs(id: &str, item: &str) -> Vec<String> {
             o("environment-variables.md"),
             o("idea-generation.md"),
             o("goal.md"),
-            o("user-expertise.md"),
-            o("integration-testing.md"),
             o("checklist.json"),
             o("libraries-and-sdks.md"),
             d("existing-code-exploration.md"),
@@ -307,15 +305,13 @@ fn design_inputs(id: &str, item: &str) -> Vec<String> {
             o("environment-variables.md"),
             o("idea-generation.md"),
             o("goal.md"),
-            o("user-expertise.md"),
-            o("integration-testing.md"),
             o("checklist.json"),
             o("libraries-and-sdks.md"),
             d("existing-code-exploration.md"),
             d("library-review.md"),
             d("module-design.md"),
         ],
-        "integration-testing" => vec![
+        "integration-testing-design" => vec![
             o("research.md"),
             o("resources.md"),
             o("user-expertise.md"),
@@ -326,8 +322,6 @@ fn design_inputs(id: &str, item: &str) -> Vec<String> {
             o("environment-variables.md"),
             o("idea-generation.md"),
             o("goal.md"),
-            o("user-expertise.md"),
-            o("integration-testing.md"),
             o("checklist.json"),
             o("libraries-and-sdks.md"),
             d("existing-code-exploration.md"),
@@ -350,6 +344,7 @@ fn design_inputs(id: &str, item: &str) -> Vec<String> {
             o("environment-variables.md"),
             o("idea-generation.md"),
             o("skill-building.md"),
+            d("integration-tests.md"),
             d("existing-code-exploration.md"),
             d("library-review.md"),
             d("module-design.md"),
@@ -359,6 +354,7 @@ fn design_inputs(id: &str, item: &str) -> Vec<String> {
             d("existing-code-exploration.md"),
             d("library-review.md"),
             d("module-design.md"),
+            d("integration-tests.md"),
             d("architecture-design.md"),
         ],
         "architecture-proposal" => vec![
@@ -368,11 +364,13 @@ fn design_inputs(id: &str, item: &str) -> Vec<String> {
             d("existing-code-exploration.md"),
             d("library-review.md"),
             d("module-design.md"),
+            d("integration-tests.md"),
             d("architecture-design.md"),
             d("foreign-critique.md"),
         ],
         "user-acceptance" => vec![
             o("integration-testing.md"),
+            d("integration-tests.md"),
             d("architecture-proposal.html"),
         ],
         _ => vec![],
@@ -386,7 +384,7 @@ fn design_outputs(id: &str, item: &str) -> Vec<String> {
         "architecture-proposal" => {
             vec![d("architecture-proposal.md"), d("architecture-proposal.html")]
         }
-        "integration-testing" => vec![d("integration-tests.md")],
+        "integration-testing-design" => vec![d("integration-tests.md")],
         _ => vec![d(&format!("{item}.md"))],
     }
 }
@@ -414,6 +412,7 @@ fn build_planning_steps(id: &str) -> Vec<TaskStep> {
         d("library-review.md"),
         d("module-design.md"),
         d("architecture-design.md"),
+        d("integration-tests.md"),
         d("foreign-critique.md"),
         d("architecture-proposal.md"),
         p("planning.json"),
@@ -426,6 +425,7 @@ fn build_planning_steps(id: &str) -> Vec<TaskStep> {
         d("module-design.md"),
         d("architecture-design.md"),
         d("foreign-critique.md"),
+        d("integration-tests.md"),
         d("architecture-proposal.md"),
         p("planning.json"),
     ];
@@ -490,6 +490,7 @@ fn build_planning_steps(id: &str) -> Vec<TaskStep> {
                 d("module-design.md"),
                 d("architecture-design.md"),
                 d("architecture-proposal.md"),
+                d("integration-tests.md"),
                 p("milestones.json"),
                 p("objectives.json"),
                 p("tasks.json"),
