@@ -1791,7 +1791,7 @@ dependencies = [
 
 [[package]]
 name = "rex-cli"
-version = "0.2.10"
+version = "0.2.11"
 dependencies = [
  "chrono",
  "clap",

@@ -2,6 +2,10 @@
 
 All notable changes to **rex-cli** are documented here.
 
+## 0.2.11 — 2026-04-07
+
+- **Mandatory cleanup milestone in planning** — Add a required cleanup milestone step to the planning-milestones skill. Every project now ends with an `m-cleanup` milestone that ensures examples are written, refactored, commented, and CLAUDE.md has an accurate Table of Contents. Subsequent steps renumbered accordingly.
+
 ## 0.2.10 — 2026-04-07
 
 - **Fix context window usage calculation** — Switch from summing all token fields to using `cache_creation_input_tokens + output_tokens`, which better approximates actual context window usage by excluding the double-counted cache reads.
