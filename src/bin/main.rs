@@ -605,10 +605,11 @@ Rex Chat (separate binary — Telegram chat interface, uses REX_AUTOCHAT_TELEGRA
       /stop <id>                             Stop autorun for a project
       /status [id]                           Show autorun status (all if no id)
       /timeout [mins]                        Show or set chat timeout (1-120, default: 10)
+      /reset [id]                            Reset Claude context (all or specific project)
+      /clear                                 Clear Telegram message history
       /projects                              List all discovered projects
       /menu                                  Show project dashboard with buttons
       /commands                              Show command help
-      /clear                                 Clear chat history
       /kill-chat                             Shut down the rex-chat daemon
 
   Background usage (recommended):

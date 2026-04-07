@@ -339,6 +339,29 @@ async fn handle_slash_command(
         "/clear" => {
             tg.clear_history().await;
         }
+        "/reset" => {
+            if arg.is_empty() {
+                sessions.reset(None);
+                tg.notify("🔄 All chat sessions reset. Next message starts a fresh conversation.")
+                    .await;
+            } else {
+                let known_ids = discover_project_ids(scan_dir);
+                if known_ids.contains(&arg.to_string()) {
+                    sessions.reset(Some(arg));
+                    tg.notify(&format!(
+                        "🔄 Chat session for <code>{}</code> reset. Next message starts fresh.",
+                        escape_html(arg),
+                    ))
+                    .await;
+                } else {
+                    tg.notify(&format!(
+                        "❌ Project <code>{}</code> not found",
+                        escape_html(arg),
+                    ))
+                    .await;
+                }
+            }
+        }
         "/menu" => {
             show_project_menu(tg, scan_dir).await;
         }
@@ -356,8 +379,9 @@ async fn handle_slash_command(
                  <code>message</code> -- Chat with active project\n\n\
                  <b>Utility:</b>\n\
                  <code>/timeout &lt;mins&gt;</code> -- Set chat timeout (current: {timeout}m)\n\
+                 <code>/reset [id]</code> -- Reset Claude context (all or specific project)\n\
+                 <code>/clear</code> -- Clear Telegram message history\n\
                  <code>/projects</code> -- List all discovered projects\n\
-                 <code>/clear</code> -- Clear chat history\n\
                  <code>/kill-chat</code> -- Shut down rex-chat\n\
                  <code>/commands</code> -- Show this help",
                 timeout = chat_timeout_mins,

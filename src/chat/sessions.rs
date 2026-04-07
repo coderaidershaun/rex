@@ -65,6 +65,29 @@ impl SessionManager {
             })
     }
 
+    /// Reset the Claude session for a project (or all projects if no ID given).
+    /// Kills any active process and clears the session ID so the next message starts fresh.
+    pub fn reset(&mut self, project_id: Option<&str>) {
+        match project_id {
+            Some(pid) => {
+                if let Some(session) = self.sessions.get_mut(pid) {
+                    kill_session_process(session);
+                    session.claude_session_id = None;
+                    session.active_pgid = None;
+                    info!(project_id = %pid, "reset chat session");
+                }
+            }
+            None => {
+                for (pid, session) in &mut self.sessions {
+                    kill_session_process(session);
+                    session.claude_session_id = None;
+                    session.active_pgid = None;
+                    info!(project_id = %pid, "reset chat session");
+                }
+            }
+        }
+    }
+
     /// Register a Telegram message as belonging to a rex-chat session.
     pub fn register_message(&mut self, msg_id: i64, project_id: &str) {
         self.message_to_project
