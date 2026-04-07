@@ -129,6 +129,8 @@ fn reconnects_after_server_drops_connection() {
 
 3. **Keep tests short.** Setup, act, assert. If you need more than ~20 lines per test, the code under test may need a better interface — consider invoking the `/rust:planning-and-architecture` skill to redesign it.
 
+3b. **30-second timeout cap.** Every integration test MUST complete within 30 seconds. Use explicit timeouts (`Duration::from_secs(30)` or tighter) on all blocking operations — connections, reads, reconnects, everything. If a test legitimately needs more than 30 seconds (e.g., testing reconnection backoff across multiple retries against a real slow service), document the reason in a comment above the test. This exception is rare — most tests that seem to need more time are actually doing too much and should be split.
+
 4. **One failure mode per test.** Don't write a test that checks connection handling AND data parsing AND error recovery. Each test targets one specific way things break.
 
 5. **Clean up after yourself.** If your test creates files, connections, or state — tear it down. Use `Drop` guards or explicit cleanup at the end.
@@ -179,7 +181,7 @@ fn fetches_live_market_data() {
 
 Sometimes integration tests fail. Before escalating, you MUST make genuine, sustained effort to fix each failure yourself.
 
-### The "try harder" rule: 3 distinct attempts minimum
+### The "try harder" rule: 3 distinct attempts minimum, 5 attempts / 5 minutes maximum
 
 For each failing test, you must make **at least 3 substantive, distinct attempts** to fix it before classifying it as requiring user input. Giving up after one attempt is unacceptable. Work through these approaches:
 
@@ -188,6 +190,20 @@ For each failing test, you must make **at least 3 substantive, distinct attempts
 3. **Check environmental setup.** Is the right config loaded? Are paths correct? Is the test data in the right format? Is the test running from the right directory?
 4. **Search the codebase for working patterns.** Find similar code or tests that work. What are they doing differently?
 5. **Try alternative approaches.** Different test data, different setup sequence, different assertion strategy.
+
+### HARD CEILING: 5 attempts or 5 minutes — then escalate
+
+**This is a non-negotiable safety rail.** If you have made **5 distinct attempts** to fix a failing integration test, or if you have spent **more than 5 minutes total** working on a single failing test — you MUST stop and escalate immediately. Do not attempt a 6th fix. Do not keep going because you think the next attempt will work.
+
+The only exception is a **genuinely special use case** — for example, a test that requires a multi-step environment setup where each step reveals new information (not just retrying the same class of fix). If you believe you are in a special case, you MUST document your reasoning in `rex/<project-id>/user-support/requested.md` explaining why this warrants continued effort, and still escalate if the next attempt fails.
+
+When the 5-attempt or 5-minute ceiling is hit:
+1. Follow the full escalation procedure in "When you've exhausted your attempts" below.
+2. Change the rex status to `user_support`: run `rex project update-status user-input not-started`.
+3. Write a detailed report to `rex/<project-id>/user-support/requested.md` (see template below).
+4. Tell the operator: **"This task must remain in-progress. I have escalated to user-support. DO NOT MARK THIS TASK AS COMPLETE."**
+
+**Why this ceiling exists:** An agent stuck in a fix loop burns time and context without making progress. If 5 attempts haven't solved it, the problem is almost certainly outside the agent's reach — missing credentials, environmental issue, or a design flaw that needs human judgment. Escalating early protects the project timeline.
 
 Only classify a failure as requiring user input when the blocker is **genuinely external** to the codebase:
 - Missing API credentials the user hasn't provided
@@ -199,7 +215,7 @@ Only classify a failure as requiring user input when the blocker is **genuinely 
 
 ### When you've exhausted your attempts
 
-If after 3+ genuine attempts a failure is truly outside your control:
+If after 3+ genuine attempts a failure is truly outside your control, **or you've hit the hard ceiling of 5 attempts / 5 minutes**:
 
 #### Step 1: Write a detailed escalation report
 
@@ -292,9 +308,9 @@ fn recovers_from_connection_drop() {
     // Force disconnect
     client.force_close();
 
-    // Should reconnect automatically
-    let reconnected = client.wait_for_reconnect(Duration::from_secs(30));
-    assert!(reconnected.is_ok(), "Should reconnect within 30s");
+    // Should reconnect automatically (within the 30s test timeout cap)
+    let reconnected = client.wait_for_reconnect(Duration::from_secs(25));
+    assert!(reconnected.is_ok(), "Should reconnect within 25s");
 }
 
 #[test]
@@ -321,8 +337,9 @@ Notice: three tests, three different failure modes, all against real endpoints. 
 - [ ] Each test targets one specific production failure mode
 - [ ] All tests use real data / real connections (no mocks, no synthetic data)
 - [ ] All passing tests marked `#[ignore]`
-- [ ] Tests that can't pass (after 3+ fix attempts) are documented in `rex/<project-id>/user-support/requested.md`
-- [ ] `rex project update-status user-input not-started` called if blocked on user input
+- [ ] All test timeouts are ≤30 seconds (documented exception if longer)
+- [ ] Tests that can't pass (after 3+ fix attempts, or hitting the 5-attempt / 5-minute ceiling) are documented in `rex/<project-id>/user-support/requested.md`
+- [ ] `rex project update-status user-input not-started` called if blocked on user input or ceiling hit
 - [ ] Operator told "DO NOT MARK THIS TASK AS COMPLETE" if escalated
 - [ ] `cargo test -- --ignored` runs clean for all non-blocked tests
 - [ ] No unnecessary code — every line earns its place
