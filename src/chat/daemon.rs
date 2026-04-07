@@ -327,6 +327,15 @@ async fn handle_slash_command(
     };
 
     match cmd {
+        "/kill-chat" => {
+            tg.notify("🛑 <b>Rex Chat shutting down...</b>").await;
+            info!("kill-chat command received -- shutting down");
+            // Send SIGTERM to our own process to trigger the graceful shutdown path
+            unsafe {
+                libc::kill(std::process::id() as i32, libc::SIGTERM);
+            }
+            return;
+        }
         "/clear" => {
             tg.clear_history().await;
         }
@@ -349,6 +358,7 @@ async fn handle_slash_command(
                  <code>/timeout &lt;mins&gt;</code> -- Set chat timeout (current: {timeout}m)\n\
                  <code>/projects</code> -- List all discovered projects\n\
                  <code>/clear</code> -- Clear chat history\n\
+                 <code>/kill-chat</code> -- Shut down rex-chat\n\
                  <code>/commands</code> -- Show this help",
                 timeout = chat_timeout_mins,
             ))

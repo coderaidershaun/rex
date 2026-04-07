@@ -609,6 +609,7 @@ Rex Chat (separate binary — Telegram chat interface, uses REX_AUTOCHAT_TELEGRA
       /menu                                  Show project dashboard with buttons
       /commands                              Show command help
       /clear                                 Clear chat history
+      /kill-chat                             Shut down the rex-chat daemon
 
   Background usage (recommended):
       nohup rex-autorun --project-dir /absolute/path/to/project > /dev/null 2>&1 &";
