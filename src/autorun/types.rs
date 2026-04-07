@@ -73,10 +73,15 @@ impl ClaudeOutput {
         }
     }
 
-    /// Context window usage as a percentage.
+    /// Approximate context window usage as a percentage.
     ///
-    /// Total input = `input_tokens` + `cache_creation_input_tokens` + `cache_read_input_tokens`.
-    /// `output_tokens` are generated, not part of context window usage.
+    /// `modelUsage` token counts are cumulative across all API calls in the
+    /// session, so we can't get an exact snapshot. We approximate with:
+    ///   `cache_creation_input_tokens + output_tokens`
+    /// which represents the cached prefix (system prompt, project context)
+    /// plus all generated assistant text that accumulates in the conversation.
+    /// `cache_read_input_tokens` is excluded because it re-counts the same
+    /// cached prefix on every turn.
     pub fn context_percent(&self) -> f64 {
         let Some(entry) = self.model_usage.values().next() else {
             return 0.0;
@@ -84,10 +89,8 @@ impl ClaudeOutput {
         if entry.context_window == 0 {
             return 0.0;
         }
-        let total_input = entry.input_tokens
-            + entry.cache_creation_input_tokens
-            + entry.cache_read_input_tokens;
-        (total_input as f64 / entry.context_window as f64) * 100.0
+        let approx_context = entry.cache_creation_input_tokens + entry.output_tokens;
+        (approx_context as f64 / entry.context_window as f64) * 100.0
     }
 
     /// Formatted stats line for Telegram messages (HTML).
