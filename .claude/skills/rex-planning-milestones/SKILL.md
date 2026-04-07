@@ -116,7 +116,42 @@ Ask yourself:
 - "Is there a hidden dependency I'm not seeing — some shared resource, configuration, or type that both milestones need?"
 - "Could any of these milestones run in parallel, or is the sequence truly serial?"
 
-### Step 5: Add review milestones
+### Step 5: Add the mandatory cleanup milestone
+
+Every project ends with a **cleanup** milestone. This is always the final milestone — it depends on all preceding work milestones and review milestones being complete. It encompasses two things:
+
+1. **Examples module** — Create an `examples/` directory containing standalone Rust files that demonstrate how to use the various code aspects built during the project. Each example file should focus on a specific feature, module, or pattern from the codebase. Name files descriptively (e.g., `basic_usage.rs`, `error_handling.rs`, `advanced_config.rs`). The examples should compile and run, serving as living documentation for users and contributors. Once the example files are written, run `/rust-ergonomic-refactoring` on each example file to ensure idiomatic, clean Rust style, then run `/rust-commenting` to add clear, minimal comments explaining what each example demonstrates.
+
+2. **CLAUDE.md Table of Contents** — Update the project's `CLAUDE.md` file with a comprehensive Table of Contents section that documents the project's folder and file structure. The format must follow this pattern:
+
+```markdown
+# Table of Contents
+
+When file structure changes, this MUST be kept up-to-date.
+
+## `src/` — Library Source
+
+| File / Directory | Purpose |
+|------------------|---------|
+| `lib.rs` | Crate root — module declarations, re-exports. |
+| `types.rs` | Core type definitions. |
+| `errors.rs` | Error enum covering all failure modes. |
+| `module_name/` | Brief description of what this module does. |
+```
+
+Every source file, module directory, binary, and example file must be listed with a concise purpose description. This table must reflect the final state of the project after all milestones are complete.
+
+The cleanup milestone should be titled **"Project cleanup — examples and documentation are complete"** with ID `m-cleanup`. Its checklist should include:
+- `c1:Examples module exists with working examples covering major features`
+- `c2:All example files compile and run successfully`
+- `c3:All example files have been through /rust-ergonomic-refactoring for idiomatic style`
+- `c4:All example files have been through /rust-commenting for clear documentation`
+- `c5:CLAUDE.md contains accurate Table of Contents reflecting final project structure`
+- `c6:No dead code, unused imports, or leftover TODOs in the codebase`
+
+This milestone does **not** get a paired review milestone — it is the final polish step. It must list all other milestones (including review milestones) as upstream dependencies.
+
+### Step 6: Add review milestones
 
 Every heavy milestone — one that involves significant code, complex logic, or architectural decisions — must be followed by a review milestone. This is non-negotiable. Review milestones catch quality issues early, before they compound into the next phase.
 
@@ -129,7 +164,7 @@ A review milestone:
 
 Not every milestone needs a review milestone. Lightweight milestones (configuration, setup, small integrations) can skip the review. Use your judgment — if the milestone involves substantial code that agents will build upon in later milestones, it needs review. The cost of catching errors after three more milestones have been built on top of a shaky foundation is enormous.
 
-### Step 6: Final challenge round
+### Step 7: Final challenge round
 
 Before committing to your milestone structure, do one final challenge pass:
 
