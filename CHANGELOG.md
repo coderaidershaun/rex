@@ -2,6 +2,14 @@
 
 All notable changes to **rex-cli** are documented here.
 
+## 0.2.10 — 2026-04-07
+
+- **Fix context window usage calculation** — Switch from summing all token fields to using `cache_creation_input_tokens + output_tokens`, which better approximates actual context window usage by excluding the double-counted cache reads.
+- **Configurable chat timeout** — Chat timeout is no longer hardcoded at 10 minutes. Add `/timeout [mins]` command to view or set the timeout (1–120 minutes, default 10). The current timeout is shown in chat response headers.
+- **Session reset command** — Add `/reset [id]` to clear the Claude session for a specific project or all projects, so the next message starts a fresh conversation without restarting the daemon.
+- **Kill-chat command** — Add `/kill-chat` to gracefully shut down the rex-chat daemon from Telegram.
+- **Update COMMANDS_HELP** — Reflect all new chat commands (`/timeout`, `/reset`, `/clear`, `/kill-chat`) in `rex --commands` output.
+
 ## 0.2.9 — 2026-04-06
 
 - **Fix autorun task count path** — Autorun's Telegram status message now reads task counts from `rex/{project_id}/planning/planning.json` instead of `./planning/planning.json`, fixing the 0/0 display.

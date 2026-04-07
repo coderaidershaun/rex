@@ -1,6 +1,6 @@
 [package]
 name = "rex-cli"
-version = "0.2.9"
+version = "0.2.10"
 edition = "2024"
 authors = ["Shaun McDonogh"]
 description = "CLI for Rust project harness management"
