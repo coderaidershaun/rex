@@ -2,6 +2,10 @@
 
 All notable changes to **rex-cli** are documented here.
 
+## 0.2.12 — 2026-04-07
+
+- **Integration test timeout cap and escalation ceiling** — Add a mandatory 30-second timeout cap for all integration tests (with documented exceptions for rare edge cases). Add a hard 5-attempt / 5-minute ceiling on agent fix loops — when hit, the agent must escalate to user-support immediately instead of burning context retrying. Prevents agents from spinning on unsolvable test failures.
+
 ## 0.2.11 — 2026-04-07
 
 - **Mandatory cleanup milestone in planning** — Add a required cleanup milestone step to the planning-milestones skill. Every project now ends with an `m-cleanup` milestone that ensures examples are written, refactored, commented, and CLAUDE.md has an accurate Table of Contents. Subsequent steps renumbered accordingly.
