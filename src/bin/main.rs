@@ -604,6 +604,7 @@ Rex Chat (separate binary — Telegram chat interface, uses REX_AUTOCHAT_TELEGRA
       /start <id>                            Start autorun for a project
       /stop <id>                             Stop autorun for a project
       /status [id]                           Show autorun status (all if no id)
+      /timeout [mins]                        Show or set chat timeout (1-120, default: 10)
       /projects                              List all discovered projects
       /menu                                  Show project dashboard with buttons
       /commands                              Show command help

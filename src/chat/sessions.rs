@@ -126,6 +126,7 @@ impl SessionManager {
         prompt: &str,
         max_turns: u32,
         max_budget_usd: f64,
+        chat_timeout: Duration,
     ) -> RexResult<String> {
         let session = self
             .sessions
@@ -142,6 +143,7 @@ impl SessionManager {
             max_turns,
             max_budget_usd,
             &mut session.active_pgid,
+            chat_timeout,
         )
         .await?;
 
@@ -179,6 +181,7 @@ async fn spawn_and_await(
     max_turns: u32,
     max_budget_usd: f64,
     active_pgid: &mut Option<i32>,
+    chat_timeout: Duration,
 ) -> RexResult<(String, String)> {
     let mut cmd = tokio::process::Command::new("claude");
     cmd.current_dir(project_dir);
@@ -234,7 +237,7 @@ async fn spawn_and_await(
     *active_pgid = Some(pgid);
     info!(pid, pgid, "chat claude process started");
 
-    let result = await_chat_claude(child).await;
+    let result = await_chat_claude(child, chat_timeout).await;
 
     // Clear the tracked PGID -- process is done.
     *active_pgid = None;
@@ -244,8 +247,8 @@ async fn spawn_and_await(
 
 async fn await_chat_claude(
     mut child: tokio::process::Child,
+    timeout: Duration,
 ) -> RexResult<(String, String)> {
-    let timeout = Duration::from_secs(600); // 10 min timeout for chat
     let result = tokio::time::timeout(timeout, async {
         use tokio::io::AsyncReadExt;
 
@@ -307,9 +310,10 @@ async fn await_chat_claude(
                     libc::killpg(pgid, libc::SIGKILL);
                 }
             }
-            Err(RexError::ClaudeProcess(
-                "chat claude timed out (10 min)".into(),
-            ))
+            Err(RexError::ClaudeProcess(format!(
+                "chat claude timed out ({}m)",
+                timeout.as_secs() / 60
+            )))
         }
     }
 }

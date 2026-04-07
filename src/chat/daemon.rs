@@ -103,6 +103,7 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
     // Session manager
     let mut sessions = SessionManager::new();
     let session_timeout = Duration::from_secs(args.session_timeout_mins * 60);
+    let mut chat_timeout_mins: u64 = 10;
 
     // Signal handling
     let mut sigterm =
@@ -117,7 +118,7 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
             info!("SIGTERM received -- shutting down");
             Ok(ExitCode::from(0))
         }
-        result = poll_loop(&mut tg, &mut sessions, &scan_dir, &args, session_timeout) => {
+        result = poll_loop(&mut tg, &mut sessions, &scan_dir, &args, session_timeout, &mut chat_timeout_mins) => {
             result
         }
     };
@@ -139,6 +140,7 @@ async fn poll_loop(
     scan_dir: &Path,
     args: &Args,
     session_timeout: Duration,
+    chat_timeout_mins: &mut u64,
 ) -> RexResult<ExitCode> {
     let mut cleanup_counter = 0u32;
     let mut snapshot = ProjectSnapshot::capture(scan_dir);
@@ -188,6 +190,7 @@ async fn poll_loop(
                         args,
                         &text,
                         reply_to_message_id,
+                        chat_timeout_mins,
                     )
                     .await;
                 }
@@ -253,13 +256,14 @@ async fn handle_text_message(
     args: &Args,
     text: &str,
     reply_to: Option<i64>,
+    chat_timeout_mins: &mut u64,
 ) {
     let trimmed = text.trim();
 
     // -- Slash commands -------------------------------------------------------
 
     if trimmed.starts_with('/') {
-        handle_slash_command(tg, sessions, scan_dir, args, trimmed).await;
+        handle_slash_command(tg, sessions, scan_dir, args, trimmed, chat_timeout_mins).await;
         return;
     }
 
@@ -268,7 +272,7 @@ async fn handle_text_message(
     if let Some(reply_to_id) = reply_to {
         if let Some(project_id) = sessions.lookup_reply(reply_to_id) {
             let pid = project_id.to_string();
-            invoke_chat(tg, sessions, scan_dir, args, &pid, trimmed).await;
+            invoke_chat(tg, sessions, scan_dir, args, &pid, trimmed, *chat_timeout_mins).await;
         }
         return;
     }
@@ -278,14 +282,14 @@ async fn handle_text_message(
     let known_ids = discover_project_ids(scan_dir);
     if let Some((pid, message)) = parse_project_prefix(trimmed, &known_ids) {
         sessions.last_active = Some(pid.clone());
-        invoke_chat(tg, sessions, scan_dir, args, &pid, message).await;
+        invoke_chat(tg, sessions, scan_dir, args, &pid, message, *chat_timeout_mins).await;
         return;
     }
 
     // -- Smart routing: recent session > single project > pick first ----------
 
     if let Some(target) = resolve_chat_target(sessions, scan_dir) {
-        invoke_chat(tg, sessions, scan_dir, args, &target, trimmed).await;
+        invoke_chat(tg, sessions, scan_dir, args, &target, trimmed, *chat_timeout_mins).await;
     } else {
         // Multiple projects, no context -- pick the first one and tell the user
         let projects = discovery::discover_projects(scan_dir).unwrap_or_default();
@@ -302,7 +306,7 @@ async fn handle_text_message(
                 escape_html(first),
             ))
             .await;
-            invoke_chat(tg, sessions, scan_dir, args, first, trimmed).await;
+            invoke_chat(tg, sessions, scan_dir, args, first, trimmed, *chat_timeout_mins).await;
         }
     }
 }
@@ -314,6 +318,7 @@ async fn handle_slash_command(
     scan_dir: &Path,
     args: &Args,
     text: &str,
+    chat_timeout_mins: &mut u64,
 ) {
     // Split command and arguments
     let (cmd, arg) = match text.split_once(|c: char| c.is_whitespace()) {
@@ -329,7 +334,7 @@ async fn handle_slash_command(
             show_project_menu(tg, scan_dir).await;
         }
         "/commands" | "/help" => {
-            tg.notify(
+            tg.notify(&format!(
                 "📋 <b>Rex Chat Commands</b>\n\n\
                  <b>Project management:</b>\n\
                  <code>/start &lt;id&gt;</code> -- Start autorun\n\
@@ -341,11 +346,34 @@ async fn handle_slash_command(
                  <code>id: message</code> -- Chat with specific project\n\
                  <code>message</code> -- Chat with active project\n\n\
                  <b>Utility:</b>\n\
+                 <code>/timeout &lt;mins&gt;</code> -- Set chat timeout (current: {timeout}m)\n\
                  <code>/projects</code> -- List all discovered projects\n\
                  <code>/clear</code> -- Clear chat history\n\
                  <code>/commands</code> -- Show this help",
-            )
+                timeout = chat_timeout_mins,
+            ))
             .await;
+        }
+        "/timeout" => {
+            if arg.is_empty() {
+                tg.notify(&format!(
+                    "⏱ Chat timeout: <b>{mins}m</b>\n\
+                     Use <code>/timeout &lt;mins&gt;</code> to change.",
+                    mins = chat_timeout_mins,
+                ))
+                .await;
+            } else {
+                match arg.parse::<u64>() {
+                    Ok(mins) if mins >= 1 && mins <= 120 => {
+                        *chat_timeout_mins = mins;
+                        tg.notify(&format!("⏱ Chat timeout set to <b>{mins}m</b>"))
+                            .await;
+                    }
+                    _ => {
+                        tg.notify("❌ Invalid timeout. Use 1-120 (minutes).").await;
+                    }
+                }
+            }
         }
         "/projects" => {
             show_project_list(tg, scan_dir).await;
@@ -407,7 +435,7 @@ async fn handle_slash_command(
         _ => {
             // Unknown slash command -- treat as chat if we have context
             if let Some(target) = resolve_chat_target(sessions, scan_dir) {
-                invoke_chat(tg, sessions, scan_dir, args, &target, text).await;
+                invoke_chat(tg, sessions, scan_dir, args, &target, text, *chat_timeout_mins).await;
             } else {
                 tg.notify(&format!(
                     "Unknown command. Send <code>/commands</code> for help.",
@@ -536,6 +564,7 @@ async fn invoke_chat(
     args: &Args,
     project_id: &str,
     message: &str,
+    chat_timeout_mins: u64,
 ) {
     // Find project directory
     let proj_dir = match find_project_dir(scan_dir, project_id) {
@@ -555,8 +584,9 @@ async fn invoke_chat(
 
     // Send thinking indicator
     let thinking_text = format!(
-        "🔍 <b>Rex Chat</b>  ·  <code>{pid}</code>\n{DIV}\n{status}",
+        "🔍 <b>Rex Chat</b>  ·  <code>{pid}</code>  ·  ⏱ {timeout}m\n{DIV}\n{status}",
         pid = escape_html(project_id),
+        timeout = chat_timeout_mins,
         status = random_thinking_message(),
     );
     let thinking_msg_id = match tg.send_message(&thinking_text).await {
@@ -574,12 +604,13 @@ async fn invoke_chat(
         dir = proj_dir,
         msg = message,
     );
+    let chat_timeout = Duration::from_secs(chat_timeout_mins * 60);
     match sessions
-        .invoke_claude(project_id, &prompt, args.max_turns, args.max_budget_usd)
+        .invoke_claude(project_id, &prompt, args.max_turns, args.max_budget_usd, chat_timeout)
         .await
     {
         Ok(response) => {
-            let formatted = format_chat_response(project_id, &response);
+            let formatted = format_chat_response(project_id, &response, chat_timeout_mins);
             let button_rows = vec![vec![
                 InlineButton {
                     text: "💬 Reply".to_string(),
@@ -995,7 +1026,7 @@ fn find_project_dir(scan_dir: &Path, project_id: &str) -> Option<String> {
 }
 
 /// Format chat response for Telegram.
-fn format_chat_response(project_id: &str, response: &str) -> String {
+fn format_chat_response(project_id: &str, response: &str, timeout_mins: u64) -> String {
     let max_chars = 3000;
     let chars: Vec<char> = response.chars().collect();
     let (content, truncated) = if chars.len() > max_chars {
@@ -1010,10 +1041,11 @@ fn format_chat_response(project_id: &str, response: &str) -> String {
     };
 
     format!(
-        "🗨️ <b>Rex Chat</b>  ·  <code>{pid}</code>\n\
+        "🗨️ <b>Rex Chat</b>  ·  <code>{pid}</code>  ·  ⏱ {timeout}m\n\
          {DIV}\n\
          {resp}{suffix}",
         pid = escape_html(project_id),
+        timeout = timeout_mins,
         resp = escape_html(&content),
     )
 }
