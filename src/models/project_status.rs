@@ -158,7 +158,7 @@ impl ProjectStatus {
                 agent: Agent {
                     count: 1,
                     effort: "high".into(),
-                    model: "sonnet".into(),
+                    model: MODEL_SONNET.into(),
                     skills: vec!["rex-user-input".into()],
                 },
                 inputs: vec![format!("rex/{project_id}/user-support/requested.md")],
@@ -187,9 +187,22 @@ fn is_required_always(item: &str) -> bool {
     matches!(item, "goal" | "scope" | "uat" | "checklist")
 }
 
+// Harness-specific model constants for project-status.json.
+// These are read by the operator/model-router skill, not parsed by Rust code.
+
+#[cfg(feature = "claude")]
+const MODEL_SONNET: &str = "sonnet[1m] or opus[1m] if sonnet[1m] not available";
+#[cfg(feature = "claude")]
+const MODEL_OPUS: &str = "opus[1m]";
+
+#[cfg(feature = "cursor")]
+const MODEL_SONNET: &str = "claude-4.6-sonnet-medium or claude-4.6-opus-high if sonnet not available";
+#[cfg(feature = "cursor")]
+const MODEL_OPUS: &str = "claude-4.6-opus-high";
+
 /// Returns the default (effort, model) for each onboarding item.
 fn agent_defaults(_item: &str) -> (&'static str, &'static str) {
-    ("high", "sonnet")
+    ("high", MODEL_SONNET)
 }
 
 /// Design items that are always required.
@@ -239,28 +252,28 @@ fn design_agent_config(item: &str) -> (u32, &'static str, &'static str, Vec<&'st
         "existing-code-exploration" => (
             3,
             "high",
-            "sonnet",
+            MODEL_SONNET,
             vec!["rex-design-rust-existing-code-exploration"],
         ),
-        "library-review" => (1, "high", "sonnet", vec!["rex-design-rust-library-review"]),
-        "module-design" => (1, "max", "opus", vec!["rex-design-rust-modules"]),
-        "architecture-design" => (1, "max", "opus", vec!["rex-design-rust-architecture"]),
+        "library-review" => (1, "high", MODEL_SONNET, vec!["rex-design-rust-library-review"]),
+        "module-design" => (1, "max", MODEL_OPUS, vec!["rex-design-rust-modules"]),
+        "architecture-design" => (1, "max", MODEL_OPUS, vec!["rex-design-rust-architecture"]),
         "integration-testing-design" => (
             1,
             "high",
-            "sonnet",
+            MODEL_SONNET,
             vec!["rex-design-rust-integration-tests"],
         ),
-        "foreign-critique" => (3, "max", "opus", vec!["rex-design-foreign-critique"]),
-        "error-handling" => (1, "high", "sonnet", vec!["rex-design-rust-errors"]),
+        "foreign-critique" => (3, "max", MODEL_OPUS, vec!["rex-design-foreign-critique"]),
+        "error-handling" => (1, "high", MODEL_SONNET, vec!["rex-design-rust-errors"]),
         "architecture-proposal" => (
             1,
             "max",
-            "opus",
+            MODEL_OPUS,
             vec!["rex-design-rust-architecture-proposal"],
         ),
-        "user-acceptance" => (1, "high", "sonnet", vec!["rex-design-user-acceptance"]),
-        _ => (1, "high", "sonnet", vec![]),
+        "user-acceptance" => (1, "high", MODEL_SONNET, vec!["rex-design-user-acceptance"]),
+        _ => (1, "high", MODEL_SONNET, vec![]),
     }
 }
 
@@ -437,7 +450,7 @@ fn build_planning_steps(id: &str) -> Vec<TaskStep> {
             agent: Agent {
                 count: 1,
                 effort: "max".into(),
-                model: "opus".into(),
+                model: MODEL_OPUS.into(),
                 skills: vec!["rex-planning-milestones".into()],
             },
             inputs: full_inputs.clone(),
@@ -450,7 +463,7 @@ fn build_planning_steps(id: &str) -> Vec<TaskStep> {
             agent: Agent {
                 count: 1,
                 effort: "max".into(),
-                model: "opus".into(),
+                model: MODEL_OPUS.into(),
                 skills: vec!["rex-planning-objectives".into()],
             },
             inputs: full_inputs,
@@ -463,7 +476,7 @@ fn build_planning_steps(id: &str) -> Vec<TaskStep> {
             agent: Agent {
                 count: 1,
                 effort: "max".into(),
-                model: "opus".into(),
+                model: MODEL_OPUS.into(),
                 skills: vec!["rex-planning-tasks".into()],
             },
             inputs: tasks_inputs,
@@ -476,7 +489,7 @@ fn build_planning_steps(id: &str) -> Vec<TaskStep> {
             agent: Agent {
                 count: 1,
                 effort: "max".into(),
-                model: "opus".into(),
+                model: MODEL_OPUS.into(),
                 skills: vec!["rex-planning-review".into()],
             },
             inputs: vec![
@@ -509,7 +522,7 @@ fn build_execution_steps() -> Vec<TaskStep> {
         agent: Agent {
             count: 1,
             effort: "high".into(),
-            model: "sonnet".into(),
+            model: MODEL_SONNET.into(),
             skills: vec![
                 "STEP 1: run 'rex task next'".into(),
                 "STEP 2: Assign agents with model, effort level and skills as defined in the task".into(),

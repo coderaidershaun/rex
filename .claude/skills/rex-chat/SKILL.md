@@ -113,7 +113,7 @@ Budget and limit flags (all optional):
 
 ### Stopping autorun
 
-Read `.rex-autorun.json` to get the `claude_pgid` field, then kill the entire process group:
+Read `.rex-autorun.json` to get the `agent_pgid` field, then kill the entire process group:
 
 ```
 kill -TERM -<pgid>

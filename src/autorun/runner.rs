@@ -10,7 +10,7 @@ use tracing::{error, info, warn};
 
 use crate::models::project::ProjectRegistry;
 
-use super::claude::{self, is_retryable};
+use super::harness::{self, is_retryable};
 use super::inbox;
 use super::state::{self, RecoveryAction};
 use super::telegram::{TelegramClient, TelegramPollResult};
@@ -24,7 +24,7 @@ pub struct Args {
     #[arg(long, default_value = ".")]
     pub project_dir: PathBuf,
 
-    /// Max USD budget per claude invocation
+    /// Max USD budget per agent invocation
     #[arg(long, default_value = "50.0")]
     pub max_budget_usd: f64,
 
@@ -32,13 +32,23 @@ pub struct Args {
     #[arg(long, default_value = "500.0")]
     pub max_total_budget_usd: f64,
 
-    /// Max agentic turns per claude invocation
+    /// Max agentic turns per agent invocation
     #[arg(long, default_value = "200")]
     pub max_turns: u32,
 
-    /// Claude process timeout in minutes
+    /// Agent process timeout in minutes
     #[arg(long, default_value = "60")]
     pub process_timeout_mins: u64,
+
+    /// Model identifier passed to the agent CLI
+    #[cfg(feature = "claude")]
+    #[arg(long, default_value = "opus[1m]")]
+    pub model: String,
+
+    /// Model identifier passed to the agent CLI
+    #[cfg(feature = "cursor")]
+    #[arg(long, default_value = "claude-4.6-opus-high")]
+    pub model: String,
 
     /// Max retries for transient failures
     #[arg(long, default_value = "5")]
@@ -197,13 +207,15 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
 
                     state::delete_state(&state_path);
 
-                    // Resume the claude session with the user's reply
+                    // Resume the agent session with the user's reply
                     let timeout = Duration::from_secs(args.process_timeout_mins * 60);
                     let session_name = format!("rex-autorun-{project_id}-{invocation_count}");
 
-                    let spawned = match claude::spawn_claude(
+                    let spawned = match harness::spawn_agent(
                         &project_dir,
                         &reply,
+                        harness::AUTORUN_SYSTEM_PROMPT,
+                        &args.model,
                         Some(&session_id),
                         &session_name,
                         args.max_turns,
@@ -224,24 +236,26 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
 
                     let recovery_q2 = build_query_response(&project_id, &stats, invocation_count);
                     let invoke_result = tokio::select! {
-                        result = claude::await_claude(spawned, timeout) => result,
+                        result = harness::await_agent(spawned, timeout) => result,
                         _ = tg.poll_for_kill(&project_id, &recovery_q2) => {
-                            claude::kill_process_group(pgid).await;
+                            harness::kill_process_group(pgid).await;
                             Err(RexError::Killed)
                         }
                     };
 
                     match invoke_result {
                         Ok((output, _pgid)) => {
-                            let cost = output.effective_cost();
                             let mut recovered_stats = stats;
-                            recovered_stats.total_cost_usd += cost;
+                            #[cfg(feature = "claude")]
+                            {
+                                recovered_stats.total_cost_usd += output.effective_cost();
+                                recovered_stats.push_context_percent(output.context_percent());
+                            }
                             recovered_stats.invocations_completed += 1;
-                            recovered_stats.push_context_percent(output.context_percent());
                             recovered_stats.push_session_duration_ms(output.duration_ms);
 
                             // Parse and handle — fall through to main loop
-                            let op_result = claude::parse_operator_result(&output.result);
+                            let op_result = harness::parse_operator_result(&output.result);
 
                             log_event(&log_path, &LogEvent::InvocationCompleted {
                                 n: invocation_count,
@@ -254,7 +268,7 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
                                     Err(e) => e.to_string(),
                                 },
                                 session_id: output.session_id.clone(),
-                                cost_usd: cost,
+                                cost_usd: output.effective_cost(),
                                 duration_ms: output.duration_ms,
                                 timestamp: now_iso(),
                             });
@@ -285,7 +299,7 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
                             return Ok(handle_kill(&tg, &project_id, &log_path, &state_path).await);
                         }
                         Err(RexError::AuthExpired(_)) => {
-                            warn!("claude auth expired during recovery, attempting refresh");
+                            warn!("auth expired during recovery, attempting refresh");
                             match attempt_auth_refresh(&mut tg, &project_id, &project_dir, &log_path).await {
                                 Ok(true) => {
                                     // Auth refreshed — fall through to main loop
@@ -405,7 +419,8 @@ async fn main_loop(
     let mut auth_refreshed = false;
 
     loop {
-        // Budget check
+        // Budget check (Claude only — Cursor is subscription-based)
+        #[cfg(feature = "claude")]
         if stats.total_cost_usd >= args.max_total_budget_usd {
             warn!(
                 total = stats.total_cost_usd,
@@ -439,8 +454,8 @@ async fn main_loop(
         let running_state = AutorunState {
             phase: AutorunPhase::Running,
             session_id: None,
-            claude_pid: None,
-            claude_pgid: None,
+            agent_pid: None,
+            agent_pgid: None,
             pending_question: None,
             telegram_message_id: None,
             telegram_update_offset: Some(tg.update_offset),
@@ -452,10 +467,12 @@ async fn main_loop(
             warn!("failed to write running state: {e}");
         }
 
-        // Spawn claude and record PID for orphan cleanup
-        let spawned = match claude::spawn_claude(
+        // Spawn agent and record PID for orphan cleanup
+        let spawned = match harness::spawn_agent(
             project_dir,
             "/rex-operator",
+            harness::AUTORUN_SYSTEM_PROMPT,
+            &args.model,
             None,
             &session_name,
             args.max_turns,
@@ -500,16 +517,16 @@ async fn main_loop(
 
         // Update state with PID/PGID so crash recovery can kill orphans
         let mut with_pid = running_state.clone();
-        with_pid.claude_pid = Some(spawned.pid);
-        with_pid.claude_pgid = Some(spawned.pgid);
+        with_pid.agent_pid = Some(spawned.pid);
+        with_pid.agent_pgid = Some(spawned.pgid);
         let _ = state::write_state_atomic(state_path, &with_pid);
 
-        // Race await_claude against /kill command from Telegram
+        // Race await_agent against /kill command from Telegram
         let query_resp = build_query_response(project_id, stats, n);
         let invoke_result = tokio::select! {
-            result = claude::await_claude(spawned, timeout) => result,
+            result = harness::await_agent(spawned, timeout) => result,
             _ = tg.poll_for_kill(project_id, &query_resp) => {
-                claude::kill_process_group(pgid).await;
+                harness::kill_process_group(pgid).await;
                 Err(RexError::Killed)
             }
         };
@@ -517,13 +534,15 @@ async fn main_loop(
         match invoke_result {
             Ok((output, _pgid)) => {
                 consecutive_errors = 0;
-                let cost = output.effective_cost();
-                stats.total_cost_usd += cost;
+                #[cfg(feature = "claude")]
+                {
+                    stats.total_cost_usd += output.effective_cost();
+                    stats.push_context_percent(output.context_percent());
+                }
                 stats.invocations_completed += 1;
-                stats.push_context_percent(output.context_percent());
                 stats.push_session_duration_ms(output.duration_ms);
 
-                let op_result = claude::parse_operator_result(&output.result);
+                let op_result = harness::parse_operator_result(&output.result);
 
                 log_event(log_path, &LogEvent::InvocationCompleted {
                     n,
@@ -536,7 +555,7 @@ async fn main_loop(
                         Err(e) => e.to_string(),
                     },
                     session_id: output.session_id.clone(),
-                    cost_usd: cost,
+                    cost_usd: output.effective_cost(),
                     duration_ms: output.duration_ms,
                     timestamp: now_iso(),
                 });
@@ -556,7 +575,7 @@ async fn main_loop(
                                 itag = item_tag(&result.item),
                                 msg = escape_html(&result.message),
                                 stats = output.telegram_stats(),
-                                cost = cost,
+                                cost = output.effective_cost(),
                                 dur = format_duration_ms(output.duration_ms),
                             ), project_id)
                             .await;
@@ -607,8 +626,8 @@ async fn main_loop(
                                 let pending_state = AutorunState {
                                     phase: AutorunPhase::PendingInput,
                                     session_id: Some(current_session_id.clone()),
-                                    claude_pid: None,
-                                    claude_pgid: None,
+                                    agent_pid: None,
+                                    agent_pgid: None,
                                     pending_question: Some(current_question.clone()),
                                     telegram_message_id: None,
                                     telegram_update_offset: Some(tg.update_offset),
@@ -687,9 +706,11 @@ async fn main_loop(
                                 state::delete_state(state_path);
 
                                 // Resume session — spawn with PID tracking + await
-                                let spawned = match claude::spawn_claude(
+                                let spawned = match harness::spawn_agent(
                                     project_dir,
                                     &reply,
+                                    harness::AUTORUN_SYSTEM_PROMPT,
+                                    &args.model,
                                     Some(&current_session_id),
                                     &session_name,
                                     args.max_turns,
@@ -713,8 +734,8 @@ async fn main_loop(
                                 let resume_running = AutorunState {
                                     phase: AutorunPhase::Running,
                                     session_id: Some(current_session_id.clone()),
-                                    claude_pid: Some(spawned.pid),
-                                    claude_pgid: Some(spawned.pgid),
+                                    agent_pid: Some(spawned.pid),
+                                    agent_pgid: Some(spawned.pgid),
                                     pending_question: None,
                                     telegram_message_id: None,
                                     telegram_update_offset: Some(tg.update_offset),
@@ -724,12 +745,12 @@ async fn main_loop(
                                 };
                                 let _ = state::write_state_atomic(state_path, &resume_running);
 
-                                // Race await_claude against /kill command
+                                // Race await_agent against /kill command
                                 let resume_query = build_query_response(project_id, stats, n);
                                 let resume_result = tokio::select! {
-                                    result = claude::await_claude(spawned, timeout) => result,
+                                    result = harness::await_agent(spawned, timeout) => result,
                                     _ = tg.poll_for_kill(project_id, &resume_query) => {
-                                        claude::kill_process_group(resume_pgid).await;
+                                        harness::kill_process_group(resume_pgid).await;
                                         Err(RexError::Killed)
                                     }
                                 };
@@ -740,7 +761,7 @@ async fn main_loop(
                                         return Ok(handle_kill(tg, project_id, log_path, state_path).await);
                                     }
                                     Err(RexError::AuthExpired(_)) if !auth_refreshed => {
-                                        warn!("claude auth expired during resume, attempting refresh");
+                                        warn!("auth expired during resume, attempting refresh");
                                         match attempt_auth_refresh(tg, project_id, project_dir, log_path).await {
                                             Ok(true) => {
                                                 auth_refreshed = true;
@@ -787,12 +808,15 @@ async fn main_loop(
                                     }
                                 };
 
-                                stats.total_cost_usd += resume_output.effective_cost();
+                                #[cfg(feature = "claude")]
+                                {
+                                    stats.total_cost_usd += resume_output.effective_cost();
+                                    stats.push_context_percent(resume_output.context_percent());
+                                }
                                 stats.invocations_completed += 1;
-                                stats.push_context_percent(resume_output.context_percent());
                                 stats.push_session_duration_ms(resume_output.duration_ms);
 
-                                let resume_op = match claude::parse_operator_result(&resume_output.result) {
+                                let resume_op = match harness::parse_operator_result(&resume_output.result) {
                                     Ok(r) => r,
                                     Err(e) => {
                                         error!("failed to parse resume result: {e}");
@@ -944,7 +968,7 @@ async fn main_loop(
                 return Ok(handle_kill(tg, project_id, log_path, state_path).await);
             }
             Err(RexError::AuthExpired(_)) if !auth_refreshed => {
-                warn!("claude auth expired, attempting refresh");
+                warn!("auth expired, attempting refresh");
                 match attempt_auth_refresh(tg, project_id, project_dir, log_path).await {
                     Ok(true) => {
                         auth_refreshed = true;
@@ -1103,6 +1127,7 @@ async fn handle_kill(
     ExitCode::from(6)
 }
 
+#[cfg(feature = "claude")]
 /// Extract the first `https://` URL from text.
 fn extract_url(text: &str) -> Option<String> {
     let start = text.find("https://")?;
@@ -1114,6 +1139,7 @@ fn extract_url(text: &str) -> Option<String> {
 }
 
 /// Read stdout from the auth process looking for a URL (up to 15s).
+#[cfg(feature = "claude")]
 async fn read_auth_url(child: &mut tokio::process::Child) -> Option<String> {
     use tokio::io::AsyncReadExt;
 
@@ -1152,6 +1178,64 @@ async fn read_auth_url(child: &mut tokio::process::Child) -> Option<String> {
     None
 }
 
+#[cfg(feature = "cursor")]
+async fn attempt_auth_refresh(
+    tg: &mut TelegramClient,
+    project_id: &str,
+    _project_dir: &Path,
+    log_path: &Path,
+) -> RexResult<bool> {
+    info!("auth expired — Cursor requires manual re-authentication");
+
+    let msg = format!(
+        "🔑 <b>Auth expired</b>  ·  <code>{pid}</code>\n\
+         {DIV}\n\
+         Your Cursor token has expired.\n\n\
+         Please set <code>CURSOR_API_KEY</code> or run <code>agent login</code> on the server.\n\n\
+         <i>Reply when authorization is complete</i>",
+        pid = escape_html(project_id),
+    );
+
+    let msg_id = tg.send_question(&msg).await?;
+    inbox::update_expected_message_id(_project_dir, project_id, Some(msg_id));
+
+    log_event(
+        log_path,
+        &LogEvent::AuthRefresh {
+            project_id: project_id.to_string(),
+            timestamp: now_iso(),
+        },
+    );
+
+    let auth_timeout = Duration::from_secs(600);
+    let auth_query = format!(
+        "🔑 <b>Auth refresh</b>  ·  <code>{pid}</code>\n{DIV}\nWaiting for auth refresh.",
+        pid = escape_html(project_id),
+    );
+    let result = tg
+        .wait_for_reply(msg_id, project_id, auth_timeout, &auth_query)
+        .await;
+
+    match result {
+        Ok(TelegramPollResult::Reply(_)) => {
+            send_ack(tg, project_id).await;
+            info!("auth refresh confirmed by user");
+            Ok(true)
+        }
+        Ok(TelegramPollResult::Kill) => Err(RexError::Killed),
+        Err(e) => {
+            warn!("auth refresh timed out: {e}");
+            tg.notify(&format!(
+                "⏰ <b>Auth timed out</b>  ·  <code>{pid}</code>\n{DIV}\nShutting down.",
+                pid = escape_html(project_id),
+            ))
+            .await;
+            Ok(false)
+        }
+    }
+}
+
+#[cfg(feature = "claude")]
 /// Attempt to refresh Claude auth by running `claude auth login`.
 ///
 /// Spawns the auth process, parses the URL from its output, sends it
@@ -1176,7 +1260,7 @@ async fn attempt_auth_refresh(
         .stderr(std::process::Stdio::piped())
         .spawn()
         .map_err(|e| {
-            RexError::ClaudeProcess(format!("failed to spawn claude auth login: {e}"))
+            RexError::AgentProcess(format!("failed to spawn auth login: {e}"))
         })?;
 
     // Read output looking for an auth URL

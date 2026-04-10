@@ -24,26 +24,26 @@ pub enum OperatorStatus {
     Error,
 }
 
-/// Top-level JSON returned by `claude -p --output-format json`.
+/// Top-level JSON returned by the agent CLI with `--output-format json`.
 #[derive(Debug, Deserialize)]
-pub struct ClaudeOutput {
+pub struct AgentOutput {
     pub result: String,
     pub session_id: String,
     #[serde(default)]
-    pub cost: ClaudeCost,
+    pub cost: AgentCost,
     #[serde(default)]
     pub total_cost_usd: f64,
     #[serde(default)]
     pub duration_ms: u64,
     #[serde(default)]
-    pub usage: ClaudeUsage,
+    pub usage: AgentUsage,
     #[serde(default, rename = "modelUsage")]
     pub model_usage: HashMap<String, ModelUsageEntry>,
     #[serde(default)]
     pub fast_mode_state: String,
 }
 
-impl ClaudeOutput {
+impl AgentOutput {
     /// Effective cost — prefers top-level `total_cost_usd` over nested `cost.total_cost`.
     pub fn effective_cost(&self) -> f64 {
         if self.total_cost_usd > 0.0 {
@@ -104,7 +104,7 @@ impl ClaudeOutput {
 }
 
 #[derive(Debug, Default, Deserialize)]
-pub struct ClaudeCost {
+pub struct AgentCost {
     #[serde(default)]
     pub input_tokens: u64,
     #[serde(default)]
@@ -114,7 +114,7 @@ pub struct ClaudeCost {
 }
 
 #[derive(Debug, Default, Deserialize)]
-pub struct ClaudeUsage {
+pub struct AgentUsage {
     #[serde(default)]
     pub input_tokens: u64,
     #[serde(default)]
@@ -160,8 +160,8 @@ pub fn escape_html(s: &str) -> String {
 pub struct AutorunState {
     pub phase: AutorunPhase,
     pub session_id: Option<String>,
-    pub claude_pid: Option<u32>,
-    pub claude_pgid: Option<i32>,
+    pub agent_pid: Option<u32>,
+    pub agent_pgid: Option<i32>,
     pub pending_question: Option<String>,
     pub telegram_message_id: Option<i64>,
     /// Telegram `getUpdates` offset — persisted to avoid replaying stale messages.

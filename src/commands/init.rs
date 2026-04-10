@@ -5,13 +5,45 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
+// Skills — same SKILL.md format for both Claude Code and Cursor.
+// Always embedded from .claude/skills/ (canonical source); copied to the
+// harness-appropriate target directory at init time.
 static SKILLS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/.claude/skills");
+
+// Hooks — harness-specific (different env vars in the shell scripts).
+#[cfg(feature = "claude")]
 static HOOKS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/.claude/hooks");
+#[cfg(feature = "cursor")]
+static HOOKS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/.cursor/hooks");
+
 static DOCS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/rex/docs");
 
-// Claude Code: hooks live inside settings.json
-static CLAUDE_SETTINGS_JSON: &str = include_str!("../../.claude/settings.json");
+// Settings file — different format per harness.
+#[cfg(feature = "claude")]
+static HARNESS_SETTINGS: &str = include_str!("../../.claude/settings.json");
+#[cfg(feature = "cursor")]
+static HARNESS_SETTINGS: &str = include_str!("../../.cursor/hooks.json");
 
+// Harness-specific constants.
+#[cfg(feature = "claude")]
+const CONFIG_DIR_NAME: &str = ".claude";
+#[cfg(feature = "claude")]
+const ROOT_FILE_NAME: &str = "CLAUDE.md";
+#[cfg(feature = "claude")]
+const HARNESS_LABEL: &str = "Claude Code";
+#[cfg(feature = "claude")]
+const SETTINGS_FILE_NAME: &str = "settings.json";
+
+#[cfg(feature = "cursor")]
+const CONFIG_DIR_NAME: &str = ".cursor";
+#[cfg(feature = "cursor")]
+const ROOT_FILE_NAME: &str = "AGENTS.md";
+#[cfg(feature = "cursor")]
+const HARNESS_LABEL: &str = "Cursor";
+#[cfg(feature = "cursor")]
+const SETTINGS_FILE_NAME: &str = "hooks.json";
+
+#[cfg(feature = "claude")]
 const ROOT_FILE_CONTENT: &str = "\
 # Rex Harness
 
@@ -108,6 +140,103 @@ When file structure changes, this MUST be kept up-to-date.
 | `uat/` | User acceptance testing outputs |
 ";
 
+#[cfg(feature = "cursor")]
+const ROOT_FILE_CONTENT: &str = "\
+# Rex Harness
+
+This project uses the **rex** agent-orchestrated development harness.
+
+## Getting Started
+
+See [rex/docs/README.md](rex/docs/README.md) for the complete end-to-end process — how the operator \
+orchestrates onboarding, design, planning, and execution phases.
+
+## Quick Reference
+
+- `rex project create` — start a new project
+- `rex project next-item` — see what's next
+- `/rex-operator` — run the operator (advances the project one step)
+
+## Research
+
+Any research agents perform should be saved to `rex/docs/research/` unless the agent's instructions specify a different location.
+
+## Agent Model Selection
+
+When assigning agents to tasks, use the `rex-model-router` skill as the single source of truth for model, effort, and context decisions. The routing tables are optimised for Rust development but the same principles apply to all work: match the model to the task's complexity, escalate when prior attempts fail, and use 1M context when the task spans multiple files or modules.
+
+## CLI Docs
+
+| Document | Covers |
+|----------|--------|
+| [projects](rex/docs/projects.md) | Project lifecycle and registry |
+| [checklist](rex/docs/checklist.md) | Onboarding/design/planning checklists |
+| [milestones](rex/docs/milestones.md) | Major project checkpoints |
+| [objectives](rex/docs/objectives.md) | Strategic outcomes under milestones |
+| [tasks](rex/docs/tasks.md) | Atomic work units and priority scoring |
+| [history](rex/docs/history.md) | Session history tracking |
+| [operator](rex/docs/operator.md) | The orchestration heartbeat |
+| [planning](rex/docs/planning-overview.md) | Three-level planning hierarchy |
+
+## Table of Contents
+
+When file structure changes, this MUST be kept up-to-date.
+
+### Root
+
+| File | Purpose |
+|------|---------|
+| `Cargo.toml` | Package manifest — dependencies, features, dev-dependencies |
+| `AGENTS.md` | This file — project context and quick reference |
+| `.gitignore` | Git ignore rules — `/target`, `.env`, `.env.*` |
+
+### `src/`
+
+| File | Purpose |
+|------|---------|
+| `main.rs` or `lib.rs` | Crate entry point (binary or library depending on project category) |
+
+### `.cursor/`
+
+| File | Purpose |
+|------|---------|
+| `hooks.json` | Cursor configuration — hooks |
+| `hooks/commit-and-push.sh` | Auto-commit hook triggered on agent stop |
+| `skills/` | Skill definitions used by the rex operator and agents |
+
+### `rex/`
+
+| File | Purpose |
+|------|---------|
+| `projects.json` | Project registry — active project and inactive list |
+| `docs/README.md` | End-to-end process overview |
+| `docs/projects.md` | Project lifecycle and registry docs |
+| `docs/checklist.md` | Onboarding, design, and planning checklists |
+| `docs/milestones.md` | Major project checkpoints |
+| `docs/objectives.md` | Strategic outcomes under milestones |
+| `docs/tasks.md` | Atomic work units and priority scoring |
+| `docs/history.md` | Session history tracking |
+| `docs/operator.md` | The orchestration heartbeat |
+| `docs/planning-overview.md` | Three-level planning hierarchy |
+| `docs/monorepo.md` | Monorepo support and configuration |
+| `docs/init.md` | Harness initialization reference |
+| `docs/rex-autorun.md` | Autorun loop documentation |
+| `docs/telegram.md` | Telegram integration guide |
+| `docs/research/` | Research output directory (initially empty) |
+
+### `rex/<project-id>/`
+
+| File | Purpose |
+|------|---------|
+| `project-status.json` | Full project status — onboarding, design, planning, execution steps |
+| `onboarding/` | Onboarding phase outputs |
+| `user-support/` | User support artifacts |
+| `design/` | Design phase outputs |
+| `planning/` | Planning phase outputs |
+| `execution/` | Execution phase outputs |
+| `uat/` | User acceptance testing outputs |
+";
+
 pub fn init() -> RexResult<()> {
     println!();
     println!("  {}", style("Rex Init").bold().cyan());
@@ -115,12 +244,12 @@ pub fn init() -> RexResult<()> {
     println!();
 
     let cwd = std::env::current_dir()?;
-    let config_dir = cwd.join(".claude");
+    let config_dir = cwd.join(CONFIG_DIR_NAME);
     let skills_dir = config_dir.join("skills");
     let hooks_dir = config_dir.join("hooks");
     let rex_dir = cwd.join("rex");
     let docs_dir = rex_dir.join("docs");
-    let root_file = cwd.join("CLAUDE.md");
+    let root_file = cwd.join(ROOT_FILE_NAME);
 
     let mut created = Vec::new();
     let mut skipped = Vec::new();
@@ -140,7 +269,7 @@ pub fn init() -> RexResult<()> {
     }
 
     // 4. Write hook/settings configuration
-    write_claude_settings(&config_dir, &mut created, &mut skipped)?;
+    write_harness_settings(&config_dir, &mut created, &mut skipped)?;
 
     // 5. Copy rex/docs/*
     fs::create_dir_all(&docs_dir)?;
@@ -165,14 +294,14 @@ pub fn init() -> RexResult<()> {
         skipped.push("rex/projects.json (already exists)".into());
     }
 
-    // 7. Create or update CLAUDE.md
+    // 7. Create or update root file (CLAUDE.md or AGENTS.md)
     if !root_file.exists() {
         fs::write(&root_file, ROOT_FILE_CONTENT)?;
-        created.push("CLAUDE.md".into());
+        created.push(ROOT_FILE_NAME.into());
     } else {
         let existing = fs::read_to_string(&root_file)?;
         if existing.contains("rex/docs/README.md") {
-            skipped.push("CLAUDE.md (rex section already present)".into());
+            skipped.push(format!("{ROOT_FILE_NAME} (rex section already present)"));
         } else {
             let mut content = existing;
             if !content.ends_with('\n') {
@@ -181,7 +310,7 @@ pub fn init() -> RexResult<()> {
             content.push('\n');
             content.push_str(ROOT_FILE_CONTENT);
             fs::write(&root_file, content)?;
-            created.push("CLAUDE.md (appended rex section)".into());
+            created.push(format!("{ROOT_FILE_NAME} (appended rex section)"));
         }
     }
 
@@ -212,7 +341,7 @@ pub fn init() -> RexResult<()> {
     println!(
         "  {} Rex harness initialized for {}.",
         style("\u{2713}").green().bold(),
-        style("Claude Code").cyan().bold()
+        style(HARNESS_LABEL).cyan().bold()
     );
     println!(
         "  {} See {} for the full process.",
@@ -225,38 +354,33 @@ pub fn init() -> RexResult<()> {
 }
 
 // ---------------------------------------------------------------------------
-// Claude Code: hooks inside .claude/settings.json
+// Settings: harness-specific configuration files
 // ---------------------------------------------------------------------------
 
-fn write_claude_settings(
+fn write_harness_settings(
     config_dir: &Path,
     created: &mut Vec<String>,
     skipped: &mut Vec<String>,
 ) -> RexResult<()> {
-    let settings_path = config_dir.join("settings.json");
+    let settings_path = config_dir.join(SETTINGS_FILE_NAME);
     if !settings_path.exists() {
         fs::create_dir_all(config_dir)?;
-        fs::write(&settings_path, CLAUDE_SETTINGS_JSON)?;
-        created.push(".claude/settings.json".into());
+        fs::write(&settings_path, HARNESS_SETTINGS)?;
+        created.push(format!("{CONFIG_DIR_NAME}/{SETTINGS_FILE_NAME}"));
     } else {
-        let merged = merge_claude_settings(&settings_path)?;
+        let merged = merge_harness_settings(&settings_path)?;
         if let Some(new_content) = merged {
             fs::write(&settings_path, new_content)?;
-            created.push(".claude/settings.json (merged hooks)".into());
+            created.push(format!("{CONFIG_DIR_NAME}/{SETTINGS_FILE_NAME} (merged hooks)"));
         } else {
-            skipped.push(".claude/settings.json (hooks already present)".into());
+            skipped.push(format!("{CONFIG_DIR_NAME}/{SETTINGS_FILE_NAME} (hooks already present)"));
         }
     }
     Ok(())
 }
 
-/// Merge rex hooks into an existing Claude Code settings.json.
-/// Claude Code format nests hooks under event keys with matcher + hooks arrays:
-///
-/// ```json
-/// { "hooks": { "Stop": [{ "matcher": "", "hooks": [{ "type": "command", "command": "..." }] }] } }
-/// ```
-fn merge_claude_settings(
+/// Merge rex hooks into an existing harness settings file.
+fn merge_harness_settings(
     existing_path: &Path,
 ) -> RexResult<Option<String>> {
     let existing_str = fs::read_to_string(existing_path)?;
@@ -265,11 +389,11 @@ fn merge_claude_settings(
     }
 
     let mut existing: serde_json::Value = serde_json::from_str(&existing_str)?;
-    let rex: serde_json::Value = serde_json::from_str(CLAUDE_SETTINGS_JSON)?;
+    let rex: serde_json::Value = serde_json::from_str(HARNESS_SETTINGS)?;
 
     let existing_obj = existing
         .as_object_mut()
-        .ok_or_else(|| RexError::Validation("settings.json is not an object".into()))?;
+        .ok_or_else(|| RexError::Validation("settings file is not an object".into()))?;
 
     if let Some(rex_hooks) = rex.get("hooks") {
         if let Some(existing_hooks) = existing_obj.get_mut("hooks") {

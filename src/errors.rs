@@ -63,12 +63,12 @@ pub enum RexError {
     #[error("telegram: {0}")]
     Telegram(String),
 
-    // --- Autorun: Claude process ---
-    #[error("claude process: {0}")]
-    ClaudeProcess(String),
+    // --- Autorun: Agent process ---
+    #[error("agent process: {0}")]
+    AgentProcess(String),
 
     // --- Autorun: Auth expired ---
-    #[error("claude auth expired: {0}")]
+    #[error("auth expired: {0}")]
     AuthExpired(String),
 
     // --- Autorun: Killed via /kill command ---

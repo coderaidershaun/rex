@@ -38,6 +38,16 @@ pub struct Args {
     #[arg(long, default_value = "30")]
     pub session_timeout_mins: u64,
 
+    /// Model identifier passed to the agent CLI
+    #[cfg(feature = "claude")]
+    #[arg(long, default_value = "opus[1m]")]
+    pub model: String,
+
+    /// Model identifier passed to the agent CLI
+    #[cfg(feature = "cursor")]
+    #[arg(long, default_value = "claude-4.6-opus-high")]
+    pub model: String,
+
     /// Log file path
     #[arg(long)]
     pub log_file: Option<PathBuf>,
@@ -123,7 +133,7 @@ pub async fn run(args: Args) -> RexResult<ExitCode> {
         }
     };
 
-    // Kill all active Claude processes to prevent orphans
+    // Kill all active agent processes to prevent orphans
     sessions.kill_all();
 
     // Cleanup
@@ -379,7 +389,7 @@ async fn handle_slash_command(
                  <code>message</code> -- Chat with active project\n\n\
                  <b>Utility:</b>\n\
                  <code>/timeout &lt;mins&gt;</code> -- Set chat timeout (current: {timeout}m)\n\
-                 <code>/reset [id]</code> -- Reset Claude context (all or specific project)\n\
+                 <code>/reset [id]</code> -- Reset agent context (all or specific project)\n\
                  <code>/clear</code> -- Clear Telegram message history\n\
                  <code>/projects</code> -- List all discovered projects\n\
                  <code>/kill-chat</code> -- Shut down rex-chat\n\
@@ -590,7 +600,7 @@ async fn start_chat_prompt(
     }
 }
 
-/// Invoke Claude for a chat session and send the response.
+/// Invoke the agent for a chat session and send the response.
 async fn invoke_chat(
     tg: &mut ChatTelegramClient,
     sessions: &mut SessionManager,
@@ -631,7 +641,7 @@ async fn invoke_chat(
         }
     };
 
-    // Invoke Claude
+    // Invoke agent
     let prompt = format!(
         "Project \"{pid}\" at {dir}.\n\nUser's message: {msg}",
         pid = project_id,
@@ -640,7 +650,7 @@ async fn invoke_chat(
     );
     let chat_timeout = Duration::from_secs(chat_timeout_mins * 60);
     match sessions
-        .invoke_claude(project_id, &prompt, args.max_turns, args.max_budget_usd, chat_timeout)
+        .invoke_agent(project_id, &prompt, &args.model, args.max_turns, args.max_budget_usd, chat_timeout)
         .await
     {
         Ok(response) => {
@@ -760,7 +770,7 @@ async fn stop_autorun(
     let proj_path = Path::new(&proj_dir);
     let state_path = proj_path.join(".rex-autorun.json");
     if let Some(state) = read_state(&state_path) {
-        if let Some(pgid) = state.claude_pgid {
+        if let Some(pgid) = state.agent_pgid {
             unsafe {
                 libc::killpg(pgid, libc::SIGTERM);
             }

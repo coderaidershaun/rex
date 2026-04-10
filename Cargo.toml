@@ -9,7 +9,12 @@ repository = "https://github.com/coderaidershaun/rex"
 readme = "README.md"
 keywords = ["harness", "auto-harness", "project-management", "agent", "workflow"]
 categories = ["command-line-utilities", "development-tools"]
-exclude = ["rex/projects.json", "rex/<insert-project-id>/", "skills-lock.json", ".claude/settings.local.json", "CLAUDE.md"]
+exclude = ["rex/projects.json", "rex/<insert-project-id>/", "skills-lock.json", ".claude/settings.local.json", "CLAUDE.md", ".cursor/settings.local.json", "AGENTS.md"]
+
+[features]
+default = ["claude"]
+claude = []
+cursor = []
 
 [[bin]]
 name = "rex"

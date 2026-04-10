@@ -452,7 +452,7 @@ struct MonoArgs {
     /// Name of the monorepo directory to create
     #[arg(long)]
     name: String,
-    /// Create an empty workspace (no rex harness or claude folders)
+    /// Create an empty workspace (no rex harness or agent folders)
     #[arg(long)]
     no_harness: bool,
     /// Create a GitHub repository (public or private) using the gh CLI
@@ -580,7 +580,8 @@ Autorun (separate binary — headless autopilot, uses REX_AUTORUN_TELEGRAM_BOT_T
       --max-budget-usd <AMT>               Max USD per invocation (default: 50)
       --max-total-budget-usd <AMT>         Hard stop for total spend (default: 500)
       --max-turns <N>                       Max agentic turns per invocation (default: 200)
-      --process-timeout-mins <N>            Max minutes per Claude process (default: 60)
+      --process-timeout-mins <N>            Max minutes per agent process (default: 60)
+      --model <MODEL>                       Model identifier for the agent CLI
       --max-retries <N>                     Max retries for transient failures (default: 5)
       --human-timeout-days <N>              Max days to wait for Telegram reply (default: 1)
       --log-file <PATH>                     JSONL log file (default: .rex-autorun.log)
@@ -596,6 +597,7 @@ Rex Chat (separate binary — Telegram chat interface, uses REX_AUTOCHAT_TELEGRA
       --max-budget-usd <AMT>               Budget per chat invocation (default: 10)
       --max-turns <N>                       Max turns per chat invocation (default: 50)
       --session-timeout-mins <N>            Idle session timeout (default: 30)
+      --model <MODEL>                       Model identifier for the agent CLI
 
   Telegram commands (send to chat bot):
       <message>                              Chat with active project (or only project)
@@ -605,7 +607,7 @@ Rex Chat (separate binary — Telegram chat interface, uses REX_AUTOCHAT_TELEGRA
       /stop <id>                             Stop autorun for a project
       /status [id]                           Show autorun status (all if no id)
       /timeout [mins]                        Show or set chat timeout (1-120, default: 10)
-      /reset [id]                            Reset Claude context (all or specific project)
+      /reset [id]                            Reset agent context (all or specific project)
       /clear                                 Clear Telegram message history
       /projects                              List all discovered projects
       /menu                                  Show project dashboard with buttons

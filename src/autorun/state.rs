@@ -79,12 +79,12 @@ pub fn recover_state(path: &Path) -> RecoveryAction {
     match state.phase {
         AutorunPhase::Running => {
             // Kill orphan process group if still alive
-            if let Some(pgid) = state.claude_pgid {
-                if is_process_alive(state.claude_pid) {
-                    info!(pgid, "killing orphan claude process group");
+            if let Some(pgid) = state.agent_pgid {
+                if is_process_alive(state.agent_pid) {
+                    info!(pgid, "killing orphan agent process group");
                     kill_process_group_sync(pgid);
                 } else {
-                    info!("orphan claude process already dead");
+                    info!("orphan agent process already dead");
                 }
             }
             delete_state(path);
@@ -96,10 +96,10 @@ pub fn recover_state(path: &Path) -> RecoveryAction {
         AutorunPhase::PendingInput => {
             match state.session_id {
                 Some(session_id) if state.pending_question.is_some() => {
-                    // Kill any leftover claude process just in case
-                    if let Some(pgid) = state.claude_pgid {
-                        if is_process_alive(state.claude_pid) {
-                            info!(pgid, "killing leftover claude process from pending_input state");
+                    // Kill any leftover agent process just in case
+                    if let Some(pgid) = state.agent_pgid {
+                        if is_process_alive(state.agent_pid) {
+                            info!(pgid, "killing leftover agent process from pending_input state");
                             kill_process_group_sync(pgid);
                         }
                     }
