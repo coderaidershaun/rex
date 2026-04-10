@@ -2,6 +2,12 @@
 
 All notable changes to **rex-cli** are documented here.
 
+## 0.3.0 — 2026-04-10
+
+- **Multi-harness support (Cursor)** — Refactor the autorun and init modules from Claude-specific to harness-agnostic. Add Cargo feature flags (`claude` default, `cursor`) with compile-time harness selection. Each harness gets its own process spawning, output parsing, auth refresh flow, and init scaffolding (`.cursor/` config dir, `AGENTS.md` root file, `hooks.json` settings). Shared logic (process group management, retryable error detection) extracted into `harness/shared.rs`.
+- **Configurable model flag** — Add `--model` flag to both autorun and rex-chat, with per-harness defaults (`opus[1m]` for Claude, `claude-4.6-opus-high` for Cursor). Model is passed through to the agent CLI on every invocation.
+- **Documentation overhaul** — Rewrite README.md and all docs under `rex/docs/` to be harness-neutral, covering both Claude Code and Cursor workflows.
+
 ## 0.2.12 — 2026-04-07
 
 - **Integration test timeout cap and escalation ceiling** — Add a mandatory 30-second timeout cap for all integration tests (with documented exceptions for rare edge cases). Add a hard 5-attempt / 5-minute ceiling on agent fix loops — when hit, the agent must escalate to user-support immediately instead of burning context retrying. Prevents agents from spinning on unsolvable test failures.
