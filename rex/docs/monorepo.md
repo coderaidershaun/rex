@@ -31,19 +31,18 @@ my-workspace/
   Cargo.toml              # [workspace] with members = ["libs/*"]
   .gitignore              # /target, .env, .env.*
   .git/
-  .claude/
+  <config>/                # .claude/ or .cursor/ depending on harness
     skills/               # All rex and rust agent skills
     hooks/                # commit-and-push.sh
-    settings.json         # Hook configuration
   rex/
     docs/                 # CLI and process documentation
     projects.json         # Empty project registry
   libs/
     .gitkeep
-  CLAUDE.md
+  CLAUDE.md / AGENTS.md   # Root instructions file (harness-dependent)
 ```
 
-With `--no-harness`, step 6 is skipped and the resulting structure contains only the workspace files — no `.claude/`, `rex/`, or `CLAUDE.md`. Use this when you want a workspace without agent orchestration, or when you plan to run `rex init` and `rex project create` separately (e.g., initializing rex inside individual project directories rather than at the workspace root).
+With `--no-harness`, step 6 is skipped and the resulting structure contains only the workspace files — no harness config, `rex/`, or root instructions file. Use this when you want a workspace without agent orchestration, or when you plan to run `rex init` and `rex project create` separately (e.g., initializing rex inside individual project directories rather than at the workspace root).
 
 ## Adding Projects
 

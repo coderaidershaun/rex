@@ -1,6 +1,6 @@
 # Rex Autorun
 
-Rex Autorun is a headless autopilot that drives a rex project to completion unattended. It repeatedly invokes the `/rex-operator` skill via `claude -p`, parses the structured JSON output, and loops. When the operator needs human input (onboarding questions, design acceptance), the question is relayed to Telegram and the binary waits for a reply. One project per instance. One Telegram chat.
+Rex Autorun is a headless autopilot that drives a rex project to completion unattended. It repeatedly invokes the `/rex-operator` skill via the agent CLI, parses the structured JSON output, and loops. When the operator needs human input (onboarding questions, design acceptance), the question is relayed to Telegram and the binary waits for a reply. One project per instance. One Telegram chat.
 
 ---
 
@@ -48,11 +48,12 @@ Rex Autorun is a separate binary installed alongside `rex` when you run `cargo i
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--project-dir <PATH>` | `.` (current directory) | Rex project root directory. Must contain `rex/projects.json` and `.claude/skills/`. |
-| `--max-budget-usd <AMOUNT>` | `50.0` | Maximum USD spend per single Claude invocation. |
-| `--max-total-budget-usd <AMOUNT>` | `500.0` | Maximum USD spend across ALL invocations for the entire run. Hard stop — the binary exits with code 5 when exceeded. |
-| `--max-turns <N>` | `200` | Maximum agentic turns per Claude invocation. Prevents runaway agent loops. |
-| `--process-timeout <MINS>` | `60` | Maximum minutes a single `claude -p` process may run before being killed. The process group is terminated and the invocation is retried. |
+| `--project-dir <PATH>` | `.` (current directory) | Rex project root directory. Must contain `rex/projects.json` and a skills directory. |
+| `--model <MODEL>` | `opus[1m]` (Claude) / `claude-4.6-opus-high` (Cursor) | Model identifier passed to the agent CLI. |
+| `--max-budget-usd <AMOUNT>` | `50.0` | Maximum USD spend per single invocation (Claude only; ignored for Cursor). |
+| `--max-total-budget-usd <AMOUNT>` | `500.0` | Maximum USD spend across ALL invocations (Claude only). Hard stop — exits with code 5. |
+| `--max-turns <N>` | `200` | Maximum agentic turns per invocation (Claude only). |
+| `--process-timeout <MINS>` | `60` | Maximum minutes a single agent process may run before being killed. |
 | `--max-retries <N>` | `5` | Maximum consecutive retries for transient failures (rate limits, timeouts, connection errors). |
 | `--human-timeout <DAYS>` | `1` | Maximum days to wait for a user reply via Telegram before giving up. |
 | `--log-file <PATH>` | `.rex-autorun.log` | Path to the JSONL structured log file. |
@@ -71,7 +72,7 @@ rex-autorun --project-dir /Users/me/Code/my-rex-project
 # Lower budget limits for a test run
 rex-autorun --max-budget-usd 50.0 --max-total-budget-usd 300.0
 
-# Give Claude more time per invocation and allow more retries
+# Give the agent more time per invocation and allow more retries
 rex-autorun --process-timeout 120 --max-retries 10
 
 # Custom log file location
@@ -112,11 +113,11 @@ Set these in a `.env` file in the project root directory, or export them in your
 
 ## Telegram Commands
 
-While autorun is running, you can send commands to your Telegram bot at any time. Commands work both when Claude is processing and when the bot is waiting for your reply.
+While autorun is running, you can send commands to your Telegram bot at any time. Commands work both when the agent is processing and when the bot is waiting for your reply.
 
 | Command | Description |
 |---------|-------------|
-| `/kill <project-id>` | Terminate the autorun session immediately. Kills any running Claude process, cleans up state, and exits with code 6. `/kill` without a project ID kills the current session. |
+| `/kill <project-id>` | Terminate the autorun session immediately. Kills any running agent process, cleans up state, and exits with code 6. `/kill` without a project ID kills the current session. |
 | `/query <project-id>` | Show live stats: uptime, context usage, session duration, task progress, cost, and other running autoruns. `/query` without a project ID also works. |
 | `/commands` | Show available commands. |
 | `/start` | Same as `/commands`. |
@@ -143,13 +144,13 @@ When multiple autoruns share the same bot token, a cooperative triage system rou
 
 ## Auth Token Refresh
 
-If Claude's OAuth token expires during operation, autorun handles it automatically:
+If the agent's auth token expires during operation, autorun handles it automatically:
 
-1. The 401 authentication error is detected from Claude's stderr.
-2. `claude auth login` is spawned and its output is scanned for an authorization URL.
-3. The URL (or a manual instruction) is sent to Telegram with ForceReply.
+1. The 401 authentication error is detected from the agent's stderr.
+2. For Claude: `claude auth login` is spawned and its output is scanned for an authorization URL. For Cursor: a manual instruction is sent.
+3. The URL (or manual instruction) is sent to Telegram with ForceReply.
 4. Autorun waits up to 10 minutes for you to authorize and reply.
-5. On your confirmation, the Claude invocation is retried.
+5. On your confirmation, the invocation is retried.
 
 Auth refresh is attempted at most once per session. If auth fails again after refresh, it's treated as a fatal error.
 
@@ -160,8 +161,8 @@ Auth refresh is attempted at most once per session. If auth fails again after re
 ### Core Loop
 
 1. Load the active project from `rex/projects.json`.
-2. Invoke `claude -p "/rex-operator" --output-format json --model sonnet[1m] --effort high --dangerously-skip-permissions`.
-3. While Claude runs, poll Telegram for `/kill` and `/query` commands (1-second polling interval).
+2. Invoke the agent CLI with `/rex-operator` as the prompt, JSON output format, and the configured model.
+3. While the agent runs, poll Telegram for `/kill` and `/query` commands (1-second polling interval).
 4. Parse the JSON output for a status: `completed`, `project_done`, `needs_input`, or `error`.
 5. Route:
    - **completed** — notify Telegram with model header and stats, wait 5 seconds, invoke again.
@@ -179,16 +180,12 @@ When the operator hits an onboarding or user-acceptance item, it cannot proceed 
 3. Polls for a reply with 1-second intervals (up to `--human-timeout` days).
 4. Only accepts messages that are direct replies to the question (reply-to matching).
 5. Sends an acknowledgment message on receipt.
-6. Resumes the Claude session with `claude --resume <session-id> -p "<reply>"`.
+6. Resumes the agent session with `--resume <session-id>`.
 7. Repeats if the skill needs follow-up questions.
 
 ### Session Tagging
 
-Every Claude session is named `rex-autorun-<project-id>-<N>` where N is the invocation number. This makes sessions identifiable for manual inspection:
-
-```bash
-claude --resume "rex-autorun-my-project-7"
-```
+Every agent session is named `rex-autorun-<project-id>-<N>` where N is the invocation number (Claude only; Cursor does not support session naming).
 
 ---
 
@@ -198,17 +195,17 @@ The binary persists its state to `.rex-autorun.json` using atomic writes (write 
 
 | State at crash | Recovery on restart |
 |---------------|---------------------|
-| Claude was running (PID alive) | Kill the orphaned process group, start fresh. |
-| Claude was running (PID dead) | Process already exited, start fresh. |
+| Agent was running (PID alive) | Kill the orphaned process group, start fresh. |
+| Agent was running (PID dead) | Process already exited, start fresh. |
 | Waiting for Telegram reply | Re-send the question to Telegram (ForceReply), resume waiting. |
 | State file corrupt | Delete and start fresh. |
 | No state file | Clean start. |
 
 ### Session Leak Prevention
 
-When the binary spawns `claude -p`, it creates a new process group. If the binary is killed, the entire process group (including any sub-agents Claude spawned) is terminated. Four layers of protection:
+When the binary spawns the agent CLI, it creates a new process group. If the binary is killed, the entire process group (including any sub-agents) is terminated. Four layers of protection:
 
-1. **Process group isolation** — `claude` runs in its own process group.
+1. **Process group isolation** — the agent runs in its own process group.
 2. **PID tracking** — the state file records the process ID.
 3. **Signal handlers** — SIGTERM/SIGINT cleanly kill the process group before exiting.
 4. **Startup sweep** — orphaned processes from a previous crash are killed on startup.
@@ -246,7 +243,7 @@ Each line in `.rex-autorun.log` is a JSON object with an `event` field:
 - **Start small.** Use `--max-total-budget-usd 50.0` for your first run to cap spend while you verify it works.
 - **Watch the log.** `tail -f .rex-autorun.log | jq .` gives a live view of what's happening.
 - **Run in the background.** `nohup rex-autorun --project-dir /absolute/path/to/project > /dev/null 2>&1 &` — always pass `--project-dir` with an absolute path when using nohup, so the process finds the correct project regardless of working directory. Check `.rex-autorun.log` for progress.
-- **Stop cleanly.** Send `/kill <project-id>` via Telegram, or SIGTERM/Ctrl+C locally. The binary cleans up the Claude process group and state file before exiting.
+- **Stop cleanly.** Send `/kill <project-id>` via Telegram, or SIGTERM/Ctrl+C locally. The binary cleans up the agent process group and state file before exiting.
 - **Check status.** Send `/query <project-id>` via Telegram to see total uptime, context usage, session duration, cost, and whether other autoruns are running.
 - **Resume after crash.** Just run `rex-autorun` again. It reads `.rex-autorun.json` and picks up where it left off.
 - **One bot per project.** Telegram's `getUpdates` API is exclusive — only one process can poll a given bot. If you need concurrent projects, use separate Telegram bots.

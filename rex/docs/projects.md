@@ -64,7 +64,7 @@ If `--with-git-repo` is passed, git is initialized in the project directory (if 
 
 **Behavior on confirm — init inside project (Yes):**
 
-- Runs `rex init` inside the project directory, creating `.claude/`, `rex/docs/`, and `CLAUDE.md` there.
+- Runs `rex init` inside the project directory, creating the harness config directory, `rex/docs/`, and root instructions file there.
 - Creates a **new** `rex/projects.json` inside the project directory with this project as active.
 - Creates `rex/<project-id>/` with subdirectories: `onboarding/`, `user-support/`, `planning/`, `design/`, `execution/`, `uat/`.
 - Creates `rex/<project-id>/project-status.json` with the selected onboarding and design items.

@@ -35,20 +35,20 @@ rex init
 This copies all skills, hooks, settings, and documentation into the current directory. The rex binary embeds these files at compile time, so no network access or external downloads are needed.
 
 **What gets created:**
-- `.claude/skills/` — all rex and rust skills (41 skill directories)
-- `.claude/hooks/commit-and-push.sh` — auto-commit on agent stop
-- `.claude/settings.json` — hook configuration
+- `<config>/skills/` — all rex and rust skills (where `<config>` is `.claude/` or `.cursor/` depending on harness)
+- `<config>/hooks/commit-and-push.sh` — auto-commit on agent stop
+- `<config>/settings.json` or `hooks.json` — hook configuration
 - `rex/docs/` — all CLI and process documentation
 - `rex/projects.json` — empty project registry
-- `CLAUDE.md` — points to `rex/docs/README.md`
+- `CLAUDE.md` or `AGENTS.md` — root instructions file (depends on harness)
 
-**Safe to re-run:** existing files are never overwritten. Only missing files/folders are created. If `CLAUDE.md` already exists, the rex section is appended. If hook config already exists, rex hooks are merged in.
+**Safe to re-run:** existing files are never overwritten. Only missing files/folders are created. If the root file already exists, the rex section is appended. If hook config already exists, rex hooks are merged in.
 
 See [init.md](init.md) for full details on configuration format.
 
 ## Headless Autopilot (rex-autorun)
 
-For fully unattended operation, the `rex-autorun` binary drives a project to completion without a human at the terminal. It invokes the operator in headless mode via `claude -p`, loops automatically, and relays questions to Telegram when user input is needed.
+For fully unattended operation, the `rex-autorun` binary drives a project to completion without a human at the terminal. It invokes the operator in headless mode via the agent CLI, loops automatically, and relays questions to Telegram when user input is needed.
 
 ```bash
 rex-autorun
@@ -78,7 +78,7 @@ Creates:
 - `rex/<project-id>/project-status.json` — the ordered work item manifest
 - Scaffolds project code via `cargo new` if needed
 
-When "init inside" is chosen, the project directory gets its own `.claude/`, `rex/docs/`, `CLAUDE.md`, and `rex/projects.json` — making it fully self-contained. The outer harness registry is not modified.
+When "init inside" is chosen, the project directory gets its own harness config directory, `rex/docs/`, root instructions file, and `rex/projects.json` — making it fully self-contained. The outer harness registry is not modified.
 
 ### Phase 1: Onboarding (14 items)
 

@@ -78,10 +78,11 @@ Autorun options:
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--project-dir <PATH>` | `.` | Rex project root directory |
-| `--max-budget-usd <AMOUNT>` | `50.0` | Max USD per single Claude invocation |
+| `--model <MODEL>` | `opus[1m]` / `claude-4.6-opus-high` | Model identifier for the agent CLI |
+| `--max-budget-usd <AMOUNT>` | `50.0` | Max USD per single agent invocation (Claude only) |
 | `--max-total-budget-usd <AMOUNT>` | `500.0` | Hard stop for total spend |
 | `--max-turns <N>` | `200` | Max agentic turns per invocation |
-| `--process-timeout-mins <N>` | `60` | Max minutes per Claude process |
+| `--process-timeout-mins <N>` | `60` | Max minutes per agent process |
 | `--max-retries <N>` | `5` | Max retries for transient failures |
 | `--human-timeout-days <N>` | `1` | Max days to wait for Telegram reply |
 | `--log-file <PATH>` | `.rex-autorun.log` | Path to JSONL log file |
@@ -260,7 +261,7 @@ cd libs/api-server
 # Then invoke /rex-operator from Claude Code or Cursor
 ```
 
-Each project under `libs/` has its own `.claude/`, `rex/`, and `CLAUDE.md` — fully independent harnesses that can be worked on in separate agent sessions. The workspace `Cargo.toml` automatically includes all crates under `libs/*`.
+Each project under `libs/` has its own harness config, `rex/`, and root instructions file — fully independent harnesses that can be worked on in separate agent sessions. The workspace `Cargo.toml` automatically includes all crates under `libs/*`.
 
 To run autorun headlessly for a specific project in the background:
 
@@ -338,7 +339,7 @@ Run `rex --help`, `rex --commands`, or `rex <command> --help` for full usage det
 Rex supports two AI agent harnesses, selected at compile time via Cargo feature flags:
 
 ```bash
-cargo install rex-cli                                      # Claude Code (default)
+cargo install rex-cli # Claude Code (default)
 cargo install rex-cli --no-default-features --features cursor  # Cursor
 ```
 

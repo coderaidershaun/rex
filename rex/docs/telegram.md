@@ -14,7 +14,7 @@ Rex uses two separate Telegram bots — one for chat, one for autorun. Each bot 
 
 ## Chat Bot (`rex-chat`)
 
-The chat bot provides a project dashboard and Claude-powered chat sessions.
+The chat bot provides a project dashboard and AI-agent-powered chat sessions.
 
 ### Text Commands
 
@@ -41,7 +41,7 @@ These appear on messages sent by the bot. Tap to interact.
 
 ### Reply-to Routing
 
-Reply directly to any chat response message to continue the conversation with that project. The bot routes your reply to the correct Claude session automatically.
+Reply directly to any chat response message to continue the conversation with that project. The bot routes your reply to the correct agent session automatically.
 
 ---
 
