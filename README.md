@@ -333,6 +333,54 @@ nohup rex-autorun --project-dir /absolute/path/to/rex-projects/libs/api-server >
 
 Run `rex --help`, `rex --commands`, or `rex <command> --help` for full usage details.
 
+## Harness Support: Claude Code vs Cursor
+
+Rex supports two AI agent harnesses, selected at compile time via Cargo feature flags:
+
+```bash
+cargo install rex-cli                                      # Claude Code (default)
+cargo install rex-cli --no-default-features --features cursor  # Cursor
+```
+
+The features are mutually exclusive — each build targets one harness.
+
+### What differs between harnesses
+
+| Area | Claude Code (`--features claude`) | Cursor (`--features cursor`) |
+|------|----------------------------------|------------------------------|
+| CLI executable | `claude` | `agent` |
+| Permission flag | `--dangerously-skip-permissions` | `--force` |
+| System prompt | `--append-system-prompt` | Prepended to prompt text |
+| Effort level | `--effort high` | Encoded in model name (e.g. `-high`) |
+| Budget flags | `--max-budget-usd`, `--max-total-budget-usd` | Ignored (subscription model) |
+| Max turns | `--max-turns N` | Not supported |
+| Session name | `--name` | Not supported |
+| Default model | `opus[1m]` | `claude-4.6-opus-high` |
+| Config directory | `.claude/` | `.cursor/` |
+| Root instructions | `CLAUDE.md` | `AGENTS.md` |
+| Settings format | `.claude/settings.json` (nested) | `.cursor/hooks.json` (flat) |
+| Auth refresh | Spawns `claude auth login` | Manual (`agent login` / `CURSOR_API_KEY`) |
+| Cost tracking | Per-invocation + total budget enforcement | Disabled (subscription) |
+
+Both harnesses support `--resume <session-id>`, `--output-format json`, and process group isolation for orphan cleanup.
+
+### Where the differences live in code
+
+| File(s) | What's gated |
+|---------|-------------|
+| `src/autorun/harness/claude.rs`, `cursor.rs` | `spawn_agent` / `await_agent` — CLI args, executable, prompt assembly |
+| `src/autorun/harness/mod.rs` | Feature-gated re-exports |
+| `src/autorun/runner.rs` | `--model` default, budget check, cost accumulation, `attempt_auth_refresh` |
+| `src/chat/sessions.rs` | Command building in `spawn_and_await` |
+| `src/chat/daemon.rs` | `--model` default |
+| `src/commands/init.rs` | `include_dir!` paths, config dir, root file, settings format/merge |
+| `src/models/project_status.rs` | `MODEL_SONNET` / `MODEL_OPUS` constants |
+| `.claude/hooks/`, `.cursor/hooks/` | Hook scripts (`$CLAUDE_PROJECT_DIR` vs `$CURSOR_PROJECT_DIR`) |
+
+### Shared code (harness-agnostic)
+
+Everything in `src/autorun/harness/shared.rs` is identical for both: `AUTORUN_SYSTEM_PROMPT`, `parse_operator_result`, `kill_process_group`, `is_auth_error`, `is_retryable`. All skills, project management commands, planning tree, and Telegram integration are harness-agnostic.
+
 ## License
 
 [MIT](LICENSE)
