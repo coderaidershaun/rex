@@ -1,7 +1,7 @@
 use std::{fs, path::Path};
 
 use crate::{
-    bundle::{Bundle, apply_bundle},
+    bundle::{Bundle, BundleMode, apply_bundle},
     error::RexError,
 };
 
@@ -13,8 +13,8 @@ use crate::{
 /// # Errors
 /// - [`RexError::Io`] for filesystem failures
 /// - [`RexError::JsonParse`] / [`RexError::JsonSerialize`] for manifest I/O
-pub fn run(cwd: &Path, bundle: &Bundle, force: bool) -> Result<(), RexError> {
-    let summary = apply_bundle(bundle, cwd, force)?;
+pub fn run(cwd: &Path, bundle: &Bundle, mode: BundleMode) -> Result<(), RexError> {
+    let summary = apply_bundle(bundle, cwd, mode)?;
 
     let active_dir = cwd.join("rex/active");
     if !active_dir.exists() {
@@ -76,7 +76,7 @@ fn top_level_dir_list(cwd: &Path) -> String {
             if name.starts_with('.') {
                 None
             } else {
-                Some(format!("- `{}/`", name))
+                Some(format!("- `{name}/`"))
             }
         })
         .collect();

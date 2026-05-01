@@ -6,13 +6,13 @@ use rex_cli::bundle::Bundle;
 use rex_cli::commands::create::apply_create;
 use rex_cli::error::RexError;
 use rex_cli::project::{
-    PipelineStep, PipelineTemplate, ProjectYaml, archive_active, has_active_project, list_inactive,
-    parse_pipeline, read_active_project, swap_active, write_active_project,
+    PipelineStep, PipelineTemplate, ProjectId, ProjectYaml, archive_active, has_active_project,
+    list_inactive, parse_pipeline, read_active_project, swap_active, write_active_project,
 };
 
 fn make_template() -> PipelineTemplate {
     PipelineTemplate {
-        project_id: "template".to_owned(),
+        project_id: ProjectId::new("template"),
         category: "feature".to_owned(),
         title: None,
         subtitle: None,
@@ -55,7 +55,7 @@ fn make_create_opts(project_id: &str) -> rex_cli::commands::create::CreateOpts {
         description: None,
         category: "feature".to_owned(),
         complexity: "medium".to_owned(),
-        project_id: project_id.to_owned(),
+        project_id: ProjectId::new(project_id),
         selected_optional_steps: vec![],
     }
 }
@@ -64,7 +64,7 @@ fn make_create_opts(project_id: &str) -> rex_cli::commands::create::CreateOpts {
 fn write_then_read_roundtrip() {
     let dir = TempDir::new().unwrap();
     let project = ProjectYaml {
-        project_id: "test-project".to_owned(),
+        project_id: ProjectId::new("test-project"),
         category: "feature".to_owned(),
         title: Some("Test".to_owned()),
         subtitle: None,
@@ -79,7 +79,7 @@ fn write_then_read_roundtrip() {
     };
     write_active_project(dir.path(), &project).unwrap();
     let loaded = read_active_project(dir.path()).unwrap();
-    assert_eq!(loaded.project_id, "test-project");
+    assert_eq!(loaded.project_id, ProjectId::new("test-project"));
     assert_eq!(loaded.title, Some("Test".to_owned()));
 }
 
@@ -103,7 +103,7 @@ fn archive_active_moves_to_inactive() {
     let tmpl = make_template();
     apply_create(dir.path(), &tmpl, make_create_opts("proj-one")).unwrap();
     let archived_id = archive_active(dir.path()).unwrap();
-    assert_eq!(archived_id, "proj-one");
+    assert_eq!(archived_id, ProjectId::new("proj-one"));
     assert!(!has_active_project(dir.path()));
     assert!(dir.path().join("rex/inactive/proj-one").exists());
 }
@@ -127,7 +127,7 @@ fn archive_active_collision_returns_error() {
     write_active_project(
         dir.path(),
         &ProjectYaml {
-            project_id: "proj-one".to_owned(),
+            project_id: ProjectId::new("proj-one"),
             category: "feature".to_owned(),
             title: None,
             subtitle: None,
@@ -160,10 +160,9 @@ fn swap_active_roundtrip() {
 
     apply_create(dir.path(), &tmpl, make_create_opts("proj-b")).unwrap();
 
-    // Activate proj-a (archives proj-b first)
     swap_active(dir.path(), "proj-a").unwrap();
     let active = read_active_project(dir.path()).unwrap();
-    assert_eq!(active.project_id, "proj-a");
+    assert_eq!(active.project_id, ProjectId::new("proj-a"));
     assert!(dir.path().join("rex/inactive/proj-b").exists());
 }
 
@@ -193,7 +192,7 @@ fn list_inactive_after_archive() {
     apply_create(dir.path(), &tmpl, make_create_opts("beta")).unwrap();
     archive_active(dir.path()).unwrap();
     let ids = list_inactive(dir.path()).unwrap();
-    assert_eq!(ids, vec!["alpha", "beta"]);
+    assert_eq!(ids, vec![ProjectId::new("alpha"), ProjectId::new("beta")]);
 }
 
 #[test]

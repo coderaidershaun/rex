@@ -1,4 +1,6 @@
-use rex_cli::bundle::{Bundle, sha256_hex};
+use rex_cli::bundle::{Bundle, BundleMode, Manifest, sha256_hex, write_manifest};
+use std::collections::HashMap;
+use std::fs;
 use std::path::Path;
 use tempfile::TempDir;
 
@@ -84,7 +86,7 @@ fn live_disk_bundle_reads_pipeline_yaml() {
 fn apply_bundle_writes_files_to_fresh_dir() {
     let dir = TempDir::new().unwrap();
     let bundle = Bundle::Embedded;
-    let summary = rex_cli::bundle::apply_bundle(&bundle, dir.path(), false)
+    let summary = rex_cli::bundle::apply_bundle(&bundle, dir.path(), BundleMode::Merge)
         .expect("apply bundle to temp dir");
     assert!(
         summary.written > 0 || summary.noops > 0,
@@ -96,12 +98,53 @@ fn apply_bundle_writes_files_to_fresh_dir() {
     );
 }
 
+/// Both disk and bundle diverge from manifest -> bundle is written to a `.rex-new`
+/// sibling and the user's original file is preserved.
+#[test]
+fn apply_bundle_writes_rex_new_sibling_on_three_way_conflict() {
+    let dir = TempDir::new().unwrap();
+    let bundle = Bundle::Embedded;
+    rex_cli::bundle::apply_bundle(&bundle, dir.path(), BundleMode::Merge).unwrap();
+
+    let target_rel = "rex/pipeline.yaml";
+    let on_disk = dir.path().join(target_rel);
+    let user_content = b"user-modified";
+    fs::write(&on_disk, user_content).unwrap();
+
+    // Force manifest != disk and manifest != bundle by writing a fake hash.
+    let mut files = HashMap::new();
+    files.insert(target_rel.to_owned(), "0".repeat(64));
+    write_manifest(
+        dir.path(),
+        &Manifest {
+            rex_version: "test".to_owned(),
+            files,
+        },
+    )
+    .unwrap();
+
+    let summary = rex_cli::bundle::apply_bundle(&bundle, dir.path(), BundleMode::Merge).unwrap();
+    assert!(summary.conflicts >= 1, "expected at least one conflict");
+
+    let sibling = dir.path().join("rex/pipeline.yaml.rex-new");
+    assert!(
+        sibling.exists(),
+        "bundle copy must land at .rex-new sibling"
+    );
+    assert_eq!(
+        fs::read(&on_disk).unwrap(),
+        user_content,
+        "user file must be untouched"
+    );
+}
+
 #[test]
 fn apply_bundle_twice_is_idempotent() {
     let dir = TempDir::new().unwrap();
     let bundle = Bundle::Embedded;
-    rex_cli::bundle::apply_bundle(&bundle, dir.path(), false).unwrap();
-    let summary2 = rex_cli::bundle::apply_bundle(&bundle, dir.path(), false).expect("second apply");
+    rex_cli::bundle::apply_bundle(&bundle, dir.path(), BundleMode::Merge).unwrap();
+    let summary2 = rex_cli::bundle::apply_bundle(&bundle, dir.path(), BundleMode::Merge)
+        .expect("second apply");
     assert_eq!(
         summary2.written + summary2.upgraded + summary2.conflicts,
         0,

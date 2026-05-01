@@ -7,19 +7,26 @@ use crate::{
     bundle::Bundle,
     error::RexError,
     project::{
-        ProjectYaml, archive_active, has_active_project, list_inactive, parse_pipeline,
+        ProjectId, ProjectYaml, archive_active, has_active_project, list_inactive, parse_pipeline,
         prune_steps, write_active_project,
     },
 };
 
 /// Options collected from the interactive prompts, ready for non-interactive use in tests.
 pub struct CreateOpts {
+    /// Human-readable project title.
     pub title: String,
+    /// Optional subtitle.
     pub subtitle: Option<String>,
+    /// Optional description.
     pub description: Option<String>,
+    /// Project category, e.g. `feature`, `refactor`.
     pub category: String,
+    /// Project complexity, e.g. `low`, `medium`, `high`.
     pub complexity: String,
-    pub project_id: String,
+    /// Slug identifier for the project.
+    pub project_id: ProjectId,
+    /// Names of optional pipeline steps the user opted into.
     pub selected_optional_steps: Vec<String>,
 }
 
@@ -89,10 +96,12 @@ pub fn run(cwd: &Path, bundle: &Bundle) -> Result<(), RexError> {
         .map_err(|_| RexError::PromptCancelled)?
         .to_owned();
 
-    let project_id = Text::new("Project ID:")
-        .with_default(&default_id)
-        .prompt()
-        .map_err(|_| RexError::PromptCancelled)?;
+    let project_id = ProjectId::new(
+        Text::new("Project ID:")
+            .with_default(&default_id)
+            .prompt()
+            .map_err(|_| RexError::PromptCancelled)?,
+    );
 
     let optional_step_refs: Vec<&str> = optional_steps.iter().map(String::as_str).collect();
     let selected: Vec<String> = if optional_steps.is_empty() {
@@ -127,7 +136,7 @@ pub fn apply_create(
     template: &crate::project::PipelineTemplate,
     opts: CreateOpts,
 ) -> Result<(), RexError> {
-    let inactive_target = cwd.join("rex/inactive").join(&opts.project_id);
+    let inactive_target = cwd.join("rex/inactive").join(opts.project_id.as_str());
     if inactive_target.exists() {
         return Err(RexError::SlugCollision {
             path: inactive_target,
@@ -137,7 +146,7 @@ pub fn apply_create(
     let inactive_ids = list_inactive(cwd)?;
     if inactive_ids.contains(&opts.project_id) {
         return Err(RexError::SlugCollision {
-            path: cwd.join("rex/inactive").join(&opts.project_id),
+            path: cwd.join("rex/inactive").join(opts.project_id.as_str()),
         });
     }
 
@@ -151,7 +160,7 @@ pub fn apply_create(
             return Ok(());
         }
         let archived_id = archive_active(cwd)?;
-        println!("Archived active project to rex/inactive/{}", archived_id);
+        println!("Archived active project to rex/inactive/{archived_id}");
     }
 
     let selected_refs: Vec<&str> = opts

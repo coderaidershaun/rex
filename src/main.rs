@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 
-use rex_cli::bundle::Bundle;
+use rex_cli::bundle::{Bundle, BundleMode};
 use rex_cli::commands::{activate, create, init};
 
 #[derive(Parser)]
@@ -39,7 +39,12 @@ fn main() -> Result<()> {
 
     match cli.command {
         Command::Init { force } => {
-            init::run(&cwd, &bundle, force).context("rex init failed")?;
+            let mode = if force {
+                BundleMode::Force
+            } else {
+                BundleMode::Merge
+            };
+            init::run(&cwd, &bundle, mode).context("rex init failed")?;
         }
         Command::Create => {
             create::run(&cwd, &bundle).context("rex create failed")?;

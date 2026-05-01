@@ -28,19 +28,19 @@ name = "rex_cli"
 path = "src/lib.rs"
 
 [dependencies]
-clap = { version = "4.6.1", default-features = false, features = ["derive", "std", "help", "usage", "error-context"] }
-include_dir = { version = "0.7.4", default-features = false }
-serde = { version = "1.0.228", default-features = false, features = ["derive"] }
-serde_yml = { version = "0.0.12", default-features = false }
-serde_json = { version = "1.0.149", default-features = false, features = ["std"] }
-inquire = { version = "0.9.4", default-features = false, features = ["crossterm"] }
-slug = { version = "0.1.6", default-features = false }
-sha2 = { version = "0.11.0", default-features = false, features = ["alloc"] }
+anyhow = { version = "1.0.102", default-features = false, features = ["std"] }
+clap = { version = "4.6.1", default-features = false, features = ["derive", "error-context", "help", "std", "usage"] }
 hex = { version = "0.4.3", default-features = false, features = ["std"] }
+include_dir = { version = "0.7.4", default-features = false }
+inquire = { version = "0.9.4", default-features = false, features = ["crossterm"] }
+serde = { version = "1.0.228", default-features = false, features = ["derive"] }
+serde_json = { version = "1.0.149", default-features = false, features = ["std"] }
+serde_yml = { version = "0.0.12", default-features = false }
+sha2 = { version = "0.11.0", default-features = false, features = ["alloc"] }
+slug = { version = "0.1.6", default-features = false }
 thiserror = { version = "2.0.18", default-features = false }
 walkdir = { version = "2.5.0", default-features = false }
-anyhow = { version = "1.0.102", default-features = false, features = ["std"] }
 
 [dev-dependencies]
-tempfile = { version = "3.27.0", default-features = false }
 assert_cmd = { version = "2.2.1", default-features = false }
+tempfile = { version = "3.27.0", default-features = false }

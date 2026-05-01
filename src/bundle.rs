@@ -18,16 +18,31 @@ const EMBEDDED_CLAUDE_MD_TMPL: &str = include_str!("../templates/CLAUDE.md.tmpl"
 
 const MANIFEST_PATH: &str = ".claude/.rex-manifest.json";
 
+/// Tracks which bundle files rex installed and at what hash, so a re-run
+/// can tell user edits apart from upstream changes.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Manifest {
+    /// `CARGO_PKG_VERSION` of the rex build that wrote the manifest.
     pub rex_version: String,
+    /// Map of bundle-relative path to the SHA-256 hex of the file at install time.
     pub files: HashMap<String, String>,
 }
 
 /// Source of the bundle: either compiled-in or live disk (when REX_BUNDLE_DIR is set).
 pub enum Bundle {
+    /// Files compiled into the binary via `include_dir!`.
     Embedded,
+    /// Files read live from the given directory at runtime.
     LiveDisk(PathBuf),
+}
+
+/// How `apply_bundle` resolves files that exist on disk.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BundleMode {
+    /// Run the three-way merge: preserve user changes, write upgrades, flag conflicts.
+    Merge,
+    /// Overwrite every bundle file regardless of user modifications.
+    Force,
 }
 
 impl Bundle {
@@ -40,6 +55,10 @@ impl Bundle {
     }
 
     /// Read a file from the bundle. `rel` is relative to the bundle root.
+    ///
+    /// # Errors
+    /// - [`RexError::Io`] for live-disk read failures
+    /// - [`RexError::BundleFileNotFound`] if no embedded entry matches `rel`
     pub fn read_file(&self, rel: &Path) -> Result<Cow<'static, [u8]>, RexError> {
         match self {
             Self::Embedded => self.read_embedded(rel),
@@ -62,7 +81,6 @@ impl Bundle {
         if rel_str == "templates/CLAUDE.md.tmpl" {
             return Ok(Cow::Borrowed(EMBEDDED_CLAUDE_MD_TMPL.as_bytes()));
         }
-        // Strip the ".claude/" prefix to look up in the embedded dir.
         let in_claude = rel
             .strip_prefix(".claude")
             .ok()
@@ -76,6 +94,9 @@ impl Bundle {
     }
 
     /// Walk all bundle entries, returning (relative_path, contents).
+    ///
+    /// # Errors
+    /// [`RexError::Io`] for live-disk read failures while walking.
     pub fn walk(&self) -> Result<Vec<(PathBuf, Vec<u8>)>, RexError> {
         match self {
             Self::Embedded => {
@@ -160,17 +181,17 @@ pub fn sha256_hex(data: &[u8]) -> String {
 }
 
 /// What the three-way merge logic should do with one file.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MergeAction {
     /// Write the bundle version and record its hash.
     Write,
-    /// Leave disk untouched. Update manifest hash to disk hash (adopting on first init).
+    /// Leave disk untouched. Record the existing hash so future runs detect drift.
     Adopt,
-    /// User modified; skip this file.
+    /// User modified the file; do not touch it.
     PreserveUser,
-    /// Both disk and bundle changed relative to manifest. Write .rex-new sibling.
+    /// Both disk and bundle diverge from the manifest. Write a `.rex-new` sibling.
     WriteNew,
-    /// No change needed.
+    /// File matches the manifest on disk and in the bundle. Nothing to do.
     Noop,
 }
 
@@ -228,6 +249,10 @@ pub fn merge_action(
 }
 
 /// Read existing manifest from CWD, if present.
+///
+/// # Errors
+/// - [`RexError::Io`] reading the manifest file
+/// - [`RexError::JsonParse`] if the manifest is malformed
 pub fn read_manifest(cwd: &Path) -> Result<Option<Manifest>, RexError> {
     let path = cwd.join(MANIFEST_PATH);
     if !path.exists() {
@@ -243,11 +268,15 @@ pub fn read_manifest(cwd: &Path) -> Result<Option<Manifest>, RexError> {
 }
 
 /// Write the manifest atomically: write to a tempfile in the same dir, then rename.
+///
+/// # Errors
+/// - [`RexError::Io`] for filesystem failures
+/// - [`RexError::JsonSerialize`] if the manifest cannot be serialized
 pub fn write_manifest(cwd: &Path, manifest: &Manifest) -> Result<(), RexError> {
     let manifest_path = cwd.join(MANIFEST_PATH);
     let parent = manifest_path
         .parent()
-        .expect("manifest path has parent dir");
+        .expect("MANIFEST_PATH constant always has a parent dir");
 
     fs::create_dir_all(parent).map_err(|source| RexError::Io {
         path: parent.to_owned(),
@@ -256,7 +285,6 @@ pub fn write_manifest(cwd: &Path, manifest: &Manifest) -> Result<(), RexError> {
 
     let json = serde_json::to_string_pretty(manifest).map_err(RexError::JsonSerialize)?;
 
-    // Write to a sibling temp file then rename for atomicity.
     let tmp_path = manifest_path.with_extension("json.tmp");
     fs::write(&tmp_path, &json).map_err(|source| RexError::Io {
         path: tmp_path.clone(),
@@ -269,18 +297,34 @@ pub fn write_manifest(cwd: &Path, manifest: &Manifest) -> Result<(), RexError> {
     Ok(())
 }
 
-/// Summary of what init did.
+/// Per-action counters from a single `apply_bundle` run.
 #[derive(Debug, Default)]
 pub struct InitSummary {
+    /// Files newly written on a fresh init.
     pub written: u32,
+    /// Files upgraded from a prior bundle version.
     pub upgraded: u32,
+    /// Files left untouched because the user had modified them.
     pub preserved: u32,
+    /// Files where bundle and disk diverged; bundle written to `<path>.rex-new`.
     pub conflicts: u32,
+    /// Files whose disk + bundle + manifest hashes all matched.
     pub noops: u32,
 }
 
 /// Run the three-way merge for all bundle files in `cwd`, writing/skipping per the merge table.
-pub fn apply_bundle(bundle: &Bundle, cwd: &Path, force: bool) -> Result<InitSummary, RexError> {
+///
+/// In [`BundleMode::Force`] every file is overwritten regardless of disk state.
+///
+/// # Errors
+/// - [`RexError::Io`] reading or writing files under `cwd`
+/// - [`RexError::JsonParse`] / [`RexError::JsonSerialize`] for the manifest
+/// - [`RexError::BundleFileNotFound`] if the bundle is missing an expected file
+pub fn apply_bundle(
+    bundle: &Bundle,
+    cwd: &Path,
+    mode: BundleMode,
+) -> Result<InitSummary, RexError> {
     let existing_manifest = read_manifest(cwd)?;
     let mut new_files: HashMap<String, String> = HashMap::new();
     let mut summary = InitSummary::default();
@@ -288,7 +332,6 @@ pub fn apply_bundle(bundle: &Bundle, cwd: &Path, force: bool) -> Result<InitSumm
     let entries = bundle.walk()?;
 
     for (rel, bundle_contents) in &entries {
-        // Skip the manifest itself — we write it last.
         let rel_str = rel.to_string_lossy().to_string();
         if rel_str == MANIFEST_PATH {
             continue;
@@ -312,10 +355,9 @@ pub fn apply_bundle(bundle: &Bundle, cwd: &Path, force: bool) -> Result<InitSumm
             .and_then(|m| m.files.get(&rel_str))
             .map(String::as_str);
 
-        let action = if force {
-            MergeAction::Write
-        } else {
-            merge_action(manifest_hash, disk_hash.as_deref(), &bundle_hash)
+        let action = match mode {
+            BundleMode::Force => MergeAction::Write,
+            BundleMode::Merge => merge_action(manifest_hash, disk_hash.as_deref(), &bundle_hash),
         };
 
         match action {
@@ -344,12 +386,8 @@ pub fn apply_bundle(bundle: &Bundle, cwd: &Path, force: bool) -> Result<InitSumm
                 summary.preserved += 1;
             }
             MergeAction::WriteNew => {
-                let sibling = disk_path.with_extension(format!(
-                    "{}.rex-new",
-                    disk_path.extension().and_then(|e| e.to_str()).unwrap_or("")
-                ));
+                let sibling = rex_new_sibling(&disk_path);
                 write_bundle_file(&sibling, bundle_contents)?;
-                // Keep old manifest entry for the original file.
                 if let Some(h) = manifest_hash {
                     new_files.insert(rel_str, h.to_owned());
                 }
@@ -383,6 +421,16 @@ fn write_bundle_file(path: &Path, contents: &[u8]) -> Result<(), RexError> {
         path: path.to_owned(),
         source,
     })
+}
+
+/// Conflict-sibling path for a file whose user copy diverges from the bundle.
+///
+/// Always appends `.rex-new`, never overwrites the original. For an extensionless
+/// file this returns `<path>.rex-new` rather than `<path>..rex-new`.
+fn rex_new_sibling(path: &Path) -> PathBuf {
+    let mut sibling = path.as_os_str().to_owned();
+    sibling.push(".rex-new");
+    PathBuf::from(sibling)
 }
 
 #[cfg(test)]
@@ -456,5 +504,17 @@ mod tests {
             merge_action(Some("old"), None, "old"),
             MergeAction::PreserveUser
         );
+    }
+
+    #[test]
+    fn rex_new_sibling_with_extension() {
+        let p = Path::new("/tmp/foo.md");
+        assert_eq!(rex_new_sibling(p), Path::new("/tmp/foo.md.rex-new"));
+    }
+
+    #[test]
+    fn rex_new_sibling_without_extension() {
+        let p = Path::new("/tmp/foo");
+        assert_eq!(rex_new_sibling(p), Path::new("/tmp/foo.rex-new"));
     }
 }
