@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::{error::RexError, project::swap_active};
+use crate::{error::RexError, project::ProjectStore};
 
 /// Run `rex activate <project_id>` against `cwd`.
 ///
@@ -9,7 +9,8 @@ use crate::{error::RexError, project::swap_active};
 /// - [`RexError::SlugCollision`] if the current active id collides with an existing inactive entry
 /// - [`RexError::Io`] for filesystem failures
 pub fn run(cwd: &Path, project_id: &str) -> Result<(), RexError> {
-    swap_active(cwd, project_id)?;
-    println!("Activated project '{}'", project_id);
+    let store = ProjectStore::new(cwd);
+    store.swap_active(project_id)?;
+    println!("Activated project '{project_id}'");
     Ok(())
 }

@@ -1,7 +1,7 @@
 use std::{fs, path::Path};
 
 use crate::{
-    bundle::{Bundle, BundleMode, apply_bundle},
+    bundle::{Bundle, BundleMode, apply},
     error::RexError,
 };
 
@@ -13,8 +13,9 @@ use crate::{
 /// # Errors
 /// - [`RexError::Io`] for filesystem failures
 /// - [`RexError::JsonParse`] / [`RexError::JsonSerialize`] for manifest I/O
+/// - [`RexError::BundleFileNotFound`] if the embedded `CLAUDE.md` template is missing
 pub fn run(cwd: &Path, bundle: &Bundle, mode: BundleMode) -> Result<(), RexError> {
-    let summary = apply_bundle(bundle, cwd, mode)?;
+    let summary = apply(bundle, cwd, mode)?;
 
     let active_dir = cwd.join("rex/active");
     if !active_dir.exists() {

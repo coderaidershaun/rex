@@ -3,7 +3,7 @@ use tempfile::TempDir;
 
 use rex_cli::bundle::Bundle;
 use rex_cli::commands::create::{CreateOpts, apply_create};
-use rex_cli::project::{ProjectId, archive_active, parse_pipeline, read_active_project};
+use rex_cli::project::{ProjectId, ProjectStore, parse_pipeline};
 
 fn rex_cmd() -> Command {
     Command::cargo_bin("rex").expect("rex binary must be built")
@@ -23,11 +23,11 @@ fn setup_with_inactive_project(dir: &std::path::Path, project_id: &str) {
         description: None,
         category: "feature".to_owned(),
         complexity: "medium".to_owned(),
-        project_id: ProjectId::new(project_id),
+        project_id: ProjectId::parse(project_id).unwrap(),
         selected_optional_steps: vec![],
     };
     apply_create(dir, &template, opts).unwrap();
-    archive_active(dir).unwrap();
+    ProjectStore::new(dir).archive_active().unwrap();
 }
 
 #[test]
@@ -41,8 +41,11 @@ fn activate_swaps_active_project() {
         .assert()
         .success();
 
-    let active = read_active_project(dir.path()).unwrap();
-    assert_eq!(active.project_id, ProjectId::new("project-alpha"));
+    let active = ProjectStore::new(dir.path()).read_active().unwrap();
+    assert_eq!(
+        active.project_id,
+        ProjectId::parse("project-alpha").unwrap()
+    );
 }
 
 #[test]
@@ -79,6 +82,6 @@ fn activate_archives_current_active() {
         dir.path().join("rex/inactive/project-alpha").exists(),
         "project-alpha must be in inactive after swap"
     );
-    let active = read_active_project(dir.path()).unwrap();
-    assert_eq!(active.project_id, ProjectId::new("project-beta"));
+    let active = ProjectStore::new(dir.path()).read_active().unwrap();
+    assert_eq!(active.project_id, ProjectId::parse("project-beta").unwrap());
 }

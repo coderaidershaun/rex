@@ -1,4 +1,4 @@
-use rex_cli::bundle::{Bundle, BundleMode, Manifest, sha256_hex, write_manifest};
+use rex_cli::bundle::{Bundle, BundleMode, Manifest, apply, sha256_hex};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -86,8 +86,7 @@ fn live_disk_bundle_reads_pipeline_yaml() {
 fn apply_bundle_writes_files_to_fresh_dir() {
     let dir = TempDir::new().unwrap();
     let bundle = Bundle::Embedded;
-    let summary = rex_cli::bundle::apply_bundle(&bundle, dir.path(), BundleMode::Merge)
-        .expect("apply bundle to temp dir");
+    let summary = apply(&bundle, dir.path(), BundleMode::Merge).expect("apply bundle to temp dir");
     assert!(
         summary.written > 0 || summary.noops > 0,
         "fresh init must write or adopt at least one file"
@@ -104,7 +103,7 @@ fn apply_bundle_writes_files_to_fresh_dir() {
 fn apply_bundle_writes_rex_new_sibling_on_three_way_conflict() {
     let dir = TempDir::new().unwrap();
     let bundle = Bundle::Embedded;
-    rex_cli::bundle::apply_bundle(&bundle, dir.path(), BundleMode::Merge).unwrap();
+    apply(&bundle, dir.path(), BundleMode::Merge).unwrap();
 
     let target_rel = "rex/pipeline.yaml";
     let on_disk = dir.path().join(target_rel);
@@ -114,16 +113,14 @@ fn apply_bundle_writes_rex_new_sibling_on_three_way_conflict() {
     // Force manifest != disk and manifest != bundle by writing a fake hash.
     let mut files = HashMap::new();
     files.insert(target_rel.to_owned(), "0".repeat(64));
-    write_manifest(
-        dir.path(),
-        &Manifest {
-            rex_version: "test".to_owned(),
-            files,
-        },
-    )
+    Manifest {
+        rex_version: "test".to_owned(),
+        files,
+    }
+    .save(dir.path())
     .unwrap();
 
-    let summary = rex_cli::bundle::apply_bundle(&bundle, dir.path(), BundleMode::Merge).unwrap();
+    let summary = apply(&bundle, dir.path(), BundleMode::Merge).unwrap();
     assert!(summary.conflicts >= 1, "expected at least one conflict");
 
     let sibling = dir.path().join("rex/pipeline.yaml.rex-new");
@@ -142,9 +139,8 @@ fn apply_bundle_writes_rex_new_sibling_on_three_way_conflict() {
 fn apply_bundle_twice_is_idempotent() {
     let dir = TempDir::new().unwrap();
     let bundle = Bundle::Embedded;
-    rex_cli::bundle::apply_bundle(&bundle, dir.path(), BundleMode::Merge).unwrap();
-    let summary2 = rex_cli::bundle::apply_bundle(&bundle, dir.path(), BundleMode::Merge)
-        .expect("second apply");
+    apply(&bundle, dir.path(), BundleMode::Merge).unwrap();
+    let summary2 = apply(&bundle, dir.path(), BundleMode::Merge).expect("second apply");
     assert_eq!(
         summary2.written + summary2.upgraded + summary2.conflicts,
         0,

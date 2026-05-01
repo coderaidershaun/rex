@@ -1,387 +1,62 @@
-<p align="center">
-  <img src="static/logo.png" alt="Rex" width="200" />
-</p>
+# rex
 
-<h1 align="center">Rex-Cli</h1>
+`rex` is a Rust CLI that manages the `.claude/` harness and project pipeline for AI-assisted development. It initialises the skill bundle in a repo, creates and activates projects, and exposes read-only JSON commands so pipeline agents can fetch project state without ad-hoc YAML parsing.
 
-<p align="center">
-  A CLI for Rust harness management — structure, plan, and execute Rust exclusive projects with AI agents.
-</p>
+## Install
 
-<p align="center">
-  <a href="https://crates.io/crates/rex-cli"><img src="https://img.shields.io/crates/v/rex-cli.svg" alt="crates.io" /></a>
-  <a href="https://github.com/coderaidershaun/rex/blob/main/LICENSE"><img src="https://img.shields.io/crates/l/rex-cli.svg" alt="license" /></a>
-</p>
-
-## Getting Started
-
-### 1. Install
-
-```bash
+```sh
 cargo install rex-cli
 ```
 
-### 2. Create a Project
+## User commands
 
-```bash
-rex project create
-```
-
-Interactive prompts walk you through project ID, complexity, title, category, and which onboarding/design items to include. You'll be asked whether to initialize the rex harness **inside** the project directory — creating a fully self-contained project with its own skills, hooks, and `rex/projects.json`. No separate `rex init` step needed.
-
-If you prefer to initialize the harness first (e.g., at a monorepo root), you can run `rex init` before creating a project.
-
-### 3. Run the Operator
-
-From within **Claude Code** or **Cursor**, invoke the rex operator skill:
-
-```
-/rex-operator
-```
-
-The operator takes it from there — walking you through onboarding, design, planning, and build phases step by step. Each invocation processes one work item, then stops.
-
-### 4. Autorun (Headless Autopilot)
-
-Run the entire project autonomously with Telegram notifications for status updates and human input prompts.
-
-**Telegram environment variables must be available:**
-
-```bash
-export REX_TELEGRAM_CHAT_ID="your-numeric-chat-id"
-export REX_AUTORUN_TELEGRAM_BOT_TOKEN="your-autorun-bot-token"
-export REX_AUTOCHAT_TELEGRAM_BOT_TOKEN="your-chat-bot-token"
-```
-
-Or create a `.env` file in your project root:
-
-```env
-REX_TELEGRAM_CHAT_ID=your-numeric-chat-id
-REX_AUTORUN_TELEGRAM_BOT_TOKEN=your-autorun-bot-token
-REX_AUTOCHAT_TELEGRAM_BOT_TOKEN=your-chat-bot-token
-```
-
-Then start autorun:
-
-```bash
-# Foreground (from the project root)
-rex-autorun
-
-# Background with nohup (recommended for unattended runs)
-# Always use --project-dir with an absolute path so the process
-# finds the correct project regardless of working directory.
-nohup rex-autorun --project-dir /absolute/path/to/project > /dev/null 2>&1 &
-```
-
-Autorun options:
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--project-dir <PATH>` | `.` | Rex project root directory |
-| `--model <MODEL>` | `opus[1m]` / `claude-4.6-opus-high` | Model identifier for the agent CLI |
-| `--max-budget-usd <AMOUNT>` | `50.0` | Max USD per single agent invocation (Claude only) |
-| `--max-total-budget-usd <AMOUNT>` | `500.0` | Hard stop for total spend |
-| `--max-turns <N>` | `200` | Max agentic turns per invocation |
-| `--process-timeout-mins <N>` | `60` | Max minutes per agent process |
-| `--max-retries <N>` | `5` | Max retries for transient failures |
-| `--human-timeout-days <N>` | `1` | Max days to wait for Telegram reply |
-| `--log-file <PATH>` | `.rex-autorun.log` | Path to JSONL log file |
-
-#### Telegram Commands
-
-While autorun is running, you can send commands to your Telegram bot:
-
-| Command | Description |
-|---------|-------------|
-| `/kill <project-id>` | Terminate the autorun session for the given project |
-| `/query <project-id>` | Show live stats (total uptime, context usage, session duration, cost) and list other running autoruns |
-
-Autorun uses reply-to matching — questions are sent with Telegram's ForceReply, and only direct replies to the question message are accepted. Stray messages are safely ignored.
-
-Autorun recovers from crashes automatically, respects budget limits, handles expired auth tokens (sends re-auth URL via Telegram), and exits cleanly when the project is done.
-
-TG Environment variables.
-
-```shell
-export REX_TELEGRAM_CHAT_ID=...
-export REX_Q_TELEGRAM_BOT_TOKEN=...
-export REX_AUTORUN_TELEGRAM_BOT_TOKEN=...
-export REX_AUTOCHAT_TELEGRAM_BOT_TOKEN=...
-```
-
-### Rex Chat
-
-Rex Chat is a project-agnostic Telegram daemon that auto-discovers all rex projects on your machine. Through a single Telegram conversation you can discover running autoruns, start new ones, chat about any project with an AI agent, and diagnose issues — without specifying any project directory.
-
-On startup, rex-chat scans your home directory (or a custom root) for `rex/projects.json` files and presents every discovered project in a Telegram dashboard. It continuously monitors the filesystem every 5 seconds and sends Telegram notifications when:
-
-- A **new project** is created (new `rex/projects.json` discovered)
-- A **project is removed** (registry disappears)
-- An **autorun starts** (`.rex-autorun.json` appears)
-- An **autorun stops** (`.rex-autorun.json` disappears)
-
-```bash
-# Just run it — scans $HOME for all rex projects
-rex-chat
-
-# Or narrow the scan to a specific directory
-rex-chat --scan-dir ~/Code
-
-# Background with nohup
-nohup rex-chat > /dev/null 2>&1 &
-```
-
-Rex Chat options:
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--scan-dir <PATH>` | `$HOME` | Root directory to scan for rex projects |
-| `--max-budget-usd <AMOUNT>` | `10.0` | Max USD per chat invocation |
-| `--max-turns <N>` | `50` | Max agentic turns per chat invocation |
-| `--session-timeout-mins <N>` | `30` | Idle chat session timeout |
-
-#### Chatting
-
-Just type a message and it goes to your active project's AI agent. No menus required.
-
-```
-you:  What's the current state of the orderbook module?
-rex:  🗨️ Rex Chat · polyapi
-      The orderbook module has...
-
-you:  polyapi: check the error handling in src/lib.rs
-rex:  🗨️ Rex Chat · polyapi
-      Looking at src/lib.rs...
-```
-
-- **Bare messages** go to the active project (or the only project if there's just one)
-- **`project-id: message`** targets a specific project and switches context to it
-- **Reply to any rex-chat message** to continue that conversation
-
-#### Telegram Commands
-
-| Command | Description |
-|---------|-------------|
-| `/chat <id>` | Switch active project |
-| `/start <id>` | Start autorun for a project |
-| `/stop <id>` | Stop autorun for a project |
-| `/status [id]` | Show autorun status (all running if no id) |
-| `/projects` | List all discovered projects |
-| `/menu` | Show project dashboard with buttons |
-| `/commands` | Show command help |
-| `/clear` | Clear chat history |
-
-Rex Chat is idle by default — it polls Telegram for messages and monitors project state, but **never calls an LLM** unless you send a chat message. It is safe to leave running permanently. Rex Chat uses its own dedicated bot token, separate from autorun.
-
-#### systemd Service (Ubuntu)
-
-To run rex-chat as a persistent service with automatic restart:
-
-```bash
-sudo tee /etc/systemd/system/rex-chat.service > /dev/null << 'EOF'
-[Unit]
-Description=Rex Chat - Telegram interface for rex projects
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-User=ubuntu
-ExecStart=/home/ubuntu/.cargo/bin/rex-chat
-Restart=on-failure
-
-RestartSec=5
-Environment=HOME=/home/ubuntu
-Environment=PATH=/home/ubuntu/.local/bin:/home/ubuntu/.cargo/bin:/usr/local/bin:/usr/bin:/bin
-EnvironmentFile=/home/ubuntu/.env
-
-# Logging
-StandardOutput=journal
-StandardError=journal
-SyslogIdentifier=rex-chat
-
-[Install]
-WantedBy=multi-user.target
-
-EOF
-```
-
-Then enable and start:
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable rex-chat
-sudo systemctl start rex-chat
-
-# Check status / logs
-sudo systemctl status rex-chat
-journalctl -u rex-chat -f
-```
-
-The service restarts automatically after 5 seconds on failure. Since rex-chat never calls an LLM on its own (only when you send a message), restarts are cheap — just Telegram polling.
-
-## How It Works
-
-Rex manages projects through a structured pipeline:
-
-1. **Onboarding** — define your goal, scope, risks, resources, and success measures
-2. **Design** — architecture, modules, error handling, integration tests, library review
-3. **Planning** — milestones, objectives, and tasks with dependency tracking
-4. **Build** — agents execute tasks guided by the harness
-
-Rex gives AI agents the scaffolding they need to build real software — tracking state across sessions, enforcing phase gates, and keeping work on the rails.
-
-## Quickstart Example — Monorepo with Individual Projects
-
-Create a private monorepo on GitHub (without the rex harness at the workspace level), then add projects that each have their own self-contained rex harness:
-
-```bash
-# 1. Create a bare workspace with a private GitHub repo
-rex mono --name rex-projects --no-harness --with-git-repo private
-
-# 2. Move into the workspace
-cd rex-projects
-
-# 3. Create your first project — rex harness lives inside the project
-rex project create
-# When prompted:
-#   - Project ID: api-server
-#   - Directory: libs/api-server
-#   - "Initialize rex harness inside the project directory?" → Yes
-
-# 4. Create a second project
-rex project create
-# When prompted:
-#   - Project ID: shared-types
-#   - Directory: libs/shared-types
-#   - "Initialize rex harness inside the project directory?" → Yes
-
-# 5. Run the operator from inside a project directory
-cd libs/api-server
-# Then invoke /rex-operator from Claude Code or Cursor
-```
-
-Each project under `libs/` has its own harness config, `rex/`, and root instructions file — fully independent harnesses that can be worked on in separate agent sessions. The workspace `Cargo.toml` automatically includes all crates under `libs/*`.
-
-To run autorun headlessly for a specific project in the background:
-
-```bash
-# From anywhere — just point --project-dir at the project's absolute path
-nohup rex-autorun --project-dir /absolute/path/to/rex-projects/libs/api-server > /dev/null 2>&1 &
-```
-
-## CLI Reference
-
-### Project Management
-
-| Command | Description |
+| Command | Purpose |
 |---|---|
-| `rex init` | Initialize the harness in the current directory |
-| `rex project create [--with-git-repo <public\|private>]` | Create a new project interactively |
-| `rex project get-active` | Show the current active project |
-| `rex project activate <ID>` | Switch to a different project |
-| `rex project remove <ID>` | Remove a project |
-| `rex project next-item` | Get the next actionable work item (JSON) |
-| `rex project lock` | Lock the active project |
-| `rex project unlock` | Unlock the active project |
-| `rex project update [FLAGS]` | Update project fields (title, subtitle, description, directory, category, complexity) |
-| `rex project update-status <ITEM> <STATUS>` | Update a work item's status |
-| `rex project get-completion-percent` | Get project completion percentage (JSON) |
-| `rex project get-user-input` | Read and consume user-provided input |
+| `rex init` | Extract or update the `.claude/` bundle in the current directory. |
+| `rex init --force` | Overwrite all bundle files regardless of local modifications. |
+| `rex create` | Create a new project interactively (prompts for title, category, complexity). |
+| `rex activate <id>` | Activate an inactive project by ID, archiving the current active first. |
 
-### Planning Tree
+## Agent commands
 
-| Command | Description |
+These commands are agent-facing. They print JSON to stdout and exit 0 on success, non-zero when no active project exists.
+
+| Command | Output |
 |---|---|
-| `rex milestone upsert` | Create or update a milestone |
-| `rex milestone get <ID>` | Get a milestone by ID |
-| `rex milestone list` | List milestones |
-| `rex milestone remove <ID>` | Remove a milestone |
-| `rex objective upsert` | Create or update an objective |
-| `rex objective get <ID>` | Get an objective by ID |
-| `rex objective list` | List objectives |
-| `rex objective remove <ID>` | Remove an objective |
-| `rex task upsert` | Create or update a task |
-| `rex task get <ID>` | Get a task by ID |
-| `rex task list` | List tasks |
-| `rex task next` | Get the next task to work on |
-| `rex task remove <ID>` | Remove a task |
+| `rex project` | Full `rex/active/project.yaml` as JSON, including every step. |
+| `rex project meta` | Project metadata only — no `steps` key. Matches the project envelope shape. |
+| `rex project step` | First incomplete step as JSON, or `{"status":"all-steps-complete"}` when done. |
+| `rex project step complete` | Mark the first incomplete step in `rex/active/project.yaml` as completed. Prints the just-completed step as JSON, or `{"status":"all-steps-complete"}` when nothing remains. |
+| `rex project chunk-next` | Print the next pending chunk from `schedule.json` as JSON, or `{"status":"all-chunks-complete"}`. |
+| `rex project chunk-prior` | Print the most recently completed chunk from `schedule.json`, or `{"status":"no-prior-chunk"}`. |
+| `rex project task complete` | Mark the current task done in `schedule.json` and increment counters in `project.yaml`. Auto-promotes the parent chunk and phase when their tasks/chunks all reach `done`. Prints the updated task as JSON. |
 
-### Checklist & History
+## Schedule editing
 
-| Command | Description |
+CLI for editing `rex/active/<id>/schedule.json`. Every mutation auto-rewrites
+`blocked_by` references and recomputes counters in `project.yaml`. Agents must
+not edit `schedule.json` directly.
+
+| Command | Action |
 |---|---|
-| `rex checklist init` | Initialize an empty checklist |
-| `rex checklist add` | Add a checklist item |
-| `rex checklist list` | List checklist items |
-| `rex checklist complete <ID>` | Mark a checklist item as done |
-| `rex checklist uncomplete <ID>` | Mark a checklist item as not done |
-| `rex checklist set-context <CTX>` | Set checklist context text |
-| `rex history list` | View all session history |
-| `rex history get-recent` | View recent history entries |
+| `rex project schedule show` | Print the full schedule as JSON. |
+| `rex project schedule replace --file <path>` | Atomically replace the schedule (used by the initial scheduler agent). |
+| `rex project schedule phase add ...` | Append a phase. Returns the new phase as JSON. |
+| `rex project schedule phase update <addr> ...` | Update phase fields. Renames rewrite refs. |
+| `rex project schedule phase remove <addr>` | Remove phase + every chunk/task it owns. Drops dangling `blocked_by`. |
+| `rex project schedule phase move <addr> --to <pos>` | Reorder phases. |
+| `rex project schedule chunk add --phase <addr> ...` | Append a chunk to a phase. |
+| `rex project schedule chunk update <addr> ...` | Update chunk fields. |
+| `rex project schedule chunk remove <addr>` | Remove chunk + tasks. Drops dangling refs. |
+| `rex project schedule chunk move <addr> [--to-phase <addr>] [--to <pos>]` | Reorder / re-parent. |
+| `rex project schedule task add --chunk <addr> ...` | Append a task to a chunk. |
+| `rex project schedule task update <addr> ...` | Update task fields. |
+| `rex project schedule task remove <addr>` | Remove task. Drops dangling refs. |
+| `rex project schedule task move <addr> [--to-chunk <addr>] [--to <pos>]` | Reorder / re-parent. |
 
-### Autorun
+`<addr>` is either a slug id or a 1-indexed dotted position (`1`, `1.2`, `1.2.3`).
 
-| Command | Description |
-|---|---|
-| `rex autorun list [--json]` | List running autoruns across all registered projects |
+## Further reading
 
-### Monorepo
-
-| Command | Description |
-|---|---|
-| `rex mono --name <NAME> [--no-harness] [--with-git-repo <public\|private>]` | Create a Cargo workspace monorepo |
-
-Run `rex --help`, `rex --commands`, or `rex <command> --help` for full usage details.
-
-## Harness Support: Claude Code vs Cursor
-
-Rex supports two AI agent harnesses, selected at compile time via Cargo feature flags:
-
-```bash
-cargo install rex-cli # Claude Code (default)
-cargo install rex-cli --no-default-features --features cursor  # Cursor
-```
-
-The features are mutually exclusive — each build targets one harness.
-
-### What differs between harnesses
-
-| Area | Claude Code (`--features claude`) | Cursor (`--features cursor`) |
-|------|----------------------------------|------------------------------|
-| CLI executable | `claude` | `agent` |
-| Permission flag | `--dangerously-skip-permissions` | `--force` |
-| System prompt | `--append-system-prompt` | Prepended to prompt text |
-| Effort level | `--effort high` | Encoded in model name (e.g. `-high`) |
-| Budget flags | `--max-budget-usd`, `--max-total-budget-usd` | Ignored (subscription model) |
-| Max turns | `--max-turns N` | Not supported |
-| Session name | `--name` | Not supported |
-| Default model | `opus[1m]` | `claude-4.6-opus-high` |
-| Config directory | `.claude/` | `.cursor/` |
-| Root instructions | `CLAUDE.md` | `AGENTS.md` |
-| Settings format | `.claude/settings.json` (nested) | `.cursor/hooks.json` (flat) |
-| Auth refresh | Spawns `claude auth login` | Manual (`agent login` / `CURSOR_API_KEY`) |
-| Cost tracking | Per-invocation + total budget enforcement | Disabled (subscription) |
-
-Both harnesses support `--resume <session-id>`, `--output-format json`, and process group isolation for orphan cleanup.
-
-### Where the differences live in code
-
-| File(s) | What's gated |
-|---------|-------------|
-| `src/autorun/harness/claude.rs`, `cursor.rs` | `spawn_agent` / `await_agent` — CLI args, executable, prompt assembly |
-| `src/autorun/harness/mod.rs` | Feature-gated re-exports |
-| `src/autorun/runner.rs` | `--model` default, budget check, cost accumulation, `attempt_auth_refresh` |
-| `src/chat/sessions.rs` | Command building in `spawn_and_await` |
-| `src/chat/daemon.rs` | `--model` default |
-| `src/commands/init.rs` | `include_dir!` paths, config dir, root file, settings format/merge |
-| `src/models/project_status.rs` | `MODEL_SONNET` / `MODEL_OPUS` constants |
-| `.claude/hooks/`, `.cursor/hooks/` | Hook scripts (`$CLAUDE_PROJECT_DIR` vs `$CURSOR_PROJECT_DIR`) |
-
-### Shared code (harness-agnostic)
-
-Everything in `src/autorun/harness/shared.rs` is identical for both: `AUTORUN_SYSTEM_PROMPT`, `parse_operator_result`, `kill_process_group`, `is_auth_error`, `is_retryable`. All skills, project management commands, planning tree, and Telegram integration are harness-agnostic.
-
-## License
-
-[MIT](LICENSE)
+- `.claude/skills/` — the agent skill set loaded by pipeline steps.
+- `rex/pipeline.yaml` — the pipeline template used when creating new projects.

@@ -2,3 +2,7 @@
 mod cli_activate;
 #[path = "integration/cli_init.rs"]
 mod cli_init;
+#[path = "integration/cli_project.rs"]
+mod cli_project;
+#[path = "integration/cli_schedule.rs"]
+mod cli_schedule;

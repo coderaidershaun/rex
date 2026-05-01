@@ -7,8 +7,7 @@ use crate::{
     bundle::Bundle,
     error::RexError,
     project::{
-        ProjectId, ProjectYaml, archive_active, has_active_project, list_inactive, parse_pipeline,
-        prune_steps, write_active_project,
+        PipelineTemplate, ProjectId, ProjectStore, ProjectYaml, parse_pipeline, prune_steps,
     },
 };
 
@@ -34,8 +33,10 @@ pub struct CreateOpts {
 ///
 /// # Errors
 /// - [`RexError::PromptCancelled`] if user exits prompts
+/// - [`RexError::InvalidProjectId`] if the entered project-id is empty/whitespace-only
 /// - [`RexError::SlugCollision`] if the chosen project-id already exists in inactive
 /// - [`RexError::Io`] for filesystem failures
+/// - [`RexError::Yaml`] if the embedded pipeline YAML is malformed
 pub fn run(cwd: &Path, bundle: &Bundle) -> Result<(), RexError> {
     let pipeline_bytes = bundle.read_file(Path::new("rex/pipeline.yaml"))?;
     let pipeline_yaml = String::from_utf8_lossy(&pipeline_bytes);
@@ -96,12 +97,12 @@ pub fn run(cwd: &Path, bundle: &Bundle) -> Result<(), RexError> {
         .map_err(|_| RexError::PromptCancelled)?
         .to_owned();
 
-    let project_id = ProjectId::new(
+    let project_id = ProjectId::parse(
         Text::new("Project ID:")
             .with_default(&default_id)
             .prompt()
             .map_err(|_| RexError::PromptCancelled)?,
-    );
+    )?;
 
     let optional_step_refs: Vec<&str> = optional_steps.iter().map(String::as_str).collect();
     let selected: Vec<String> = if optional_steps.is_empty() {
@@ -133,24 +134,19 @@ pub fn run(cwd: &Path, bundle: &Bundle) -> Result<(), RexError> {
 /// - [`RexError::Io`] for filesystem failures
 pub fn apply_create(
     cwd: &Path,
-    template: &crate::project::PipelineTemplate,
+    template: &PipelineTemplate,
     opts: CreateOpts,
 ) -> Result<(), RexError> {
-    let inactive_target = cwd.join("rex/inactive").join(opts.project_id.as_str());
-    if inactive_target.exists() {
-        return Err(RexError::SlugCollision {
-            path: inactive_target,
-        });
-    }
+    let store = ProjectStore::new(cwd);
 
-    let inactive_ids = list_inactive(cwd)?;
+    let inactive_ids = store.list_inactive()?;
     if inactive_ids.contains(&opts.project_id) {
         return Err(RexError::SlugCollision {
             path: cwd.join("rex/inactive").join(opts.project_id.as_str()),
         });
     }
 
-    if has_active_project(cwd) {
+    if store.has_active() {
         let confirm = Confirm::new("Archive existing active project?")
             .with_default(true)
             .prompt()
@@ -159,7 +155,7 @@ pub fn apply_create(
             println!("Aborted.");
             return Ok(());
         }
-        let archived_id = archive_active(cwd)?;
+        let archived_id = store.archive_active()?;
         println!("Archived active project to rex/inactive/{archived_id}");
     }
 
@@ -185,7 +181,7 @@ pub fn apply_create(
         steps,
     };
 
-    write_active_project(cwd, &project)?;
+    store.write_active(&project)?;
 
     println!(
         "Created project '{}' at rex/active/project.yaml",

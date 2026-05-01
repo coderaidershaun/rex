@@ -9,8 +9,8 @@ pub enum RexError {
         source: std::io::Error,
     },
 
-    #[error("yaml parse failed at {}", path.display())]
-    YamlParse {
+    #[error("yaml error at {}", path.display())]
+    Yaml {
         path: PathBuf,
         #[source]
         source: serde_yml::Error,
@@ -24,7 +24,7 @@ pub enum RexError {
     },
 
     #[error("json serialize failed")]
-    JsonSerialize(#[source] serde_json::Error),
+    JsonSerialize(#[from] serde_json::Error),
 
     #[error("inactive project already exists at {}", path.display())]
     SlugCollision { path: PathBuf },
@@ -35,8 +35,8 @@ pub enum RexError {
     #[error("no active project found at {}", path.display())]
     NoActiveProject { path: PathBuf },
 
-    #[error("active project has no project-id field")]
-    MissingProjectId,
+    #[error("invalid project-id: {reason}")]
+    InvalidProjectId { reason: String },
 
     #[error("pipeline yaml contains no steps")]
     EmptyPipeline,
@@ -46,4 +46,25 @@ pub enum RexError {
 
     #[error("bundle file not found: {}", path.display())]
     BundleFileNotFound { path: PathBuf },
+
+    #[error("schedule file not found: {}", path.display())]
+    ScheduleNotFound { path: PathBuf },
+
+    #[error("schedule address not found: {addr}")]
+    ScheduleAddrNotFound { addr: String },
+
+    #[error("blocked-by cycle detected involving {addr}")]
+    BlockedByCycle { addr: String },
+
+    #[error("duplicate slug {addr}")]
+    DuplicateSlug { addr: String },
+
+    #[error("ambiguous address '{addr}' — matches: {candidates}")]
+    AmbiguousAddr { addr: String, candidates: String },
+
+    #[error("replace would regress state for: {offenders}")]
+    ReplaceWouldRegressState { offenders: String },
+
+    #[error("invalid slug: {reason}")]
+    InvalidSlug { reason: String },
 }

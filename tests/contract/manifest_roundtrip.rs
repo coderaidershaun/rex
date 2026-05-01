@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use tempfile::TempDir;
 
-use rex_cli::bundle::{Manifest, read_manifest, write_manifest};
+use rex_cli::bundle::Manifest;
 
 #[test]
 fn roundtrip_empty_manifest() {
@@ -10,8 +10,8 @@ fn roundtrip_empty_manifest() {
         rex_version: "0.4.0".to_owned(),
         files: HashMap::new(),
     };
-    write_manifest(dir.path(), &manifest).expect("write manifest");
-    let loaded = read_manifest(dir.path())
+    manifest.save(dir.path()).expect("write manifest");
+    let loaded = Manifest::load(dir.path())
         .expect("read manifest")
         .expect("manifest must be present after write");
     assert_eq!(loaded.rex_version, "0.4.0");
@@ -31,8 +31,8 @@ fn roundtrip_with_entries() {
         rex_version: "0.4.0".to_owned(),
         files,
     };
-    write_manifest(dir.path(), &manifest).expect("write manifest");
-    let loaded = read_manifest(dir.path())
+    manifest.save(dir.path()).expect("write manifest");
+    let loaded = Manifest::load(dir.path())
         .expect("read manifest")
         .expect("present");
     assert_eq!(loaded.files.len(), 2);
@@ -45,7 +45,7 @@ fn roundtrip_with_entries() {
 #[test]
 fn read_manifest_returns_none_when_absent() {
     let dir = TempDir::new().unwrap();
-    let result = read_manifest(dir.path()).expect("no error when manifest absent");
+    let result = Manifest::load(dir.path()).expect("no error when manifest absent");
     assert!(result.is_none());
 }
 
@@ -56,7 +56,7 @@ fn write_manifest_is_atomic_no_partial_on_disk() {
         rex_version: "0.4.0".to_owned(),
         files: HashMap::new(),
     };
-    write_manifest(dir.path(), &manifest).unwrap();
+    manifest.save(dir.path()).unwrap();
     // tmp file must not linger after write
     let tmp = dir.path().join(".claude/.rex-manifest.json.tmp");
     assert!(
