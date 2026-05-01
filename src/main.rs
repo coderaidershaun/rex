@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
-use clap::{Parser, Subcommand};
+use clap::{ArgGroup, Args, Parser, Subcommand};
 
 use rex_cli::bundle::{Bundle, BundleMode};
 use rex_cli::commands::schedule::{ChunkUpdateInput, TaskUpdateInput};
@@ -45,6 +45,9 @@ enum ProjectCommand {
     /// Print project metadata only (no steps).
     Meta,
 
+    /// Update title / subtitle / description on the active project.
+    Update(UpdateArgs),
+
     /// Print the first incomplete step, or mark it done with `step complete`.
     Step {
         #[command(subcommand)]
@@ -68,6 +71,25 @@ enum ProjectCommand {
         #[command(subcommand)]
         sub: ScheduleCommand,
     },
+}
+
+#[derive(Args)]
+#[command(group(
+    ArgGroup::new("meta_fields")
+        .required(true)
+        .multiple(true)
+        .args(["title", "subtitle", "description"])
+))]
+struct UpdateArgs {
+    /// New title. Pass an empty string to clear.
+    #[arg(long)]
+    title: Option<String>,
+    /// New subtitle. Pass an empty string to clear.
+    #[arg(long)]
+    subtitle: Option<String>,
+    /// New description. Pass an empty string to clear.
+    #[arg(long)]
+    description: Option<String>,
 }
 
 #[derive(Subcommand)]
@@ -266,6 +288,12 @@ fn main() -> Result<()> {
             Some(ProjectCommand::Meta) => {
                 project::run_meta(&cwd).context("rex project meta failed")?
             }
+            Some(ProjectCommand::Update(UpdateArgs {
+                title,
+                subtitle,
+                description,
+            })) => project::run_update(&cwd, title, subtitle, description)
+                .context("rex project update failed")?,
             Some(ProjectCommand::Step { sub: None }) => {
                 project::run_step(&cwd).context("rex project step failed")?
             }

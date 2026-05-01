@@ -25,6 +25,7 @@ These commands are agent-facing. They print JSON to stdout and exit 0 on success
 |---|---|
 | `rex project` | Full `rex/active/project.yaml` as JSON, including every step. |
 | `rex project meta` | Project metadata only — no `steps` key. Matches the project envelope shape. |
+| `rex project update [--title <T>] [--subtitle <S>] [--description <D>]` | Set any combination of `title` / `subtitle` / `description` on `rex/active/project.yaml`. At least one flag required; empty string clears the field to `null`. Prints the updated metadata as JSON. Typical use: refine these fields once the discovery step has sharpened the brief. |
 | `rex project step` | First incomplete step as JSON, or `{"status":"all-steps-complete"}` when done. |
 | `rex project step complete` | Mark the first incomplete step in `rex/active/project.yaml` as completed. Prints the just-completed step as JSON, or `{"status":"all-steps-complete"}` when nothing remains. |
 | `rex project chunk-next` | Print the next pending chunk from `schedule.json` as JSON, or `{"status":"all-chunks-complete"}`. |

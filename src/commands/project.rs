@@ -129,6 +129,49 @@ pub fn run_chunk_prior(cwd: &Path) -> Result<(), RexError> {
     Ok(())
 }
 
+/// Update the human-readable metadata fields on the active `project.yaml`.
+///
+/// Each `Some(value)` overwrites the corresponding field; `None` leaves it
+/// untouched. Pass `Some("")` to clear a field back to `null`. The CLI rejects
+/// invocations with no fields supplied via a clap arg group, so the no-op case
+/// never reaches this function.
+///
+/// Prints the updated [`ProjectMeta`] as pretty JSON.
+///
+/// # Errors
+/// - [`RexError::NoActiveProject`] when `rex/active/project.yaml` is absent
+/// - [`RexError::Io`] / [`RexError::Yaml`] / [`RexError::JsonSerialize`] for I/O failures
+pub fn run_update(
+    cwd: &Path,
+    title: Option<String>,
+    subtitle: Option<String>,
+    description: Option<String>,
+) -> Result<(), RexError> {
+    let store = ProjectStore::new(cwd);
+    let mut project = store.read_active()?;
+
+    if let Some(t) = title {
+        project.title = nullable(t);
+    }
+    if let Some(s) = subtitle {
+        project.subtitle = nullable(s);
+    }
+    if let Some(d) = description {
+        project.description = nullable(d);
+    }
+
+    store.write_active(&project)?;
+
+    let meta = ProjectMeta::from(&project);
+    let json = serde_json::to_string_pretty(&meta)?;
+    println!("{json}");
+    Ok(())
+}
+
+fn nullable(s: String) -> Option<String> {
+    if s.is_empty() { None } else { Some(s) }
+}
+
 /// Mark the current task done in `schedule.json`, increment counters in `project.yaml`.
 ///
 /// Auto-promotes the parent chunk when its last task completes, and the parent

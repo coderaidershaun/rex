@@ -60,6 +60,7 @@ After inner loop ends:
   [ ] ingest the `inputs` document(s) if any
   [ ] complete the step using the skill
   [ ] write the `outputs` document(s) if any
+  [ ] **if step is `discovery`** — once discovery is complete you have a sharper read on the project than the slug-derived title gave us. Refine `project.yaml` metadata in one call: `rex project update --title "<concise human title>" --subtitle "<one-line hook>" --description "<2–3 sentence brief>"`. Skip any field that is already accurate; pass an empty string to clear.
   [ ] run `rex project step complete`
   [ ] continue outer loop
 

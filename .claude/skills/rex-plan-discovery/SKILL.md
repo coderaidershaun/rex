@@ -7,6 +7,8 @@ user-invocable: true
 
 # rex-plan-discovery
 
+Relentlessly interview me about the work at hand until we both have completed and shared understanding and agreement. Ask only one quesiton at a time. Always give options and a recommendation when it makes sense. This is a hard rule.
+
 I/O contract lives in `rex-utils-task-request`. Reads inputs given. Writes to outputs given. Never hardcode paths in this skill — task envelope is authoritative.
 
 <what-to-do>
