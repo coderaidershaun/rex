@@ -108,7 +108,10 @@ pub fn run(cwd: &Path, bundle: &Bundle) -> Result<(), RexError> {
     let selected: Vec<String> = if optional_steps.is_empty() {
         Vec::new()
     } else {
+        let all_indices: Vec<usize> = (0..optional_step_refs.len()).collect();
         let chosen = inquire::MultiSelect::new("Select optional steps:", optional_step_refs)
+            .with_default(&all_indices)
+            .with_page_size(optional_steps.len().max(1))
             .prompt()
             .map_err(|_| RexError::PromptCancelled)?;
         chosen.into_iter().map(str::to_owned).collect()

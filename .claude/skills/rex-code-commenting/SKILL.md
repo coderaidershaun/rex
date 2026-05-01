@@ -37,6 +37,8 @@ If WHY obvious from name + structure -> delete comment.
 - **AI-generated noise.** LLM produce verbose what-comments. Strip ruthlessly on commit.
 - **Redundant docstring.** `@param userId — the user id`. Type say it. Delete.
 
+All modules must start with 1-2 lines of `//!` comments explaining why the module is necessary.
+
 ## Allowed — narrow whitelist
 
 1. **WHY non-obvious.** "Sort manual b/c stdlib O(n²) on near-sorted input. Bench shows 4x faster."
