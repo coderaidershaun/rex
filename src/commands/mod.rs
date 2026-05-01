@@ -1,10 +1,3 @@
-pub mod autorun;
-pub mod checklist;
-pub mod git;
-pub mod history;
+pub mod activate;
+pub mod create;
 pub mod init;
-pub mod milestone;
-pub mod mono;
-pub mod objective;
-pub mod project;
-pub mod task;

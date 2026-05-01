@@ -1,6 +1,6 @@
 [package]
 name = "rex-cli"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 authors = ["Shaun McDonogh"]
 description = "CLI for Rust project harness management"
@@ -9,44 +9,38 @@ repository = "https://github.com/coderaidershaun/rex"
 readme = "README.md"
 keywords = ["harness", "auto-harness", "project-management", "agent", "workflow"]
 categories = ["command-line-utilities", "development-tools"]
-exclude = ["rex/projects.json", "rex/<insert-project-id>/", "skills-lock.json", ".claude/settings.local.json", "CLAUDE.md", ".cursor/settings.local.json", "AGENTS.md"]
-
-[features]
-default = ["claude"]
-claude = []
-cursor = []
+include = [
+    ".claude/**/*",
+    "rex/pipeline.yaml",
+    "templates/**/*",
+    "src/**/*",
+    "Cargo.toml",
+    "README.md",
+    "LICENSE",
+]
 
 [[bin]]
 name = "rex"
-path = "src/bin/main.rs"
-
-[[bin]]
-name = "rex-autorun"
-path = "src/bin/autorun.rs"
-
-[[bin]]
-name = "rex-chat"
-path = "src/bin/chat.rs"
+path = "src/main.rs"
 
 [lib]
 name = "rex_cli"
 path = "src/lib.rs"
 
 [dependencies]
-clap = { version = "4", features = ["derive"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-dialoguer = "0.12"
-console = "0.16"
-inquire = "0.9.4"
-crossterm = "0.29"
-include_dir = "0.7"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "time", "signal", "fs"] }
-reqwest = { version = "0.13", features = ["json", "rustls"] }
-chrono = { version = "0.4", features = ["serde"] }
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-dotenvy = "0.15"
-libc = "0.2"
-thiserror = "2.0.18"
-teloxide = { version = "0.17", features = ["macros"] }
+clap = { version = "4.6.1", default-features = false, features = ["derive", "std", "help", "usage", "error-context"] }
+include_dir = { version = "0.7.4", default-features = false }
+serde = { version = "1.0.228", default-features = false, features = ["derive"] }
+serde_yml = { version = "0.0.12", default-features = false }
+serde_json = { version = "1.0.149", default-features = false, features = ["std"] }
+inquire = { version = "0.9.4", default-features = false, features = ["crossterm"] }
+slug = { version = "0.1.6", default-features = false }
+sha2 = { version = "0.11.0", default-features = false, features = ["alloc"] }
+hex = { version = "0.4.3", default-features = false, features = ["std"] }
+thiserror = { version = "2.0.18", default-features = false }
+walkdir = { version = "2.5.0", default-features = false }
+anyhow = { version = "1.0.102", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+tempfile = { version = "3.27.0", default-features = false }
+assert_cmd = { version = "2.2.1", default-features = false }
