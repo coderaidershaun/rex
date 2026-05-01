@@ -58,7 +58,11 @@ pub fn run_step(cwd: &Path) -> Result<(), RexError> {
 
 /// Mark the first incomplete step as `completed = true` in `project.yaml`.
 ///
-/// Sets the top-level `completed` flag when every required step is done.
+/// Sets the top-level `completed` flag when every step is done. `prune_steps`
+/// already kept only the steps the user opted into at create time, so every
+/// remaining step counts toward completion equally — there is no separate
+/// required-vs-optional distinction at runtime.
+///
 /// Prints the just-completed step as pretty JSON, or `{"status":"all-steps-complete"}`
 /// when no incomplete step remains.
 ///
@@ -73,8 +77,7 @@ pub fn run_step_complete(cwd: &Path) -> Result<(), RexError> {
         None => status_json("all-steps-complete")?,
         Some(idx) => {
             project.steps[idx].completed = true;
-            let all_required_done = project.steps.iter().all(|s| !s.required || s.completed);
-            if all_required_done {
+            if project.steps.iter().all(|s| s.completed) {
                 project.completed = true;
             }
             let step = project.steps[idx].clone();

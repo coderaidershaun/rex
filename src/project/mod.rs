@@ -74,6 +74,14 @@ pub struct PipelineStep {
     /// Step identifier, e.g. `discovery`, `prd`.
     pub step: String,
     /// `true` when the step must run for every project.
+    ///
+    /// Source of truth lives in `rex/pipeline.yaml` (embedded in the binary).
+    /// We read it during template prune (`prune_steps`) and during the
+    /// "Always included" message in `rex create`, but never persist it to
+    /// `project.yaml` — once a step lands in a project file the user has
+    /// already opted in, so the required/optional distinction stops mattering.
+    /// Defaults to `false` on deserialize so older project files load cleanly.
+    #[serde(default, skip_serializing)]
     pub required: bool,
     /// Skill the step invokes, if any.
     #[serde(skip_serializing_if = "Option::is_none")]
