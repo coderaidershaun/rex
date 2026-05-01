@@ -361,9 +361,7 @@ fn setup_with_schedule(dir: &std::path::Path, project_id: &str, done_chunks: usi
             ],
         }],
     };
-    store
-        .write_schedule(&ProjectId::parse(project_id).unwrap(), &schedule)
-        .unwrap();
+    store.write_schedule(&schedule).unwrap();
 }
 
 // --- `rex project chunk-next` ---
@@ -566,7 +564,7 @@ fn task_complete_increments_project_counters() {
     );
 
     // Counter invariant: tasks_completed in project.yaml == Done tasks in schedule.json
-    let schedule = store.read_schedule(&project.project_id).unwrap();
+    let schedule = store.read_schedule().unwrap();
     let done_count = schedule
         .phases
         .iter()

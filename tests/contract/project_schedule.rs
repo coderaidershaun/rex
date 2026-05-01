@@ -87,11 +87,10 @@ fn schedule_roundtrip_via_store() {
     make_active_project(dir.path(), "roundtrip-project");
 
     let store = ProjectStore::new(dir.path());
-    let project_id = ProjectId::parse("roundtrip-project").unwrap();
     let original = make_schedule("roundtrip-project");
-    store.write_schedule(&project_id, &original).unwrap();
+    store.write_schedule(&original).unwrap();
 
-    let loaded = store.read_schedule(&project_id).unwrap();
+    let loaded = store.read_schedule().unwrap();
     assert_eq!(loaded.project, original.project);
     assert_eq!(loaded.phases.len(), original.phases.len());
     assert_eq!(loaded.phases[0].chunks[0].tasks[0].id, "task-one");
@@ -289,12 +288,9 @@ fn write_schedule_with_counters_syncs_project_yaml() {
     make_active_project(dir.path(), "counter-sync-test");
 
     let store = ProjectStore::new(dir.path());
-    let project_id = ProjectId::parse("counter-sync-test").unwrap();
     let schedule = two_phase_schedule();
 
-    store
-        .write_schedule_with_counters(&project_id, &schedule)
-        .unwrap();
+    store.write_schedule_with_counters(&schedule).unwrap();
 
     let project = store.read_active().unwrap();
     assert_eq!(project.chunks_required, 2);

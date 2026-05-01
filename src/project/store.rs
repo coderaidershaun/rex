@@ -141,25 +141,22 @@ impl ProjectStore {
         })
     }
 
-    /// Absolute path to `rex/active/<project-id>/schedule.json`.
+    /// Absolute path to the active project's `schedule.json`.
     ///
-    /// Caller passes the id explicitly so this method does not re-read
-    /// `project.yaml` on every call.
-    pub fn schedule_path(&self, project_id: &ProjectId) -> PathBuf {
-        self.root
-            .join(ACTIVE_DIR)
-            .join(project_id.as_str())
-            .join(SCHEDULE_FILE)
+    /// The active project lives flat under `rex/active/`; the slug only enters
+    /// paths at archive boundaries.
+    pub fn schedule_path(&self) -> PathBuf {
+        self.root.join(ACTIVE_DIR).join(SCHEDULE_FILE)
     }
 
-    /// Read and deserialize `schedule.json` for `project_id`.
+    /// Read and deserialize the active project's `schedule.json`.
     ///
     /// # Errors
     /// - [`RexError::ScheduleNotFound`] when the file is absent
     /// - [`RexError::Io`] for other filesystem failures
     /// - [`RexError::JsonParse`] if the JSON is malformed
-    pub fn read_schedule(&self, project_id: &ProjectId) -> Result<Schedule, RexError> {
-        let path = self.schedule_path(project_id);
+    pub fn read_schedule(&self) -> Result<Schedule, RexError> {
+        let path = self.schedule_path();
         if !path.exists() {
             return Err(RexError::ScheduleNotFound { path });
         }
@@ -170,19 +167,15 @@ impl ProjectStore {
         serde_json::from_str(&raw).map_err(|source| RexError::JsonParse { path, source })
     }
 
-    /// Serialize and write `schedule.json` for `project_id`.
+    /// Serialize and write the active project's `schedule.json`.
     ///
-    /// Creates the `rex/active/<project-id>/` directory if it does not exist.
+    /// Creates the `rex/active/` directory if it does not exist.
     ///
     /// # Errors
     /// - [`RexError::Io`] for filesystem failures
     /// - [`RexError::JsonSerialize`] if serialization fails
-    pub fn write_schedule(
-        &self,
-        project_id: &ProjectId,
-        schedule: &Schedule,
-    ) -> Result<(), RexError> {
-        let path = self.schedule_path(project_id);
+    pub fn write_schedule(&self, schedule: &Schedule) -> Result<(), RexError> {
+        let path = self.schedule_path();
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(|source| RexError::Io {
                 path: parent.to_path_buf(),
@@ -203,18 +196,14 @@ impl ProjectStore {
     /// # Errors
     /// - [`RexError::NoActiveProject`] when `project.yaml` is absent.
     /// - [`RexError::Io`] / [`RexError::Yaml`] / [`RexError::JsonSerialize`] for I/O failures.
-    pub fn write_schedule_with_counters(
-        &self,
-        project_id: &ProjectId,
-        schedule: &Schedule,
-    ) -> Result<(), RexError> {
+    pub fn write_schedule_with_counters(&self, schedule: &Schedule) -> Result<(), RexError> {
         let counters = counters_for(schedule);
         let mut project = self.read_active()?;
         project.chunks_required = counters.chunks_required;
         project.tasks_required = counters.tasks_required;
         project.chunks_completed = counters.chunks_completed;
         project.tasks_completed = counters.tasks_completed;
-        self.write_schedule(project_id, schedule)?;
+        self.write_schedule(schedule)?;
         self.write_active(&project)
     }
 

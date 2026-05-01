@@ -39,9 +39,7 @@ fn setup(dir: &std::path::Path, project_id: &str) {
         project: ProjectId::parse(project_id).unwrap(),
         phases: vec![],
     };
-    store
-        .write_schedule(&ProjectId::parse(project_id).unwrap(), &schedule)
-        .unwrap();
+    store.write_schedule(&schedule).unwrap();
 }
 
 /// Seed project + a schedule with two phases, two chunks in phase-a, one in phase-b,
@@ -118,15 +116,11 @@ fn setup_rich(dir: &std::path::Path, project_id: &str) {
             },
         ],
     };
-    store
-        .write_schedule(&ProjectId::parse(project_id).unwrap(), &schedule)
-        .unwrap();
+    store.write_schedule(&schedule).unwrap();
 }
 
-fn read_schedule(dir: &std::path::Path, project_id: &str) -> Schedule {
-    let store = ProjectStore::new(dir);
-    let id = ProjectId::parse(project_id).unwrap();
-    store.read_schedule(&id).unwrap()
+fn read_schedule(dir: &std::path::Path) -> Schedule {
+    ProjectStore::new(dir).read_schedule().unwrap()
 }
 
 fn read_project(dir: &std::path::Path) -> ProjectYaml {
@@ -163,7 +157,7 @@ fn phase_add_appends_and_returns_json() {
     );
     assert!(json.get("id").is_some());
 
-    let schedule = read_schedule(dir.path(), "phase-add-test");
+    let schedule = read_schedule(dir.path());
     assert_eq!(schedule.phases.len(), 1);
 }
 
@@ -230,7 +224,7 @@ fn phase_update_rename_rewrites_refs() {
         .assert()
         .success();
 
-    let schedule = read_schedule(dir.path(), "phase-update-test");
+    let schedule = read_schedule(dir.path());
     assert_eq!(schedule.phases[0].id, "phase-alpha");
     // phase-b blocked_by must be rewritten
     assert!(
@@ -258,7 +252,7 @@ fn phase_remove_drops_dangling_refs() {
         .assert()
         .success();
 
-    let schedule = read_schedule(dir.path(), "phase-remove-test");
+    let schedule = read_schedule(dir.path());
     assert_eq!(schedule.phases.len(), 1);
     assert_eq!(schedule.phases[0].id, "phase-b");
     // phase-b's blocked_by["phase-a"] must be dropped
@@ -280,7 +274,7 @@ fn phase_move_reorders() {
         .assert()
         .success();
 
-    let schedule = read_schedule(dir.path(), "phase-move-test");
+    let schedule = read_schedule(dir.path());
     assert_eq!(schedule.phases[0].id, "phase-b");
     assert_eq!(schedule.phases[1].id, "phase-a");
 }
@@ -333,7 +327,7 @@ fn chunk_add_under_phase() {
         Some("Gap detect + recover")
     );
 
-    let schedule = read_schedule(dir.path(), "chunk-add-test");
+    let schedule = read_schedule(dir.path());
     assert_eq!(schedule.phases[0].chunks.len(), 1);
     assert_eq!(schedule.phases[0].chunks[0].scenarios.len(), 1);
     assert_eq!(schedule.phases[0].chunks[0].spec_refs.len(), 1);
@@ -360,7 +354,7 @@ fn chunk_update_appends_scenarios() {
         .assert()
         .success();
 
-    let schedule = read_schedule(dir.path(), "chunk-update-test");
+    let schedule = read_schedule(dir.path());
     assert_eq!(schedule.phases[0].chunks[0].scenarios, vec!["new scenario"]);
 }
 
@@ -377,7 +371,7 @@ fn chunk_remove_cascades_to_tasks() {
         .assert()
         .success();
 
-    let schedule = read_schedule(dir.path(), "chunk-remove-test");
+    let schedule = read_schedule(dir.path());
     assert_eq!(schedule.phases[0].chunks.len(), 1);
     // chunk-y's blocked_by["chunk-x"] must be dropped
     assert!(schedule.phases[0].chunks[0].blocked_by.is_empty());
@@ -404,7 +398,7 @@ fn chunk_move_to_other_phase() {
         .assert()
         .success();
 
-    let schedule = read_schedule(dir.path(), "chunk-move-test");
+    let schedule = read_schedule(dir.path());
     assert_eq!(schedule.phases[0].chunks.len(), 1);
     assert_eq!(schedule.phases[1].chunks.len(), 2);
 }
@@ -446,7 +440,7 @@ fn task_add_under_chunk() {
         Some("rex-code-tests-unit-testing")
     );
 
-    let schedule = read_schedule(dir.path(), "task-add-test");
+    let schedule = read_schedule(dir.path());
     assert_eq!(schedule.phases[0].chunks[0].tasks.len(), 3);
 }
 
@@ -465,7 +459,7 @@ fn task_update_changes_state() {
         .assert()
         .success();
 
-    let schedule = read_schedule(dir.path(), "task-update-test");
+    let schedule = read_schedule(dir.path());
     assert_eq!(
         schedule.phases[0].chunks[0].tasks[0].state,
         ScheduleState::Done
@@ -485,7 +479,7 @@ fn task_remove() {
         .assert()
         .success();
 
-    let schedule = read_schedule(dir.path(), "task-remove-test");
+    let schedule = read_schedule(dir.path());
     assert_eq!(schedule.phases[0].chunks[0].tasks.len(), 1);
     assert_eq!(schedule.phases[0].chunks[0].tasks[0].id, "task-2");
 }
@@ -511,7 +505,7 @@ fn task_move_to_other_chunk() {
         .assert()
         .success();
 
-    let schedule = read_schedule(dir.path(), "task-move-test");
+    let schedule = read_schedule(dir.path());
     assert_eq!(schedule.phases[0].chunks[0].tasks.len(), 1);
     assert_eq!(schedule.phases[0].chunks[1].tasks.len(), 2);
 }
@@ -564,7 +558,7 @@ fn replace_atomic_swaps_full_schedule() {
         .assert()
         .success();
 
-    let schedule = read_schedule(dir.path(), "replace-test");
+    let schedule = read_schedule(dir.path());
     assert_eq!(schedule.phases.len(), 1);
     assert_eq!(schedule.phases[0].id, "phase-new");
 }

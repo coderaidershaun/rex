@@ -99,8 +99,7 @@ pub fn run_step_complete(cwd: &Path) -> Result<(), RexError> {
 /// - [`RexError::JsonParse`] if the JSON is malformed
 pub fn run_chunk_next(cwd: &Path) -> Result<(), RexError> {
     let store = ProjectStore::new(cwd);
-    let project = store.read_active()?;
-    let schedule = store.read_schedule(&project.project_id)?;
+    let schedule = store.read_schedule()?;
     let json = match next_pending_chunk(&schedule) {
         Some(chunk) => serde_json::to_string_pretty(chunk)?,
         None => status_json("all-chunks-complete")?,
@@ -119,8 +118,7 @@ pub fn run_chunk_next(cwd: &Path) -> Result<(), RexError> {
 /// Same as [`run_chunk_next`].
 pub fn run_chunk_prior(cwd: &Path) -> Result<(), RexError> {
     let store = ProjectStore::new(cwd);
-    let project = store.read_active()?;
-    let schedule = store.read_schedule(&project.project_id)?;
+    let schedule = store.read_schedule()?;
     let json = match prior_chunk(&schedule) {
         Some(chunk) => serde_json::to_string_pretty(chunk)?,
         None => status_json("no-prior-chunk")?,
@@ -185,13 +183,12 @@ fn nullable(s: String) -> Option<String> {
 /// Same as [`run_chunk_next`].
 pub fn run_task_complete(cwd: &Path) -> Result<(), RexError> {
     let store = ProjectStore::new(cwd);
-    let project = store.read_active()?;
-    let mut schedule = store.read_schedule(&project.project_id)?;
+    let mut schedule = store.read_schedule()?;
 
     let json = match mark_task_done(&mut schedule) {
         None => status_json("no-active-task")?,
         Some(completion) => {
-            store.write_schedule_with_counters(&project.project_id, &schedule)?;
+            store.write_schedule_with_counters(&schedule)?;
             serde_json::to_string_pretty(&completion.task)?
         }
     };

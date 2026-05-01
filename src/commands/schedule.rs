@@ -66,8 +66,7 @@ fn validate_no_dot_in_id(id: &str) -> Result<(), RexError> {
 /// - [`RexError::ScheduleNotFound`] when `schedule.json` is absent.
 pub fn run_schedule_show(cwd: &Path) -> Result<(), RexError> {
     let store = ProjectStore::new(cwd);
-    let project = store.read_active()?;
-    let schedule = store.read_schedule(&project.project_id)?;
+    let schedule = store.read_schedule()?;
     println!("{}", pretty(&schedule)?);
     Ok(())
 }
@@ -88,7 +87,6 @@ pub fn run_schedule_show(cwd: &Path) -> Result<(), RexError> {
 /// - [`RexError::ReplaceWouldRegressState`] when the new schedule regresses done items.
 pub fn run_schedule_replace(cwd: &Path, file: &Path) -> Result<(), RexError> {
     let store = ProjectStore::new(cwd);
-    let project = store.read_active()?;
 
     let raw = std::fs::read_to_string(file).map_err(|source| RexError::Io {
         path: file.to_path_buf(),
@@ -105,11 +103,11 @@ pub fn run_schedule_replace(cwd: &Path, file: &Path) -> Result<(), RexError> {
     validate_no_chunk_cycles(&new_schedule)?;
 
     // Only check regression if an existing schedule exists.
-    if let Ok(old_schedule) = store.read_schedule(&project.project_id) {
+    if let Ok(old_schedule) = store.read_schedule() {
         validate_no_state_regression(&old_schedule, &new_schedule)?;
     }
 
-    store.write_schedule_with_counters(&project.project_id, &new_schedule)?;
+    store.write_schedule_with_counters(&new_schedule)?;
     println!("{}", status_json("ok")?);
     Ok(())
 }
@@ -131,8 +129,7 @@ pub fn run_phase_add(
     }
 
     let store = ProjectStore::new(cwd);
-    let project = store.read_active()?;
-    let mut schedule = store.read_schedule(&project.project_id)?;
+    let mut schedule = store.read_schedule()?;
 
     let existing_ids: Vec<&str> = schedule.phases.iter().map(|p| p.id.as_str()).collect();
     let slug = if let Some(id) = id {
@@ -149,7 +146,7 @@ pub fn run_phase_add(
         chunks: vec![],
     };
     let added = add_phase(&mut schedule, phase);
-    store.write_schedule_with_counters(&project.project_id, &schedule)?;
+    store.write_schedule_with_counters(&schedule)?;
     println!("{}", pretty(&added)?);
     Ok(())
 }
@@ -174,8 +171,7 @@ pub fn run_phase_update(
     }
 
     let store = ProjectStore::new(cwd);
-    let project = store.read_active()?;
-    let mut schedule = store.read_schedule(&project.project_id)?;
+    let mut schedule = store.read_schedule()?;
 
     let edit = PhaseEdit {
         description: description.map(str::to_owned),
@@ -184,7 +180,7 @@ pub fn run_phase_update(
         blocked_by: blocked_by.map(|v| v.to_vec()),
     };
     let updated = update_phase(&mut schedule, addr, edit)?;
-    store.write_schedule_with_counters(&project.project_id, &schedule)?;
+    store.write_schedule_with_counters(&schedule)?;
     println!("{}", pretty(&updated)?);
     Ok(())
 }
@@ -197,10 +193,9 @@ pub fn run_phase_update(
 /// - [`RexError::ScheduleAddrNotFound`] when `addr` does not match.
 pub fn run_phase_remove(cwd: &Path, addr: &str) -> Result<(), RexError> {
     let store = ProjectStore::new(cwd);
-    let project = store.read_active()?;
-    let mut schedule = store.read_schedule(&project.project_id)?;
+    let mut schedule = store.read_schedule()?;
     let removed = remove_phase(&mut schedule, addr)?;
-    store.write_schedule_with_counters(&project.project_id, &schedule)?;
+    store.write_schedule_with_counters(&schedule)?;
     println!("{}", pretty(&removed)?);
     Ok(())
 }
@@ -213,10 +208,9 @@ pub fn run_phase_remove(cwd: &Path, addr: &str) -> Result<(), RexError> {
 /// - [`RexError::ScheduleAddrNotFound`] when `addr` or `to` is out of range.
 pub fn run_phase_move(cwd: &Path, addr: &str, to: usize) -> Result<(), RexError> {
     let store = ProjectStore::new(cwd);
-    let project = store.read_active()?;
-    let mut schedule = store.read_schedule(&project.project_id)?;
+    let mut schedule = store.read_schedule()?;
     let moved = move_phase(&mut schedule, addr, to)?;
-    store.write_schedule_with_counters(&project.project_id, &schedule)?;
+    store.write_schedule_with_counters(&schedule)?;
     println!("{}", pretty(&moved)?);
     Ok(())
 }
@@ -241,8 +235,7 @@ pub fn run_chunk_add(
     }
 
     let store = ProjectStore::new(cwd);
-    let project = store.read_active()?;
-    let mut schedule = store.read_schedule(&project.project_id)?;
+    let mut schedule = store.read_schedule()?;
 
     let (phase_idx, _) = crate::schedule::find_phase(&schedule, phase_addr)?;
     let existing_ids: Vec<&str> = schedule.phases[phase_idx]
@@ -266,7 +259,7 @@ pub fn run_chunk_add(
         tasks: vec![],
     };
     let added = add_chunk(&mut schedule, phase_addr, chunk)?;
-    store.write_schedule_with_counters(&project.project_id, &schedule)?;
+    store.write_schedule_with_counters(&schedule)?;
     println!("{}", pretty(&added)?);
     Ok(())
 }
@@ -284,8 +277,7 @@ pub fn run_chunk_update(cwd: &Path, input: ChunkUpdateInput<'_>) -> Result<(), R
     }
 
     let store = ProjectStore::new(cwd);
-    let project = store.read_active()?;
-    let mut schedule = store.read_schedule(&project.project_id)?;
+    let mut schedule = store.read_schedule()?;
 
     let edit = ChunkEdit {
         description: input.description.map(str::to_owned),
@@ -296,7 +288,7 @@ pub fn run_chunk_update(cwd: &Path, input: ChunkUpdateInput<'_>) -> Result<(), R
         spec_refs: input.spec_refs.map(|v| v.to_vec()),
     };
     let updated = update_chunk(&mut schedule, input.addr, edit)?;
-    store.write_schedule_with_counters(&project.project_id, &schedule)?;
+    store.write_schedule_with_counters(&schedule)?;
     println!("{}", pretty(&updated)?);
     Ok(())
 }
@@ -309,10 +301,9 @@ pub fn run_chunk_update(cwd: &Path, input: ChunkUpdateInput<'_>) -> Result<(), R
 /// - [`RexError::ScheduleAddrNotFound`] / [`RexError::AmbiguousAddr`] for bad address.
 pub fn run_chunk_remove(cwd: &Path, addr: &str) -> Result<(), RexError> {
     let store = ProjectStore::new(cwd);
-    let project = store.read_active()?;
-    let mut schedule = store.read_schedule(&project.project_id)?;
+    let mut schedule = store.read_schedule()?;
     let removed = remove_chunk(&mut schedule, addr)?;
-    store.write_schedule_with_counters(&project.project_id, &schedule)?;
+    store.write_schedule_with_counters(&schedule)?;
     println!("{}", pretty(&removed)?);
     Ok(())
 }
@@ -330,10 +321,9 @@ pub fn run_chunk_move(
     to: Option<usize>,
 ) -> Result<(), RexError> {
     let store = ProjectStore::new(cwd);
-    let project = store.read_active()?;
-    let mut schedule = store.read_schedule(&project.project_id)?;
+    let mut schedule = store.read_schedule()?;
     let moved = move_chunk(&mut schedule, addr, to_phase, to)?;
-    store.write_schedule_with_counters(&project.project_id, &schedule)?;
+    store.write_schedule_with_counters(&schedule)?;
     println!("{}", pretty(&moved)?);
     Ok(())
 }
@@ -358,8 +348,7 @@ pub fn run_task_add(
     }
 
     let store = ProjectStore::new(cwd);
-    let project = store.read_active()?;
-    let mut schedule = store.read_schedule(&project.project_id)?;
+    let mut schedule = store.read_schedule()?;
 
     let (phase_idx, chunk_idx, _) = crate::schedule::find_chunk(&schedule, chunk_addr)?;
     let existing_ids: Vec<&str> = schedule.phases[phase_idx].chunks[chunk_idx]
@@ -382,7 +371,7 @@ pub fn run_task_add(
         outputs: outputs.map(str::to_owned),
     };
     let added = add_task(&mut schedule, chunk_addr, task)?;
-    store.write_schedule_with_counters(&project.project_id, &schedule)?;
+    store.write_schedule_with_counters(&schedule)?;
     println!("{}", pretty(&added)?);
     Ok(())
 }
@@ -400,8 +389,7 @@ pub fn run_task_update(cwd: &Path, input: TaskUpdateInput<'_>) -> Result<(), Rex
     }
 
     let store = ProjectStore::new(cwd);
-    let project = store.read_active()?;
-    let mut schedule = store.read_schedule(&project.project_id)?;
+    let mut schedule = store.read_schedule()?;
 
     let edit = TaskEdit {
         description: input.description.map(str::to_owned),
@@ -412,7 +400,7 @@ pub fn run_task_update(cwd: &Path, input: TaskUpdateInput<'_>) -> Result<(), Rex
         outputs: input.outputs,
     };
     let updated = update_task(&mut schedule, input.addr, edit)?;
-    store.write_schedule_with_counters(&project.project_id, &schedule)?;
+    store.write_schedule_with_counters(&schedule)?;
     println!("{}", pretty(&updated)?);
     Ok(())
 }
@@ -425,10 +413,9 @@ pub fn run_task_update(cwd: &Path, input: TaskUpdateInput<'_>) -> Result<(), Rex
 /// - [`RexError::ScheduleAddrNotFound`] / [`RexError::AmbiguousAddr`] for bad address.
 pub fn run_task_remove(cwd: &Path, addr: &str) -> Result<(), RexError> {
     let store = ProjectStore::new(cwd);
-    let project = store.read_active()?;
-    let mut schedule = store.read_schedule(&project.project_id)?;
+    let mut schedule = store.read_schedule()?;
     let removed = remove_task(&mut schedule, addr)?;
-    store.write_schedule_with_counters(&project.project_id, &schedule)?;
+    store.write_schedule_with_counters(&schedule)?;
     println!("{}", pretty(&removed)?);
     Ok(())
 }
@@ -446,10 +433,9 @@ pub fn run_task_move(
     to: Option<usize>,
 ) -> Result<(), RexError> {
     let store = ProjectStore::new(cwd);
-    let project = store.read_active()?;
-    let mut schedule = store.read_schedule(&project.project_id)?;
+    let mut schedule = store.read_schedule()?;
     let moved = move_task(&mut schedule, addr, to_chunk, to)?;
-    store.write_schedule_with_counters(&project.project_id, &schedule)?;
+    store.write_schedule_with_counters(&schedule)?;
     println!("{}", pretty(&moved)?);
     Ok(())
 }

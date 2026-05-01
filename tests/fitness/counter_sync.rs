@@ -90,9 +90,7 @@ fn seed(dir: &std::path::Path, project_id: &str) {
             ],
         }],
     };
-    store
-        .write_schedule(&ProjectId::parse(project_id).unwrap(), &schedule)
-        .unwrap();
+    store.write_schedule(&schedule).unwrap();
 }
 
 fn done_counts(schedule: &Schedule) -> (usize, usize) {
@@ -129,7 +127,7 @@ fn task_complete_keeps_project_and_schedule_counters_in_sync() {
             .success();
 
         let project = store.read_active().unwrap();
-        let schedule = store.read_schedule(&project.project_id).unwrap();
+        let schedule = store.read_schedule().unwrap();
         let (done_tasks, done_chunks) = done_counts(&schedule);
 
         assert_eq!(
@@ -295,7 +293,6 @@ fn schedule_crud_keeps_counters_in_sync() {
     // Drive every remaining task to done via `task update --state done` and
     // assert the counter invariant after each step. `task complete` already
     // pins the autopilot path; this run pins the CRUD path.
-    let pid = ProjectId::parse(project_id).unwrap();
     let task_addrs = ["1.1.1", "1.2.1", "1.2.2", "2.1.1"]; // one per remaining task
     for addr in task_addrs {
         rex_cmd()
@@ -307,7 +304,7 @@ fn schedule_crud_keeps_counters_in_sync() {
             .success();
 
         let project = store.read_active().unwrap();
-        let schedule = store.read_schedule(&pid).unwrap();
+        let schedule = store.read_schedule().unwrap();
         let (done_tasks, done_chunks) = done_counts(&schedule);
         assert_eq!(
             project.tasks_completed as usize, done_tasks,
@@ -331,7 +328,7 @@ fn schedule_crud_keeps_counters_in_sync() {
             .success();
 
         let project = store.read_active().unwrap();
-        let schedule = store.read_schedule(&pid).unwrap();
+        let schedule = store.read_schedule().unwrap();
         let (done_tasks, done_chunks) = done_counts(&schedule);
         assert_eq!(
             project.tasks_completed as usize, done_tasks,

@@ -34,7 +34,7 @@ These commands are agent-facing. They print JSON to stdout and exit 0 on success
 
 ## Schedule editing
 
-CLI for editing `rex/active/<id>/schedule.json`. Every mutation auto-rewrites
+CLI for editing `rex/active/schedule.json`. Every mutation auto-rewrites
 `blocked_by` references and recomputes counters in `project.yaml`. Agents must
 not edit `schedule.json` directly.
 

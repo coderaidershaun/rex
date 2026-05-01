@@ -5,7 +5,7 @@
 //!   that backs `rex init`.
 //! - [`project`] — serde model + on-disk lifecycle for `rex/active/project.yaml`
 //!   and `rex/inactive/<id>/`. [`project::ProjectStore`] is the primary lifecycle API.
-//! - [`schedule`] — serde model + helpers for `rex/active/<id>/schedule.json`.
+//! - [`schedule`] — serde model + helpers for `rex/active/schedule.json`.
 //! - [`commands`] — command-handler functions wired up from `main.rs`.
 //! - [`error`] — the [`error::RexError`] enum.
 

@@ -15,97 +15,97 @@ steps:
   skill: rex-plan-discovery
   instructions:
   - "Ask the user more about what they are looking to achieve."
-  outputs: rex/active/<project-id>/*
+  outputs: rex/active/*
   completed: false
 - step: resources
   required: false
   instructions:
   - "<insert-user-resources-references-from-cli>"
   skill: rex-plan-resources
-  inputs: rex/active/<project-id>/*
-  outputs: rex/active/<project-id>/resources.md
+  inputs: rex/active/*
+  outputs: rex/active/resources.md
   completed: false
 - step: research-api
   required: false
   instructions:
   - "<insert-user-research-request-from-cli>"
   agent: rex-planning-research-api
-  inputs: rex/active/<project-id>/*
-  outputs: rex/active/<project-id>/research-api/*
+  inputs: rex/active/*
+  outputs: rex/active/research-api/*
   completed: false
 - step: prd
   required: true
   skill: rex-plan-prd-writing
-  inputs: rex/active/<project-id>/*
-  outputs: rex/active/<project-id>/prd.md
+  inputs: rex/active/*
+  outputs: rex/active/prd.md
   completed: false
 - step: ddd
   required: false
   agent: rex-planning-ddd-writer
-  inputs: rex/active/<project-id>/*
-  outputs: rex/active/<project-id>/ddd.md
+  inputs: rex/active/*
+  outputs: rex/active/ddd.md
   completed: false
 - step: sdd
   required: false
   agent: rex-planning-sdd-writer
-  inputs: rex/active/<project-id>/*
-  outputs: rex/active/<project-id>/sdd.md
+  inputs: rex/active/*
+  outputs: rex/active/sdd.md
   completed: false
 - step: c4-architecture
   required: true
   agent: rex-planning-c4-architect
-  inputs: rex/active/<project-id>/*
-  outputs: rex/active/<project-id>/c4-architecture.md
+  inputs: rex/active/*
+  outputs: rex/active/c4-architecture.md
   completed: false
 - step: bdd
   required: false
   agent: rex-planning-bdd-writer
-  inputs: rex/active/<project-id>/*
-  outputs: rex/active/<project-id>/bdd.md
+  inputs: rex/active/*
+  outputs: rex/active/bdd.md
   completed: false
 - step: uat-preparation
   required: true
   skill: rex-plan-uat
-  inputs: rex/active/<project-id>/*
-  outputs: rex/active/<project-id>/uat-preparation.md
+  inputs: rex/active/*
+  outputs: rex/active/uat-preparation.md
   completed: false
 - step: plan-tests-spike
   required: false
   agent: rex-planning-tests-spike-writer
-  inputs: rex/active/<project-id>/*
-  outputs: rex/active/<project-id>/tests/spike/*
+  inputs: rex/active/*
+  outputs: rex/active/tests/spike/*
   completed: false
 - step: plan-tests-integration
   required: false
   agent: rex-planning-tests-integration-writer
-  inputs: rex/active/<project-id>/*
-  outputs: rex/active/<project-id>/tests/integration/*
+  inputs: rex/active/*
+  outputs: rex/active/tests/integration/*
   completed: false
 - step: plan-tests-contract
   required: false
   agent: rex-planning-tests-contract-seams-writer
-  inputs: rex/active/<project-id>/*
-  outputs: rex/active/<project-id>/tests/contract/*
+  inputs: rex/active/*
+  outputs: rex/active/tests/contract/*
   completed: false
 - step: refine
   required: false
   instructions:
   - "Do not modify the PRD."
   agent: rex-planning-plan-refinement
-  inputs: rex/active/<project-id>/*
-  outputs: rex/active/<project-id>/*
+  inputs: rex/active/*
+  outputs: rex/active/*
   completed: false
 - step: scheduling
   required: true
   agent: rex-planning-scheduler
-  inputs: rex/active/<project-id>/*
-  outputs: rex/active/<project-id>/schedule.json
+  inputs: rex/active/*
+  outputs: rex/active/schedule.json
   completed: false
 - step: schedule-review
   required: true
   agent: rex-planning-schedule-reviewer
-  inputs: rex/active/<project-id>/*
-  outputs: rex/active/<project-id>/schedule.json
+  inputs: rex/active/*
+  outputs: rex/active/schedule.json
   completed: false
 - step: task-execution
   required: true
@@ -118,6 +118,6 @@ steps:
 - step: uat-cleanup
   required: false
   agent: rex-complete-uat-preparations
-  inputs: rex/active/<project-id>/*
-  outputs: rex/active/<project-id>/uat-guide.md
+  inputs: rex/active/*
+  outputs: rex/active/uat-guide.md
   completed: false
