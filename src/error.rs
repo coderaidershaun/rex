@@ -9,6 +9,13 @@ pub enum RexError {
         source: std::io::Error,
     },
 
+    #[error("walk failed at {}", path.display())]
+    Walk {
+        path: PathBuf,
+        #[source]
+        source: ignore::Error,
+    },
+
     #[error("yaml error at {}", path.display())]
     Yaml {
         path: PathBuf,

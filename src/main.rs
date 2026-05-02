@@ -5,7 +5,7 @@ use clap::{ArgGroup, Args, Parser, Subcommand};
 
 use rex_cli::bundle::{Bundle, BundleMode};
 use rex_cli::commands::schedule::{ChunkUpdateInput, TaskUpdateInput};
-use rex_cli::commands::{activate, create, init, project, schedule};
+use rex_cli::commands::{activate, codebase, create, init, project, schedule};
 use rex_cli::schedule::ScheduleState;
 
 #[derive(Parser)]
@@ -23,6 +23,9 @@ enum Command {
         #[arg(long)]
         force: bool,
     },
+
+    /// Write a tree outline of the working directory to CODEBASE.md.
+    Codebase,
 
     /// Create a new project interactively.
     Create,
@@ -276,6 +279,9 @@ fn main() -> Result<()> {
                 BundleMode::Merge
             };
             init::run(&cwd, &bundle, mode).context("rex init failed")?;
+        }
+        Command::Codebase => {
+            codebase::run(&cwd).context("rex codebase failed")?;
         }
         Command::Create => {
             create::run(&cwd, &bundle).context("rex create failed")?;
