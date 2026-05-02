@@ -21,6 +21,7 @@ fn setup(dir: &std::path::Path, project_id: &str) {
         tasks_required: 0,
         tasks_completed: 0,
         completed: false,
+        is_autopilot: false,
         steps: vec![PipelineStep {
             step: "task-execution".to_owned(),
             required: true,
@@ -57,6 +58,7 @@ fn setup_rich(dir: &std::path::Path, project_id: &str) {
         tasks_required: 4,
         tasks_completed: 0,
         completed: false,
+        is_autopilot: false,
         steps: vec![],
     };
     let store = ProjectStore::new(dir);

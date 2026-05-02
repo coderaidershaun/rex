@@ -23,6 +23,7 @@ fn make_template() -> PipelineTemplate {
         tasks_required: 0,
         tasks_completed: 0,
         completed: false,
+        is_autopilot: false,
         steps: vec![
             PipelineStep {
                 step: "discovery".to_owned(),
@@ -57,6 +58,7 @@ fn make_create_opts(project_id: &str) -> rex_cli::commands::create::CreateOpts {
         complexity: "medium".to_owned(),
         project_id: ProjectId::parse(project_id).unwrap(),
         selected_optional_steps: vec![],
+        is_autopilot: false,
     }
 }
 
@@ -74,6 +76,7 @@ fn fixture_project(id: &str, steps: Vec<PipelineStep>) -> ProjectYaml {
         tasks_required: 0,
         tasks_completed: 0,
         completed: false,
+        is_autopilot: false,
         steps,
     }
 }

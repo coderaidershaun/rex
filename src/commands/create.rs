@@ -27,6 +27,9 @@ pub struct CreateOpts {
     pub project_id: ProjectId,
     /// Names of optional pipeline steps the user opted into.
     pub selected_optional_steps: Vec<String>,
+    /// `true` runs the pipeline straight through; `false` pauses between steps
+    /// and chunks so the user can review intermediate output.
+    pub is_autopilot: bool,
 }
 
 /// Run `rex create` against `cwd` interactively.
@@ -117,6 +120,13 @@ pub fn run(cwd: &Path, bundle: &Bundle) -> Result<(), RexError> {
         chosen.into_iter().map(str::to_owned).collect()
     };
 
+    let is_autopilot = Confirm::new(
+        "Run pipeline on autopilot? (no = pause for review between steps and chunks)",
+    )
+    .with_default(false)
+    .prompt()
+    .map_err(|_| RexError::PromptCancelled)?;
+
     let opts = CreateOpts {
         title,
         subtitle,
@@ -125,6 +135,7 @@ pub fn run(cwd: &Path, bundle: &Bundle) -> Result<(), RexError> {
         complexity,
         project_id,
         selected_optional_steps: selected,
+        is_autopilot,
     };
 
     apply_create(cwd, &template, opts)
@@ -181,6 +192,7 @@ pub fn apply_create(
         tasks_required: 0,
         tasks_completed: 0,
         completed: false,
+        is_autopilot: opts.is_autopilot,
         steps,
     };
 

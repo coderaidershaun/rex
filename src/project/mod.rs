@@ -128,6 +128,12 @@ pub struct ProjectYaml {
     pub tasks_completed: u32,
     /// `true` once every required step has been completed.
     pub completed: bool,
+    /// `true` when the `/rex` driver should run the pipeline straight through.
+    /// `false` pauses between steps (post-discovery) and between chunks during
+    /// task-execution for user review. `#[serde(default)]` keeps archived
+    /// project files written before this field landed loadable.
+    #[serde(default)]
+    pub is_autopilot: bool,
     /// Ordered list of steps for this project.
     pub steps: Vec<PipelineStep>,
 }
@@ -153,6 +159,7 @@ pub struct ProjectMeta {
     pub tasks_required: u32,
     pub tasks_completed: u32,
     pub completed: bool,
+    pub is_autopilot: bool,
 }
 
 impl From<&ProjectYaml> for ProjectMeta {
@@ -169,6 +176,7 @@ impl From<&ProjectYaml> for ProjectMeta {
             tasks_required: p.tasks_required,
             tasks_completed: p.tasks_completed,
             completed: p.completed,
+            is_autopilot: p.is_autopilot,
         }
     }
 }
@@ -217,6 +225,7 @@ mod tests {
             tasks_required: 0,
             tasks_completed: 0,
             completed: false,
+            is_autopilot: false,
             steps: vec![
                 PipelineStep {
                     step: "discovery".to_owned(),

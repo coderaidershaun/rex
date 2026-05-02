@@ -9,6 +9,7 @@ chunks-completed: 0
 tasks-required: 0
 tasks-completed: 0
 completed: false
+is-autopilot: false
 steps:
 - step: discovery
   required: true

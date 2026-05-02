@@ -17,7 +17,7 @@ Run these in order. Do not skip.
 
 | # | Command | Why |
 |---|---------|-----|
-| 1 | `rex project meta` | Project envelope. JSON: `project-id`, `title`, `complexity`, progress counters. |
+| 1 | `rex project meta` | Project envelope. JSON: `project-id`, `title`, `complexity`, progress counters, `is-autopilot`. |
 | 2 | `rex project step` | Step envelope for the first incomplete step, OR `{"status":"all-steps-complete"}`. |
 | 3 | `rex project` | End-to-end pipeline + completion status of each step. Use to brief the user on overall position. |
 
@@ -29,6 +29,17 @@ If `rex project step` returns `{"status":"all-steps-complete"}`, report progress
 - `rex project step` determines whether you act yourself or dispatch a subagent.
 - If the step object has no `agent` field, you complete the step yourself using the named `skill`.
 - If the step object has an `agent` field, dispatch to that agent and pass it the step object.
+
+## Autopilot mode
+
+`is-autopilot` from `rex project meta` controls loop continuation.
+
+- `is-autopilot: true` — outer + inner loops run continuously until `all-steps-complete`. No pauses.
+- `is-autopilot: false` — pause after each unit of work for user review. **Pause = report progress to the user and stop.** The user reinvokes `/rex` later to resume; state on disk is the resume point. Every `rex` CLI command is idempotent, so re-entry from a cold start picks up exactly where you left off.
+
+**Discovery is exempt.** Pre-discovery and the `discovery` step itself always run continuously regardless of `is-autopilot` — the user is already engaged during discovery, so a pause adds nothing. Re-evaluate the flag only **after** `discovery` completes.
+
+The autopilot rule is applied at two specific places below: after the outer-loop step-completion calls, and after each chunk inside `task-execution`.
 
 ## OUTER LOOP
 
@@ -48,11 +59,12 @@ Inner loop — repeat until `chunk-next` returns `{"status":"all-chunks-complete
   [ ] task-completion sub-loop — drain every `pending`/`in-progress` task in `current_chunk.tasks` (run `rex project task complete` once per task). Stop when one of:
         - response is `{"status":"no-active-task"}` (schedule exhausted)
         - returned task's `id` is the last `id` in `current_chunk.tasks` (chunk auto-promoted; CLI now points at next chunk)
+  [ ] **autopilot gate** — if `is-autopilot == false`: report which chunk just shipped + queue position to the user, then stop. Do **not** run `rex project step complete` for `task-execution` (it remains the active step). User reinvokes `/rex` to resume.
   [ ] continue inner loop (next chunk)
 
 After inner loop ends:
   [ ] run `rex project step complete` to mark `task-execution` itself done
-  [ ] continue outer loop
+  [ ] **autopilot gate** — if `is-autopilot == false`: report progress and stop. Otherwise continue outer loop.
 
 ### case step has no `agent` field
 
@@ -62,13 +74,13 @@ After inner loop ends:
   [ ] write the `outputs` document(s) if any
   [ ] **if step is `discovery`** — once discovery is complete you have a sharper read on the project than the slug-derived title gave us. Refine `project.yaml` metadata in one call: `rex project update --title "<concise human title>" --subtitle "<one-line hook>" --description "<2–3 sentence brief>"`. Skip any field that is already accurate; pass an empty string to clear.
   [ ] run `rex project step complete`
-  [ ] continue outer loop
+  [ ] **autopilot gate** — if `is-autopilot == false` AND the step just completed is **not** `discovery`: report progress and stop. Otherwise continue outer loop.
 
 ### case step has an `agent` field
 
   [ ] dispatch to that agent. Pass project meta + the full step object.
   [ ] run `rex project step complete`
-  [ ] continue outer loop
+  [ ] **autopilot gate** — if `is-autopilot == false`: report progress and stop. Otherwise continue outer loop.
 
 ### case `rex project step` returned `{"status":"all-steps-complete"}`
 

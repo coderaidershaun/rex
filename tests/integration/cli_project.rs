@@ -26,6 +26,7 @@ fn setup_with_active_project(dir: &std::path::Path, project_id: &str) {
         complexity: "medium".to_owned(),
         project_id: ProjectId::parse(project_id).unwrap(),
         selected_optional_steps: vec![],
+        is_autopilot: false,
     };
     apply_create(dir, &template, opts).unwrap();
 }
@@ -45,6 +46,7 @@ fn setup_with_mixed_steps(dir: &std::path::Path) {
         tasks_required: 0,
         tasks_completed: 0,
         completed: false,
+        is_autopilot: false,
         steps: vec![
             PipelineStep {
                 step: "first".to_owned(),
@@ -95,6 +97,7 @@ fn setup_with_all_steps_completed(dir: &std::path::Path) {
         tasks_required: 0,
         tasks_completed: 0,
         completed: true,
+        is_autopilot: false,
         steps: vec![
             PipelineStep {
                 step: "alpha".to_owned(),
@@ -269,6 +272,7 @@ fn setup_with_schedule(dir: &std::path::Path, project_id: &str, done_chunks: usi
         tasks_required: 3,
         tasks_completed: 0,
         completed: false,
+        is_autopilot: false,
         steps: vec![PipelineStep {
             step: "task-execution".to_owned(),
             required: true,
@@ -646,6 +650,7 @@ fn step_complete_sets_project_completed_when_all_required_done() {
         tasks_required: 0,
         tasks_completed: 0,
         completed: false,
+        is_autopilot: false,
         steps: vec![
             PipelineStep {
                 step: "first".to_owned(),

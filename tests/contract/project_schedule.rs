@@ -19,6 +19,7 @@ fn make_active_project(dir: &std::path::Path, project_id: &str) {
         tasks_required: 2,
         tasks_completed: 0,
         completed: false,
+        is_autopilot: false,
         steps: vec![],
     };
     ProjectStore::new(dir).write_active(&project).unwrap();

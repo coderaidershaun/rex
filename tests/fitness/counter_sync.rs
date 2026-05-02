@@ -55,6 +55,7 @@ fn seed(dir: &std::path::Path, project_id: &str) {
         tasks_required: 6,
         tasks_completed: 0,
         completed: false,
+        is_autopilot: false,
         steps: vec![PipelineStep {
             step: "task-execution".to_owned(),
             required: true,

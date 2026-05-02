@@ -25,6 +25,7 @@ fn setup_with_inactive_project(dir: &std::path::Path, project_id: &str) {
         complexity: "medium".to_owned(),
         project_id: ProjectId::parse(project_id).unwrap(),
         selected_optional_steps: vec![],
+        is_autopilot: false,
     };
     apply_create(dir, &template, opts).unwrap();
     ProjectStore::new(dir).archive_active().unwrap();
