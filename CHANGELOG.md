@@ -2,6 +2,10 @@
 
 All notable changes to **rex-cli** are documented here.
 
+## 0.4.2 — 2026-05-02
+
+- **`rex-cleaner-comments` agent** — new haiku-backed cleanup agent that loads the `rex-code-commenting` skill and sweeps a codebase to delete WHAT-not-WHY comments, commit-noise comments, commented-out code, and stale TODOs. Conservative bias: when a comment looks load-bearing but the WHY is unclear, the agent keeps it and flags it for human review. Protects license headers, `// SAFETY:` blocks, doc comments, and generated files.
+
 ## 0.4.1 — 2026-05-02
 
 - **`rex codebase`** — new top-level subcommand that walks the working directory and writes an indented tree outline to `CODEBASE.md` (dirs end `/`, files plain). Skips `.gitignore`d paths and dotfolders via the `ignore` crate (ripgrep-grade gitignore semantics, including nested `.gitignore`s, `.git/info/exclude`, and global ignore). Idempotent — `sort_by_file_name` guarantees byte-identical output across runs. `/CODEBASE.md` is gitignored (anchored) so the generated artifact never lands in commits while deeper user content of the same name is unaffected.
