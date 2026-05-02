@@ -43,7 +43,9 @@ The autopilot rule is applied at two specific places below: after the outer-loop
 
 ## OUTER LOOP
 
-Dispatch on the `step` field of the step envelope.
+1 - If `discovery` step is not completed, run `rex-start-grill-me` skill in order to get all the relevant information about what the user wants before starting the project. 
+
+2 - Dispatch on the `step` field of the step envelope.
 
 ### case `step == "task-execution"`
 

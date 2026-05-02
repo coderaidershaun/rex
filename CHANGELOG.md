@@ -2,6 +2,12 @@
 
 All notable changes to **rex-cli** are documented here.
 
+## 0.4.3 — 2026-05-02
+
+- **`rex create` row prompts** — when the user ticks the optional `research-api` and/or `resources` step in the multi-select, `rex create` now prompts for rows of input. Each row gets written to `rex/active/research/apis.md` (name + URL) or `rex/active/resources/urls.md` (label + URL). The matching pipeline steps' `inputs` field is updated to point at those subfolders so the relevant skills consume user-supplied input via the standard task envelope contract — without naming any specific path inside skill bodies. Blank URLs drop the row; `\n` / `\r` stripped from fields. New `ProjectStore::write_active_subfile` helper.
+- **`schedule/mod.rs` refactor** — the 1402-line `src/schedule/mod.rs` was split into siblings: `types.rs` (147), `addressing.rs` (442), `validation.rs` (307), `ops.rs` (477), `promotion.rs` (88), `counters.rs` (108). `mod.rs` is now a 27-line re-export hub. Public API surface unchanged (verified by every external `use rex_cli::schedule::*` still compiling). Visibility tightened: `ScheduleState::is_open()` is `pub(super)`, sibling modules are private (`mod`, not `pub mod`) so types are only reachable via the named re-exports.
+- **`rex-cleaner-comments` agent + `rex-start-grill-me` skill** — the cleanup agent uses the haiku model and loads `rex-code-commenting` to delete WHAT-comments, commit-noise comments, commented-out code, and stale TODOs. The grill-me skill interviews the user relentlessly about a plan or design, walking each branch of the decision tree until shared understanding is reached. Wired into the `/rex` driver so it runs before `discovery` is complete.
+
 ## 0.4.2 — 2026-05-02
 
 - **`rex-cleaner-comments` agent** — new haiku-backed cleanup agent that loads the `rex-code-commenting` skill and sweeps a codebase to delete WHAT-not-WHY comments, commit-noise comments, commented-out code, and stale TODOs. Conservative bias: when a comment looks load-bearing but the WHY is unclear, the agent keeps it and flags it for human review. Protects license headers, `// SAFETY:` blocks, doc comments, and generated files.

@@ -18,16 +18,12 @@ steps:
   completed: false
 - step: resources
   skill: rex-plan-resources
-  instructions:
-  - <insert-user-resources-references-from-cli>
-  inputs: rex/active/*
+  inputs: rex/active/resources/*
   outputs: rex/active/resources.md
   completed: false
 - step: research-api
   agent: rex-planning-research-api
-  instructions:
-  - <insert-user-research-request-from-cli>
-  inputs: rex/active/*
+  inputs: rex/active/research/*
   outputs: rex/active/research-api/*
   completed: false
 - step: prd

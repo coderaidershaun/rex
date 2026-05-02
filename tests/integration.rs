@@ -4,6 +4,8 @@ mod cli_activate;
 mod cli_autopilot;
 #[path = "integration/cli_codebase.rs"]
 mod cli_codebase;
+#[path = "integration/cli_create_rows.rs"]
+mod cli_create_rows;
 #[path = "integration/cli_init.rs"]
 mod cli_init;
 #[path = "integration/cli_project.rs"]

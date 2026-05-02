@@ -11,6 +11,22 @@ use crate::{
     },
 };
 
+/// One API entry collected when the user selects the `research-api` optional step.
+pub struct ResearchApiRow {
+    /// Short display name, e.g. `"Binance Spot"`.
+    pub name: String,
+    /// Docs URL the research skill will explore.
+    pub url: String,
+}
+
+/// One external resource collected when the user selects the `resources` optional step.
+pub struct ResourceRow {
+    /// Human label, e.g. `"Design spec"`.
+    pub label: String,
+    /// URL or file path to the resource.
+    pub url: String,
+}
+
 /// Options collected from the interactive prompts, ready for non-interactive use in tests.
 pub struct CreateOpts {
     /// Human-readable project title.
@@ -27,6 +43,10 @@ pub struct CreateOpts {
     pub project_id: ProjectId,
     /// Names of optional pipeline steps the user opted into.
     pub selected_optional_steps: Vec<String>,
+    /// APIs to research, collected when the user selects `research-api`.
+    pub research_apis: Vec<ResearchApiRow>,
+    /// External resources, collected when the user selects `resources`.
+    pub resources: Vec<ResourceRow>,
     /// `true` runs the pipeline straight through; `false` pauses between steps
     /// and chunks so the user can review intermediate output.
     pub is_autopilot: bool,
@@ -120,6 +140,19 @@ pub fn run(cwd: &Path, bundle: &Bundle) -> Result<(), RexError> {
         chosen.into_iter().map(str::to_owned).collect()
     };
 
+    // Prompt order matches the pipeline execution order: resources runs before research-api.
+    let resources = if selected.iter().any(|s| s == "resources") {
+        prompt_resource_rows()?
+    } else {
+        Vec::new()
+    };
+
+    let research_apis = if selected.iter().any(|s| s == "research-api") {
+        prompt_research_api_rows()?
+    } else {
+        Vec::new()
+    };
+
     let is_autopilot = Confirm::new(
         "Run pipeline on autopilot? (no = pause for review between steps and chunks)",
     )
@@ -135,6 +168,8 @@ pub fn run(cwd: &Path, bundle: &Bundle) -> Result<(), RexError> {
         complexity,
         project_id,
         selected_optional_steps: selected,
+        research_apis,
+        resources,
         is_autopilot,
     };
 
@@ -198,9 +233,103 @@ pub fn apply_create(
 
     store.write_active(&project)?;
 
+    if !opts.research_apis.is_empty() {
+        let body = render_research_api_md(&opts.research_apis);
+        store.write_active_subfile("research", "apis.md", body.as_bytes())?;
+    }
+    if !opts.resources.is_empty() {
+        let body = render_resources_md(&opts.resources);
+        store.write_active_subfile("resources", "urls.md", body.as_bytes())?;
+    }
+
     println!(
         "Created project '{}' at rex/active/project.yaml",
         opts.project_id
     );
     Ok(())
+}
+
+// Best-effort markdown rendering: row fields land in a bullet line as-is. Newlines are
+// stripped (they would break bullet structure); other markdown metacharacters in user
+// names/URLs are not escaped — downstream skills consume this as plain prose.
+fn sanitize_field(s: &str) -> String {
+    s.replace(['\n', '\r'], " ")
+}
+
+fn render_research_api_md(rows: &[ResearchApiRow]) -> String {
+    let mut out = String::from("# APIs to research\n");
+    for row in rows {
+        out.push_str(&format!(
+            "\n- **{}** — {}",
+            sanitize_field(&row.name),
+            sanitize_field(&row.url)
+        ));
+    }
+    out.push('\n');
+    out
+}
+
+fn render_resources_md(rows: &[ResourceRow]) -> String {
+    let mut out = String::from("# Resources\n");
+    for row in rows {
+        out.push_str(&format!(
+            "\n- **{}** — {}",
+            sanitize_field(&row.label),
+            sanitize_field(&row.url)
+        ));
+    }
+    out.push('\n');
+    out
+}
+
+fn prompt_research_api_rows() -> Result<Vec<ResearchApiRow>, RexError> {
+    println!("Add APIs to research. Leave name empty to finish.");
+    let mut rows = Vec::new();
+    loop {
+        let name = Text::new("API name:")
+            .prompt()
+            .map_err(|_| RexError::PromptCancelled)?;
+        if name.trim().is_empty() {
+            break;
+        }
+        let url = Text::new("API docs URL:")
+            .prompt()
+            .map_err(|_| RexError::PromptCancelled)?;
+        // Drop rows with a blank URL rather than persisting half-empty bullets;
+        // re-prompting would balloon the loop into a state machine for thin payoff.
+        if url.trim().is_empty() {
+            println!("(skipped — blank URL)");
+            continue;
+        }
+        rows.push(ResearchApiRow {
+            name: name.trim().to_owned(),
+            url: url.trim().to_owned(),
+        });
+    }
+    Ok(rows)
+}
+
+fn prompt_resource_rows() -> Result<Vec<ResourceRow>, RexError> {
+    println!("Add resources. Leave label empty to finish.");
+    let mut rows = Vec::new();
+    loop {
+        let label = Text::new("Resource label:")
+            .prompt()
+            .map_err(|_| RexError::PromptCancelled)?;
+        if label.trim().is_empty() {
+            break;
+        }
+        let url = Text::new("Resource URL:")
+            .prompt()
+            .map_err(|_| RexError::PromptCancelled)?;
+        if url.trim().is_empty() {
+            println!("(skipped — blank URL)");
+            continue;
+        }
+        rows.push(ResourceRow {
+            label: label.trim().to_owned(),
+            url: url.trim().to_owned(),
+        });
+    }
+    Ok(rows)
 }

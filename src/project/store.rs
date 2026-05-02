@@ -207,6 +207,29 @@ impl ProjectStore {
         self.write_active(&project)
     }
 
+    /// Write `bytes` to `rex/active/<subdir>/<filename>`, creating the subdirectory
+    /// if it does not exist.
+    ///
+    /// # Errors
+    /// - [`RexError::Io`] for filesystem failures
+    pub fn write_active_subfile(
+        &self,
+        subdir: &str,
+        filename: &str,
+        bytes: &[u8],
+    ) -> Result<(), RexError> {
+        let dir = self.root.join(ACTIVE_DIR).join(subdir);
+        fs::create_dir_all(&dir).map_err(|source| RexError::Io {
+            path: dir.clone(),
+            source,
+        })?;
+        let path = dir.join(filename);
+        fs::write(&path, bytes).map_err(|source| RexError::Io {
+            path: path.clone(),
+            source,
+        })
+    }
+
     /// List project IDs available in `rex/inactive/`, sorted.
     ///
     /// # Errors

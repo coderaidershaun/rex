@@ -18,6 +18,8 @@ fn make_opts(project_id: &str, is_autopilot: bool) -> CreateOpts {
         complexity: "medium".to_owned(),
         project_id: ProjectId::parse(project_id).unwrap(),
         selected_optional_steps: vec![],
+        research_apis: vec![],
+        resources: vec![],
         is_autopilot,
     }
 }

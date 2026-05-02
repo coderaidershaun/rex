@@ -117,3 +117,5 @@ UAT plan feeds:
 - **Review gate** — gives the human reviewer prior visibility on what they'll be asked to verify.
 
 Plan-UAT is not the demo. It's the agreement on what the demo will check.
+
+IMPORTANT: If `is-autopilot` is true in project metadata passed to you, then do not ask questions to the user, just call upon and agent for advice and keep the uat very simple. The user would always prefer a README.md within the crate in question to have clear instructions for how to test and see everything is working via an existing integration test. 

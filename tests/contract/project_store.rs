@@ -58,6 +58,8 @@ fn make_create_opts(project_id: &str) -> rex_cli::commands::create::CreateOpts {
         complexity: "medium".to_owned(),
         project_id: ProjectId::parse(project_id).unwrap(),
         selected_optional_steps: vec![],
+        research_apis: vec![],
+        resources: vec![],
         is_autopilot: false,
     }
 }
