@@ -10,13 +10,15 @@ readme = "README.md"
 keywords = ["harness", "auto-harness", "project-management", "agent", "workflow"]
 categories = ["command-line-utilities", "development-tools"]
 include = [
-    ".claude/**/*",
+    ".claude/skills/**/*",
+    ".claude/agents/**/*",
     "rex/pipeline.yaml",
     "templates/**/*",
     "src/**/*",
     "Cargo.toml",
     "README.md",
     "LICENSE",
+    "CHANGELOG.md",
 ]
 
 [[bin]]

@@ -2,6 +2,21 @@
 
 All notable changes to **rex-cli** are documented here.
 
+## 0.4.0 — 2026-05-02
+
+A full rewrite. The Telegram-driven autorun and chat daemons are gone, replaced by a state-machine CLI driven by a `/rex` Claude skill. The pipeline is now a flat list of steps over `rex/active/project.yaml` and `rex/active/schedule.json`, with chunk/task auto-promotion handled in the binary instead of the agent.
+
+- **Breaking: rex-chat and rex-autorun binaries removed** — the daemon model and Telegram integration are deleted in their entirety. Project drive happens through Claude Code via the `/rex` skill, which shells out to the `rex` CLI for state.
+- **Breaking: pipeline replaces project-status.json** — the linear `project-status.json` manifest is gone. Active project lives at `rex/active/project.yaml` (flat, no slug subfolder) and the work queue at `rex/active/schedule.json`. Old `rex/projects.json` registry deleted.
+- **`rex create` interactive scaffold** — collects title, subtitle, description, category, complexity, project-id, optional steps, and `is-autopilot`. Pre-checks all optional steps. Pipeline template embedded in the binary at `rex/pipeline.yaml`.
+- **`rex project` command surface** — `meta`, `step`, `step complete`, `chunk-next`, `chunk-prior`, `task complete`, `update --title/--subtitle/--description`. Every command is idempotent and reads from disk fresh, so the `/rex` driver can stop and resume between any units of work.
+- **`rex project schedule` CRUD** — full add/remove/update/move on phases, chunks, and tasks. State regression rejected; counters in `project.yaml` recomputed on every mutation.
+- **Bundle harness with three-way merge** — `rex init` extracts an embedded `.claude/` bundle (skills, agents, pipeline.yaml) into the working tree, with manifest-driven detection of user edits and `.rex.new` siblings on conflict.
+- **New skill set** — replaces the old onboarding/design/planning/operator skills with `rex-plan-*` (discovery, prd, ddd, sdd, c4-architecture, bdd, uat, scheduling, schedule-review, refinement), `rex-code-*` (philosophy, ergonomics, error-writing, tdd, commenting, external-libraries, tests-{unit,contract-seams,integration,fitness-functions}), `rex-clean-*`, `rex-utils-*`, plus `rex-rust-software-engineer` and `rex-rust-senior-auditor` agents for the task-execution loop.
+- **`is-autopilot` flag** — set at create time. When true, `/rex` drives the pipeline straight through. When false, `/rex` stops and reports after each post-discovery step and after each chunk auto-promotes inside `task-execution`; the user reinvokes `/rex` to resume. Discovery is exempt.
+- **Senior auditor refactor pass** — `ProjectId` newtype, `BundleMode` enum, typed `RexError` via thiserror with structured variants, doc surface tightened across the public API.
+- **Test layout** — `tests/contract/`, `tests/integration/`, `tests/fitness/` replace the old ad-hoc test files. Fitness tests pin counter-sync invariants between schedule mutations and `project.yaml`.
+
 ## 0.3.0 — 2026-04-10
 
 - **Multi-harness support (Cursor)** — Refactor the autorun and init modules from Claude-specific to harness-agnostic. Add Cargo feature flags (`claude` default, `cursor`) with compile-time harness selection. Each harness gets its own process spawning, output parsing, auth refresh flow, and init scaffolding (`.cursor/` config dir, `AGENTS.md` root file, `hooks.json` settings). Shared logic (process group management, retryable error detection) extracted into `harness/shared.rs`.
