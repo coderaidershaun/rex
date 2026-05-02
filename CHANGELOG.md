@@ -2,6 +2,11 @@
 
 All notable changes to **rex-cli** are documented here.
 
+## 0.4.1 — 2026-05-02
+
+- **`rex codebase`** — new top-level subcommand that walks the working directory and writes an indented tree outline to `CODEBASE.md` (dirs end `/`, files plain). Skips `.gitignore`d paths and dotfolders via the `ignore` crate (ripgrep-grade gitignore semantics, including nested `.gitignore`s, `.git/info/exclude`, and global ignore). Idempotent — `sort_by_file_name` guarantees byte-identical output across runs. `/CODEBASE.md` is gitignored (anchored) so the generated artifact never lands in commits while deeper user content of the same name is unaffected.
+- **`RexError::Walk`** — typed error variant added to carry `ignore::Error` context (loop, partial-read, glob, unrecognized-file-type) instead of flattening to a stringless `io::Error`.
+
 ## 0.4.0 — 2026-05-02
 
 A full rewrite. The Telegram-driven autorun and chat daemons are gone, replaced by a state-machine CLI driven by a `/rex` Claude skill. The pipeline is now a flat list of steps over `rex/active/project.yaml` and `rex/active/schedule.json`, with chunk/task auto-promotion handled in the binary instead of the agent.
