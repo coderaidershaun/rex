@@ -2,6 +2,10 @@
 
 All notable changes to **rex-cli** are documented here.
 
+## 0.4.4 — 2026-05-04
+
+- **`rex commands`** — new top-level subcommand that prints every CLI command and its one-line description. Walks the parsed `clap::Command` tree via `CommandFactory`, so the listing is generated from the same `///` doc comments that drive `--help` and stays in sync as variants are added. Output is plain text in declaration order, suitable as a self-describing command map for agents discovering the surface area in one read. New module `src/commands/commands.rs`; wired into `src/commands/mod.rs` and `src/main.rs`. Inline unit test pins non-empty output and presence of `rex init`.
+
 ## 0.4.3 — 2026-05-02
 
 - **`rex create` row prompts** — when the user ticks the optional `research-api` and/or `resources` step in the multi-select, `rex create` now prompts for rows of input. Each row gets written to `rex/active/research/apis.md` (name + URL) or `rex/active/resources/urls.md` (label + URL). The matching pipeline steps' `inputs` field is updated to point at those subfolders so the relevant skills consume user-supplied input via the standard task envelope contract — without naming any specific path inside skill bodies. Blank URLs drop the row; `\n` / `\r` stripped from fields. New `ProjectStore::write_active_subfile` helper.

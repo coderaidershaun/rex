@@ -1,11 +1,11 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
-use clap::{ArgGroup, Args, Parser, Subcommand};
+use clap::{ArgGroup, Args, CommandFactory, Parser, Subcommand};
 
 use rex_cli::bundle::{Bundle, BundleMode};
 use rex_cli::commands::schedule::{ChunkUpdateInput, TaskUpdateInput};
-use rex_cli::commands::{activate, codebase, create, init, project, schedule};
+use rex_cli::commands::{activate, codebase, commands, create, init, project, schedule};
 use rex_cli::schedule::ScheduleState;
 
 #[derive(Parser)]
@@ -41,6 +41,9 @@ enum Command {
         #[command(subcommand)]
         sub: Option<ProjectCommand>,
     },
+
+    /// List every available command with its full invocation path and description.
+    Commands,
 }
 
 #[derive(Subcommand)]
@@ -288,6 +291,9 @@ fn main() -> Result<()> {
         }
         Command::Activate { project_id } => {
             activate::run(&cwd, &project_id).context("rex activate failed")?;
+        }
+        Command::Commands => {
+            commands::run(&Cli::command());
         }
         Command::Project { sub } => match sub {
             None => project::run_show(&cwd).context("rex project failed")?,
